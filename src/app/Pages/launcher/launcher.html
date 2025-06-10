@@ -1,0 +1,31 @@
+<div class="launcher-container">
+  <!-- Panel izquierdo: Micros -->
+  <div class="micro-list">
+    <label
+      *ngFor="let micro of angularMicros"
+      [class.disabled]="!config.angular?.[micro.key]?.path"
+      [class.running]="micro.status === 'running'"
+    >
+      <input
+        type="checkbox"
+        [(ngModel)]="micro.selected"
+        [disabled]="!config.angular?.[micro.key]?.path"
+      />
+      <span class="micro-name">{{ micro.label }}</span>
+    </label>
+  </div>
+
+  <!-- Panel derecho: Botones y Logs -->
+  <div class="main-panel">
+    <!-- Botones -->
+    <div class="button-bar">
+      <button class="stop-btn" (click)="stopSelected()">⛔ Parar</button>
+      <button class="start-btn" (click)="startSelected()">🚀 Arrancar</button>
+    </div>
+
+    <!-- Logs -->
+    <div class="logs-panel">
+      <div *ngFor="let log of logs" class="log-line">{{ log }}</div>
+    </div>
+  </div>
+</div>
