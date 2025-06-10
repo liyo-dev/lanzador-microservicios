@@ -1,0 +1,75 @@
+h1 {
+  text-align: center;
+  color: #3a59ff;
+  margin-bottom: 20px;
+}
+
+.section {
+  border: 2px solid #3a59ff;
+  border-radius: 12px;
+  padding: 15px;
+  margin-bottom: 20px;
+}
+
+.micro-card {
+  border: 2px solid #00bfff;
+  border-radius: 12px;
+  padding: 10px;
+  margin-bottom: 15px;
+  background-color: #f9f9f9;
+}
+
+.micro-card h3 {
+  margin-top: 0;
+  color: #2ecc71;
+}
+
+label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: bold;
+}
+
+input[type='text'],
+input[type='number'] {
+  box-sizing: border-box; 
+  width: 100%;
+  padding: 8px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  margin-bottom: 10px;
+  font-size: 16px;
+}
+
+.button-bar {
+  display: flex;
+  justify-content: center;
+  gap: 15px;
+  margin-top: 20px;
+}
+
+.save-btn,
+.clear-btn {
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  border: none;
+  transition: transform 0.2s;
+}
+
+.save-btn {
+  background-color: #2ecc71;
+  color: white;
+}
+
+.clear-btn {
+  background-color: #e74c3c;
+  color: white;
+}
+
+.save-btn:hover,
+.clear-btn:hover {
+  transform: scale(1.05);
+}

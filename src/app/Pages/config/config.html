@@ -1,0 +1,38 @@
+<h1>Configuración de Micros</h1>
+
+<div class="section">
+  <h2>Micros Angular</h2>
+  <div *ngFor="let micro of angularMicros" class="micro-card">
+    <h3>{{ micro.label }}</h3>
+    <label>Ruta:</label>
+    <input
+      [(ngModel)]="config.angular[micro.key].path"
+      type="text"
+      placeholder="Introduce la ruta del micro Angular"
+    />
+    <label>Puerto:</label>
+    <input
+      [(ngModel)]="config.angular[micro.key].port"
+      type="number"
+      placeholder="Puerto"
+    />
+  </div>
+</div>
+
+<div class="section">
+  <h2>Micros Spring</h2>
+  <div *ngFor="let micro of springMicros" class="micro-card">
+    <h3>{{ micro.label }}</h3>
+    <label>Ruta:</label>
+    <input
+      [(ngModel)]="config.spring[micro.key].path"
+      type="text"
+      placeholder="Introduce la ruta del micro Spring"
+    />
+  </div>
+</div>
+
+<div class="button-bar">
+  <button class="save-btn" (click)="save()">Guardar configuración</button>
+  <button class="clear-btn" (click)="clear()">Borrar configuración</button>
+</div>
