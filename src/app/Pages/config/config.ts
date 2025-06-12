@@ -3,10 +3,11 @@ import { Router } from '@angular/router';
 import { ConfigService } from '../../Services/config';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { SpinnerComponent } from '../../Components/spinner/spinner';
 
 @Component({
   selector: 'app-config',
-  imports: [FormsModule, CommonModule],
+  imports: [FormsModule, CommonModule, SpinnerComponent],
   templateUrl: './config.html',
   styleUrls: ['./config.scss'],
 })
@@ -38,9 +39,12 @@ export class ConfigComponent {
     { key: 'reportes', label: 'reportes' },
   ];
 
+  loading = true;
+
   constructor(private configService: ConfigService, private router: Router) {
     this.configService.getConfig().then((cfg) => {
       this.config = cfg;
+      this.loading = false;
     });
   }
 

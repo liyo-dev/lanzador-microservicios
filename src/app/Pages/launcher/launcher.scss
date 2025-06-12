@@ -1,101 +1,66 @@
 .launcher-container {
-  display: flex;
-  border: 4px solid #3a59ff;
-  border-radius: 16px;
-  padding: 20px;
-  height: 80vh;
-  background-color: #f4f8ff;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border: 4px solid #3d5afe;
+  border-radius: 12px;
+  padding: 16px;
+  margin: 16px;
+  background-color: #f5f8ff;
 }
 
-.micro-list {
+.micro-selection {
   display: flex;
   flex-direction: column;
-  justify-content: flex-start;
-  margin-right: 20px;
+  margin-bottom: 16px;
 }
 
-.micro-list label {
+.micro-item {
   display: flex;
   align-items: center;
-  margin-bottom: 15px;
-  font-size: 18px;
-  color: #2ecc71;
-  cursor: pointer;
-  font-weight: bold;
-  transition: color 0.3s, opacity 0.3s, background-color 0.3s;
-  padding: 5px 10px;
-  border-radius: 8px;
+  margin-bottom: 8px;
 }
 
-.micro-list label.disabled {
-  color: #aaa;
-  cursor: not-allowed;
-  opacity: 0.6;
-}
-
-.micro-list label.running {
-  background-color: #d4ffd6;
-  border: 2px solid #2ecc71;
-}
-
-.micro-list input[type='checkbox'] {
-  margin-right: 10px;
-  width: 20px;
-  height: 20px;
-}
-
-.main-panel {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
+.micro-item input {
+  margin-right: 8px;
 }
 
 .button-bar {
   display: flex;
   justify-content: center;
-  margin-bottom: 20px;
-  gap: 20px;
-}
-
-.start-btn,
-.stop-btn {
-  border: none;
-  border-radius: 12px;
-  font-size: 20px;
-  font-weight: bold;
-  padding: 12px 30px;
-  cursor: pointer;
-  transition: transform 0.2s, background-color 0.2s;
+  gap: 16px;
+  margin-bottom: 16px;
 }
 
 .start-btn {
-  background-color: #2ecc71;
+  background-color: #4caf50;
   color: white;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  cursor: pointer;
 }
 
 .stop-btn {
-  background-color: #e74c3c;
+  background-color: #f44336;
   color: white;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  cursor: pointer;
 }
 
-.start-btn:hover,
-.stop-btn:hover {
-  transform: scale(1.05);
-}
-
-.logs-panel {
-  flex: 1;
-  border: 3px solid #00bfff;
-  border-radius: 16px;
+.log-box {
+  border: 3px solid #03a9f4;
+  border-radius: 12px;
+  background-color: #ffffff;
   padding: 10px;
+  height: 250px;
   overflow-y: auto;
-  background-color: #fff;
-  color: #3498db;
-  font-family: 'Courier New', monospace;
-  box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.1);
+  font-family: monospace;
+  font-size: 14px;
+  color: #333;
 }
 
 .log-line {
-  margin-bottom: 4px;
+  white-space: pre-wrap;
 }
