@@ -2,13 +2,16 @@
   "name": "launcher",
   "main": "main.js",
   "version": "0.0.0",
+  "type": "commonjs",
   "scripts": {
-    "ng": "ng",
+    "ng": "ng serve",
     "start": "ng serve",
-    "build": "ng build",
+    "build": "ng build --base-href ./",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
-    "electron": "electron ."
+    "electron": "electron .",
+    "electron:start": "concurrently -k \"npm run ng\" \"wait-on http://localhost:4200 && electron .\"",
+    "electron:build": "npm run build && electron-builder"
   },
   "private": true,
   "dependencies": {
@@ -30,13 +33,42 @@
     "@angular/cli": "^20.0.1",
     "@angular/compiler-cli": "^20.0.0",
     "@types/jasmine": "~5.1.0",
+    "concurrently": "^9.1.2",
     "electron": "^36.4.0",
+    "electron-builder": "^24.13.3",
     "jasmine-core": "~5.7.0",
     "karma": "~6.4.0",
     "karma-chrome-launcher": "~3.2.0",
     "karma-coverage": "~2.2.0",
     "karma-jasmine": "~5.1.0",
     "karma-jasmine-html-reporter": "~2.1.0",
-    "typescript": "~5.8.2"
+    "typescript": "~5.8.2",
+    "wait-on": "^8.0.3"
+  },
+  "build": {
+    "appId": "com.example.launcher",
+    "productName": "Launcher",
+    "files": [
+      "main.js",
+      "preload.js",
+      "dist/**/*",
+      "node_modules/**/*",
+      "package.json"
+    ],
+    "asar": false,
+    "directories": {
+      "output": "dist-electron"
+    },
+    "win": {
+      "target": "nsis",
+      "sign": false,
+      "signAndEditExecutable": false,
+      "publisherName": null,
+      "signDlls": false
+    },
+    "extraMetadata": {
+      "main": "main.js",
+      "type": "commonjs"
+    }
   }
 }

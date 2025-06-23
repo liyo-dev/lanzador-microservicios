@@ -1,6 +1,5 @@
 import { Component } from '@angular/core';
 import { Router } from '@angular/router';
-import { ConfigService } from '../../Services/config';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { SpinnerComponent } from '../../Components/spinner/spinner';
@@ -41,21 +40,22 @@ export class ConfigComponent {
 
   loading = true;
 
-  constructor(private configService: ConfigService, private router: Router) {
-    this.configService.getConfig().then((cfg) => {
+  constructor(private router: Router) {
+    (window as any).electronAPI.getConfig().then((cfg: any) => {
+      console.log('Config cargada', cfg);
       this.config = cfg;
       this.loading = false;
     });
   }
 
   save() {
-    this.configService.saveConfig(this.config).then(() => {
+     (window as any).electronAPI.saveConfig(this.config).then(() => {
       this.router.navigate(['/launcher']);
     });
   }
 
   clear() {
-    this.configService.clearConfig().then(() => {
+    (window as any).electronAPI.clearConfig().then(() => {
       this.config = {
         angular: {
           intradia: { path: '', port: 4201 },

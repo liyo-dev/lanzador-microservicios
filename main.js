@@ -3,11 +3,12 @@ const { spawn } = require("child_process");
 const stripAnsi = require("strip-ansi");
 const kill = require("tree-kill");
 const path = require("path");
+const fs = require("fs");
 
 // ----------------------------------------------
 // DETECCIÓN DEV vs PROD
 // ----------------------------------------------
-const isDev = !app.isPackaged; // forma robusta (cuando usas electron-builder)
+const isDev = !app.isPackaged;
 console.log(`Running in ${isDev ? "development" : "production"} mode.`);
 
 // ----------------------------------------------
@@ -22,18 +23,16 @@ function createWindow() {
     width: 1200,
     height: 800,
     webPreferences: {
-      nodeIntegration: true,
-      contextIsolation: false,
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: path.join(__dirname, "preload.js"),
     },
   });
 
   if (isDev) {
     mainWindow.loadURL("http://localhost:4200");
   } else {
-    // Carga el build de Angular
-    mainWindow.loadFile(
-      path.join(__dirname, "dist", "YOUR_PROJECT_NAME", "index.html")
-    );
+    mainWindow.loadFile(path.join(__dirname, "dist", "launcher", "index.html"));
   }
 }
 
@@ -109,7 +108,6 @@ ipcMain.on("start-angular", (event, data) => {
 
   angularProcess.stdout.on("data", (dataLog) => {
     const logClean = stripAnsi(dataLog.toString());
-
     console.log(`Angular Log: ${logClean}`);
 
     const isRunning =
@@ -177,14 +175,15 @@ ipcMain.on("start-spring", (event, data) => {
 
   springStatus[data.micro || "default"] = "starting";
 
-  const springProcess = spawn(
-    "cmd.exe",
-    ["/c", `cd ${data.path} && mvn spring-boot:run`],
-    {
-      cwd: data.path,
-      shell: true,
-    }
-  );
+  // Usamos mvnw si existe (más portable), si no, mvn
+  const mvnCmd = fs.existsSync(path.join(data.path, "mvnw.cmd"))
+    ? "mvnw.cmd"
+    : "mvn";
+
+  const springProcess = spawn(mvnCmd, ["spring-boot:run"], {
+    cwd: data.path,
+    shell: true,
+  });
 
   processes[processKey] = springProcess;
 

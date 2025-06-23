@@ -1,8 +1,6 @@
 import { Component, ViewChild, ElementRef, NgZone } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
-import { ElectronService } from '../../Services/electron';
-import { ConfigService } from '../../Services/config';
 import { SpinnerComponent } from '../../Components/spinner/spinner';
 
 @Component({
@@ -26,19 +24,15 @@ export class Launcher {
 
   @ViewChild('logBox') logBox!: ElementRef; // para el auto-scroll
 
-  constructor(
-    private electronService: ElectronService,
-    private configService: ConfigService,
-    private ngZone: NgZone
-  ) {
-    this.configService.getConfig().then((cfg) => {
+  constructor(private ngZone: NgZone) {
+    (window as any).electronAPI.getConfig().then((cfg: any) => {
       this.config = cfg;
     });
 
     console.log('Launcher component initialized');
 
     // Obtener último status al iniciar
-    this.electronService.invoke('get-last-status').then((statuses) => {
+    (window as any).electronAPI.getLastStatus().then((statuses: any) => {
       console.log('👉 Last known statuses:', statuses);
 
       this.angularMicros.forEach((micro) => {
@@ -54,7 +48,7 @@ export class Launcher {
     });
 
     // Escucha de logs Angular
-    this.electronService.on('log-angular', (msg: any) => {
+    (window as any).electronAPI.onLogAngular((msg: any) => {
       this.ngZone.run(() => {
         console.log('👉 Angular log received:', msg);
 
@@ -91,7 +85,7 @@ export class Launcher {
     });
 
     // Escucha de logs Spring
-    this.electronService.on('log-spring', (msg: any) => {
+    (window as any).electronAPI.onLogSpring((msg: any) => {
       this.ngZone.run(() => {
         const logEntry = `[Spring ${msg.micro}] ${msg.log}`;
         this.logs.push(logEntry);
@@ -135,7 +129,7 @@ export class Launcher {
           return;
         }
 
-        this.electronService.send('start-angular', {
+        (window as any).electronAPI.startAngular({
           micro: micro.key,
           path,
           port,
@@ -153,7 +147,7 @@ export class Launcher {
     this.logs.push('Parando micros seleccionados...');
     this.angularMicros.forEach((micro) => {
       if (micro.selected && micro.status === 'running') {
-        this.electronService.send('stop-process', `angular-${micro.key}`);
+        (window as any).electronAPI.stopProcess(`angular-${micro.key}`);
         this.logs.push(`→ Parando ${micro.label}...`);
         micro.status = 'stopping';
       } else if (micro.selected && micro.status === 'stopped') {
@@ -167,7 +161,8 @@ export class Launcher {
   private scrollToBottom(): void {
     try {
       if (this.logBox) {
-        this.logBox.nativeElement.scrollTop = this.logBox.nativeElement.scrollHeight;
+        this.logBox.nativeElement.scrollTop =
+          this.logBox.nativeElement.scrollHeight;
       }
     } catch (err) {}
   }
