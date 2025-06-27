@@ -32,7 +32,13 @@ function createWindow() {
   if (isDev) {
     mainWindow.loadURL("http://localhost:4200");
   } else {
-    const indexPath = path.join(__dirname, "dist", "launcher", "browser", "index.html");
+    const indexPath = path.join(
+      __dirname,
+      "dist",
+      "launcher",
+      "browser",
+      "index.html"
+    );
     console.log(`Loading index from: ${indexPath}`);
     mainWindow.loadFile(indexPath);
   }
@@ -169,6 +175,18 @@ ipcMain.on("start-spring", (event, data) => {
     return;
   }
 
+  // Si no hay JAVA_HOME definida, avisamos y salimos
+  if (!process.env.JAVA_HOME) {
+    mainWindow.webContents.send("log-spring", {
+      micro: data.micro || "default",
+      log: `❌ No se ha encontrado JAVA_HOME. No se puede arrancar el micro Spring.`,
+      status: "stopped",
+    });
+    return;
+  }
+
+  const javaHome = process.env.JAVA_HOME.replace(/^"(.*)"$/, "$1"); // quitar comillas si las hubiera
+
   mainWindow.webContents.send("log-spring", {
     micro: data.micro || "default",
     log: `Lanzando Spring...`,
@@ -177,7 +195,6 @@ ipcMain.on("start-spring", (event, data) => {
 
   springStatus[data.micro || "default"] = "starting";
 
-  // Usamos mvnw si existe (más portable), si no, mvn
   const mvnCmd = fs.existsSync(path.join(data.path, "mvnw.cmd"))
     ? "mvnw.cmd"
     : "mvn";
@@ -185,6 +202,11 @@ ipcMain.on("start-spring", (event, data) => {
   const springProcess = spawn(mvnCmd, ["spring-boot:run"], {
     cwd: data.path,
     shell: true,
+    env: {
+      ...process.env,
+      JAVA_HOME: javaHome,
+      PATH: `${javaHome}\\bin;${process.env.PATH}`,
+    },
   });
 
   processes[processKey] = springProcess;
