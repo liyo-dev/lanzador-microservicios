@@ -30,9 +30,9 @@ label {
   font-weight: bold;
 }
 
-input[type='text'],
-input[type='number'] {
-  box-sizing: border-box; 
+input[type="text"],
+input[type="number"] {
+  box-sizing: border-box;
   width: 100%;
   padding: 8px;
   border-radius: 6px;
@@ -72,4 +72,11 @@ input[type='number'] {
 .save-btn:hover,
 .clear-btn:hover {
   transform: scale(1.05);
+}
+
+.box {
+  width: 100px;
+  height: 100px;
+  background-color: #09f;
+  border-radius: 12px;
 }

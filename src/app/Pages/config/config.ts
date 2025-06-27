@@ -1,8 +1,9 @@
-import { Component } from '@angular/core';
+import { AfterViewInit, Component } from '@angular/core';
 import { Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { SpinnerComponent } from '../../Components/spinner/spinner';
+import gsap from 'gsap';
 
 @Component({
   selector: 'app-config',
@@ -10,7 +11,7 @@ import { SpinnerComponent } from '../../Components/spinner/spinner';
   templateUrl: './config.html',
   styleUrls: ['./config.scss'],
 })
-export class ConfigComponent {
+export class ConfigComponent implements AfterViewInit {
   config: any = {
     angular: {
       intradia: { path: '', port: 4201 },
@@ -45,11 +46,20 @@ export class ConfigComponent {
       console.log('Config cargada', cfg);
       this.config = cfg;
       this.loading = false;
+      setTimeout(() => {
+        gsap.to('.section', { x: 200 });
+      }, 0);
     });
   }
 
+  ngAfterViewInit(): void {
+    // gsap.to('.box', {
+    //   x: 200
+    // });
+  }
+
   save() {
-     (window as any).electronAPI.saveConfig(this.config).then(() => {
+    (window as any).electronAPI.saveConfig(this.config).then(() => {
       this.router.navigate(['/launcher']);
     });
   }

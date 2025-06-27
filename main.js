@@ -32,7 +32,9 @@ function createWindow() {
   if (isDev) {
     mainWindow.loadURL("http://localhost:4200");
   } else {
-    mainWindow.loadFile(path.join(__dirname, "dist", "launcher", "index.html"));
+    const indexPath = path.join(__dirname, "dist", "launcher", "browser", "index.html");
+    console.log(`Loading index from: ${indexPath}`);
+    mainWindow.loadFile(indexPath);
   }
 }
 
