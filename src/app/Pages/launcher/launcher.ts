@@ -2,9 +2,12 @@ import { Component, ViewChild, ElementRef, NgZone } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { SpinnerComponent } from '../../Components/spinner/spinner';
+import { Router } from '@angular/router';
+import gsap from 'gsap';
 
 @Component({
   selector: 'app-launcher',
+  standalone: true,
   imports: [FormsModule, CommonModule, SpinnerComponent],
   templateUrl: './launcher.html',
   styleUrls: ['./launcher.scss'],
@@ -20,20 +23,20 @@ export class Launcher {
   ];
 
   logs: string[] = [];
-  loading = false; // Spinner flag
+  loading = false;
+  showLogs = false;
+  showSuccessMessage = false;
 
-  @ViewChild('logBox') logBox!: ElementRef; // para el auto-scroll
+  @ViewChild('logBox') logBox!: ElementRef;
 
-  constructor(private ngZone: NgZone) {
+  constructor(private ngZone: NgZone, private router: Router) {
     (window as any).electronAPI.getConfig().then((cfg: any) => {
       this.config = cfg;
     });
 
-    console.log('Launcher component initialized');
-
-    // Obtener último status al iniciar
+    // ✅ Verifica correctamente si algún micro estaba arrancando
     (window as any).electronAPI.getLastStatus().then((statuses: any) => {
-      console.log('👉 Last known statuses:', statuses);
+      let anyStarting = false;
 
       this.angularMicros.forEach((micro) => {
         const lastStatus = statuses.angular?.[micro.key];
@@ -41,22 +44,20 @@ export class Launcher {
           micro.status = lastStatus;
 
           if (lastStatus === 'starting' || lastStatus === 'running') {
-            this.loading = true;
+            anyStarting = true;
           }
         }
       });
+
+      this.loading = anyStarting;
     });
 
-    // Escucha de logs Angular
+    // Angular logs
     (window as any).electronAPI.onLogAngular((msg: any) => {
       this.ngZone.run(() => {
-        console.log('👉 Angular log received:', msg);
-
-        const matchingMicro = this.angularMicros.find(
-          (micro) => micro.key === msg.micro
-        );
-        if (matchingMicro && msg.status) {
-          matchingMicro.status = msg.status;
+        const micro = this.angularMicros.find((m) => m.key === msg.micro);
+        if (micro && msg.status) {
+          micro.status = msg.status;
         }
 
         if (msg.status === 'starting' && !this.loading) {
@@ -67,7 +68,7 @@ export class Launcher {
         if (msg.status === 'running') {
           this.loading = false;
           this.logs.push(`[${msg.micro}] ✅ Micro arrancado correctamente.`);
-          console.log('quito spinner');
+          this.showSuccessMessage = true;
         }
 
         if (msg.status === 'stopped') {
@@ -76,19 +77,17 @@ export class Launcher {
         }
 
         if (!msg.status) {
-          const logEntry = `[${msg.micro}] ${msg.log}`;
-          this.logs.push(logEntry);
+          this.logs.push(`[${msg.micro}] ${msg.log}`);
         }
 
         this.scrollToBottom();
       });
     });
 
-    // Escucha de logs Spring
+    // Spring logs
     (window as any).electronAPI.onLogSpring((msg: any) => {
       this.ngZone.run(() => {
-        const logEntry = `[Spring ${msg.micro}] ${msg.log}`;
-        this.logs.push(logEntry);
+        this.logs.push(`[Spring ${msg.micro}] ${msg.log}`);
 
         if (msg.status === 'starting') {
           this.loading = true;
@@ -100,6 +99,7 @@ export class Launcher {
           this.logs.push(
             `[Spring ${msg.micro}] ✅ Micro Spring arrancado correctamente.`
           );
+          this.showSuccessMessage = true;
         }
 
         if (msg.status === 'stopped') {
@@ -115,6 +115,9 @@ export class Launcher {
   startSelected() {
     this.logs.push('Arrancando micros seleccionados...');
     this.loading = true;
+    this.showSuccessMessage = false;
+
+    let started = false;
 
     this.angularMicros.forEach((micro) => {
       if (micro.selected) {
@@ -122,9 +125,7 @@ export class Launcher {
         const port = this.config.angular[micro.key]?.port;
 
         if (!path || path.trim() === '') {
-          alert(
-            `El micro ${micro.label} no tiene ruta configurada. Por favor, configúralo primero.`
-          );
+          alert(`El micro ${micro.label} no tiene ruta configurada.`);
           this.loading = false;
           return;
         }
@@ -134,11 +135,13 @@ export class Launcher {
           path,
           port,
         });
-
         this.logs.push(`→ Arrancando ${micro.label}...`);
         micro.status = 'starting';
+        started = true;
       }
     });
+
+    if (!started) this.loading = false;
 
     this.scrollToBottom();
   }
@@ -158,12 +161,36 @@ export class Launcher {
     this.scrollToBottom();
   }
 
-  private scrollToBottom(): void {
+  scrollToBottom() {
     try {
       if (this.logBox) {
-        this.logBox.nativeElement.scrollTop =
-          this.logBox.nativeElement.scrollHeight;
+        setTimeout(() => {
+          this.logBox.nativeElement.scrollTop =
+            this.logBox.nativeElement.scrollHeight;
+        }, 0);
       }
-    } catch (err) {}
+    } catch {}
+  }
+
+  toggleLogs() {
+    this.showLogs = !this.showLogs;
+    if (this.showLogs) {
+      setTimeout(() => {
+        gsap.from('.log-box', { opacity: 0, y: 20, duration: 0.4 });
+      }, 0);
+    }
+  }
+
+  goToConfig() {
+    const microsActivos = this.angularMicros.filter(
+      (m) => m.status !== 'stopped'
+    );
+
+    if (microsActivos.length > 0) {
+      alert('⚠️ No puedes ir a la configuración mientras haya micros activos.');
+      return;
+    }
+
+    this.router.navigate(['/config']);
   }
 }

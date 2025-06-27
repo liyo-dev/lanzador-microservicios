@@ -1,4 +1,4 @@
-import { AfterViewInit, Component } from '@angular/core';
+import { Component } from '@angular/core';
 import { Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -7,11 +7,14 @@ import gsap from 'gsap';
 
 @Component({
   selector: 'app-config',
+  standalone: true,
   imports: [FormsModule, CommonModule, SpinnerComponent],
   templateUrl: './config.html',
   styleUrls: ['./config.scss'],
 })
-export class ConfigComponent implements AfterViewInit {
+export class ConfigComponent {
+  loading = true;
+
   config: any = {
     angular: {
       intradia: { path: '', port: 4201 },
@@ -39,29 +42,29 @@ export class ConfigComponent implements AfterViewInit {
     { key: 'reportes', label: 'reportes' },
   ];
 
-  loading = true;
+  selectedTab: 'angular' | 'spring' = 'angular';
 
   constructor(private router: Router) {
     (window as any).electronAPI.getConfig().then((cfg: any) => {
-      console.log('Config cargada', cfg);
       this.config = cfg;
       this.loading = false;
-      setTimeout(() => {
-        gsap.to('.section', { x: 200 });
-      }, 0);
+      setTimeout(() => gsap.from('.section', { opacity: 0, y: 20, duration: 0.5 }), 0);
     });
   }
 
-  ngAfterViewInit(): void {
-    // gsap.to('.box', {
-    //   x: 200
-    // });
+  changeTab(tab: 'angular' | 'spring') {
+    if (this.selectedTab !== tab) {
+      this.selectedTab = tab;
+      setTimeout(() => gsap.from('.section', { opacity: 0, y: 20, duration: 0.4 }), 0);
+    }
   }
 
   save() {
-    (window as any).electronAPI.saveConfig(this.config).then(() => {
-      this.router.navigate(['/launcher']);
-    });
+    (window as any).electronAPI.saveConfig(this.config);
+  }
+
+  goToLauncher() {
+    this.router.navigate(['/launcher']);
   }
 
   clear() {

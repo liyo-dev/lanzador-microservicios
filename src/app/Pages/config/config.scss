@@ -1,82 +1,125 @@
 h1 {
   text-align: center;
-  color: #3a59ff;
+  color: #2c3e50;
   margin-bottom: 20px;
+  font-size: 28px;
+}
+
+.tab-selector {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 20px;
+
+  button {
+    padding: 10px 18px;
+    border: none;
+    border-radius: 30px;
+    background: #dcdcdc;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 14px;
+    color: #444;
+    transition: all 0.2s ease;
+
+    &.active {
+      background: #3a59ff;
+      color: white;
+    }
+
+    &:hover {
+      background-color: #5f77ff;
+      color: white;
+    }
+  }
 }
 
 .section {
-  border: 2px solid #3a59ff;
-  border-radius: 12px;
-  padding: 15px;
-  margin-bottom: 20px;
+  margin-bottom: 30px;
+}
+
+.micro-grid {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 20px;
 }
 
 .micro-card {
-  border: 2px solid #00bfff;
+  width: 240px;
+  padding: 16px;
   border-radius: 12px;
-  padding: 10px;
-  margin-bottom: 15px;
-  background-color: #f9f9f9;
-}
+  background: #ffffff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  transition: transform 0.2s;
 
-.micro-card h3 {
-  margin-top: 0;
-  color: #2ecc71;
-}
+  h3 {
+    font-size: 18px;
+    margin-bottom: 10px;
+    color: #3a59ff;
+    text-align: center;
+  }
 
-label {
-  display: block;
-  margin-bottom: 5px;
-  font-weight: bold;
-}
+  input {
+    width: 90%;
+    padding: 10px;
+    margin: 6px 0;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    font-size: 14px;
+    transition: border-color 0.2s;
 
-input[type="text"],
-input[type="number"] {
-  box-sizing: border-box;
-  width: 100%;
-  padding: 8px;
-  border-radius: 6px;
-  border: 1px solid #ccc;
-  margin-bottom: 10px;
-  font-size: 16px;
+    &:focus {
+      border-color: #3a59ff;
+      outline: none;
+    }
+  }
+
+  &:hover {
+    transform: translateY(-2px);
+  }
 }
 
 .button-bar {
   display: flex;
   justify-content: center;
   gap: 15px;
-  margin-top: 20px;
+  margin-top: 30px;
 }
 
-.save-btn,
-.clear-btn {
-  padding: 10px 20px;
-  border-radius: 8px;
-  font-size: 16px;
-  font-weight: bold;
-  cursor: pointer;
+button.save-btn,
+button.clear-btn,
+button.go-btn {
+  padding: 12px 22px;
+  border-radius: 30px;
+  font-size: 14px;
+  font-weight: 600;
   border: none;
-  transition: transform 0.2s;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: white;
 }
 
 .save-btn {
-  background-color: #2ecc71;
-  color: white;
+  background: #2ecc71;
+
+  &:hover {
+    background: #27ae60;
+  }
 }
 
 .clear-btn {
-  background-color: #e74c3c;
-  color: white;
+  background: #e74c3c;
+
+  &:hover {
+    background: #c0392b;
+  }
 }
 
-.save-btn:hover,
-.clear-btn:hover {
-  transform: scale(1.05);
-}
+.go-btn {
+  background: #3a59ff;
 
-.box {
-  width: 100px;
-  height: 100px;
-  background-color: #09f;
-  border-radius: 12px;
+  &:hover {
+    background: #2e46cc;
+  }
 }

@@ -1,28 +1,38 @@
-<!-- Spinner arriba -->
 <app-spinner *ngIf="loading"></app-spinner>
 
 <div class="launcher-container">
-  <!-- Sección de selección de micros -->
+  <div class="top-bar">
+    <button class="go-config-btn" (click)="goToConfig()">⚙️ Configuración</button>
+  </div>
+
   <div class="micro-selection">
-    <div *ngFor="let micro of angularMicros" class="micro-item">
-      <input type="checkbox" [(ngModel)]="micro.selected" id="{{ micro.key }}" />
-      <label [for]="micro.key">{{ micro.label }}</label>
+    <div *ngFor="let micro of angularMicros" class="micro-card">
+      <label class="checkbox-wrapper">
+        <input type="checkbox" [(ngModel)]="micro.selected" />
+        <span class="checkmark"></span>
+        {{ micro.label }}
+      </label>
+      <div class="status" [class.running]="micro.status === 'running'" [class.stopped]="micro.status === 'stopped'">
+        {{ micro.status }}
+      </div>
     </div>
   </div>
 
-  <!-- Botones de acción -->
   <div class="button-bar">
-    <button class="stop-btn" (click)="stopSelected()">
-      🛑 Parar
-    </button>
-    <button class="start-btn" (click)="startSelected()">
-      🚀 Arrancar
-    </button>
+    <button class="stop-btn" (click)="stopSelected()">🛑 Parar</button>
+    <button class="start-btn" (click)="startSelected()">🚀 Arrancar</button>
   </div>
 
-  <!-- Caja de logs -->
-  <div #logBox class="log-box">
-    <div *ngFor="let log of logs" class="log-line">
-      {{ log }}
-    </div>
+  <div *ngIf="showSuccessMessage && !loading" class="success-message">
+    ✅ Todos los micros arrancaron correctamente.
   </div>
+
+  <button class="console-toggle" (click)="toggleLogs()">
+    {{ showLogs ? '🛑 Ocultar consola' : '🖥️ Ver consola' }}
+  </button>
+
+  <div *ngIf="showLogs" #logBox class="log-box">
+    <div *ngFor="let log of logs" class="log-line">{{ log }}</div>
+  </div>
+
+</div>
