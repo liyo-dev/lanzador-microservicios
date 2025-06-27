@@ -5,8 +5,23 @@
     <button class="go-config-btn" (click)="goToConfig()">⚙️ Configuración</button>
   </div>
 
+  <h2>Micros Angular</h2>
   <div class="micro-selection">
     <div *ngFor="let micro of angularMicros" class="micro-card">
+      <label class="checkbox-wrapper">
+        <input type="checkbox" [(ngModel)]="micro.selected" />
+        <span class="checkmark"></span>
+        {{ micro.label }}
+      </label>
+      <div class="status" [class.running]="micro.status === 'running'" [class.stopped]="micro.status === 'stopped'">
+        {{ micro.status }}
+      </div>
+    </div>
+  </div>
+
+  <h2>Micros Spring</h2>
+  <div class="micro-selection">
+    <div *ngFor="let micro of springMicros" class="micro-card">
       <label class="checkbox-wrapper">
         <input type="checkbox" [(ngModel)]="micro.selected" />
         <span class="checkmark"></span>
@@ -34,5 +49,4 @@
   <div *ngIf="showLogs" #logBox class="log-box">
     <div *ngFor="let log of logs" class="log-line">{{ log }}</div>
   </div>
-
 </div>

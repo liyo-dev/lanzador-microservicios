@@ -24,10 +24,10 @@
   font-size: 14px;
   font-weight: 500;
   transition: all 0.2s;
+}
 
-  &:hover {
-    background: #2d45cc;
-  }
+.go-config-btn:hover {
+  background: #2d45cc;
 }
 
 .micro-selection {
@@ -142,18 +142,18 @@ button.stop-btn {
 
 .start-btn {
   background: #2ecc71;
+}
 
-  &:hover {
-    background: #27ae60;
-  }
+.start-btn:hover {
+  background: #27ae60;
 }
 
 .stop-btn {
   background: #e74c3c;
+}
 
-  &:hover {
-    background: #c0392b;
-  }
+.stop-btn:hover {
+  background: #c0392b;
 }
 
 .success-message {
@@ -178,10 +178,10 @@ button.stop-btn {
   font-weight: 500;
   cursor: pointer;
   transition: background-color 0.2s;
+}
 
-  &:hover {
-    background-color: #2e2e2e;
-  }
+.console-toggle:hover {
+  background-color: #2e2e2e;
 }
 
 .log-box {

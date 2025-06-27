@@ -22,6 +22,12 @@ export class Launcher {
     { key: 'pagos', label: 'pagos', selected: false, status: 'stopped' },
   ];
 
+  springMicros = [
+    { key: 'upload', label: 'upload', selected: false, status: 'stopped' },
+    { key: 'pagos', label: 'pagos', selected: false, status: 'stopped' },
+    { key: 'reportes', label: 'reportes', selected: false, status: 'stopped' },
+  ];
+
   logs: string[] = [];
   loading = false;
   showLogs = false;
@@ -34,7 +40,6 @@ export class Launcher {
       this.config = cfg;
     });
 
-    // ✅ Verifica correctamente si algún micro estaba arrancando
     (window as any).electronAPI.getLastStatus().then((statuses: any) => {
       let anyStarting = false;
 
@@ -42,73 +47,60 @@ export class Launcher {
         const lastStatus = statuses.angular?.[micro.key];
         if (lastStatus) {
           micro.status = lastStatus;
+          if (lastStatus === 'starting' || lastStatus === 'running') anyStarting = true;
+        }
+      });
 
-          if (lastStatus === 'starting' || lastStatus === 'running') {
-            anyStarting = true;
-          }
+      this.springMicros.forEach((micro) => {
+        const lastStatus = statuses.spring?.[micro.key];
+        if (lastStatus) {
+          micro.status = lastStatus;
+          if (lastStatus === 'starting' || lastStatus === 'running') anyStarting = true;
         }
       });
 
       this.loading = anyStarting;
     });
 
-    // Angular logs
     (window as any).electronAPI.onLogAngular((msg: any) => {
-      this.ngZone.run(() => {
-        const micro = this.angularMicros.find((m) => m.key === msg.micro);
-        if (micro && msg.status) {
-          micro.status = msg.status;
-        }
-
-        if (msg.status === 'starting' && !this.loading) {
-          this.loading = true;
-          this.logs.push(`[${msg.micro}] 🚀 Lanzando micro...`);
-        }
-
-        if (msg.status === 'running') {
-          this.loading = false;
-          this.logs.push(`[${msg.micro}] ✅ Micro arrancado correctamente.`);
-          this.showSuccessMessage = true;
-        }
-
-        if (msg.status === 'stopped') {
-          this.loading = false;
-          this.logs.push(`[${msg.micro}] 🛑 Micro detenido.`);
-        }
-
-        if (!msg.status) {
-          this.logs.push(`[${msg.micro}] ${msg.log}`);
-        }
-
-        this.scrollToBottom();
-      });
+      this.handleLog(msg, 'Angular');
     });
 
-    // Spring logs
     (window as any).electronAPI.onLogSpring((msg: any) => {
-      this.ngZone.run(() => {
-        this.logs.push(`[Spring ${msg.micro}] ${msg.log}`);
+      this.handleLog(msg, 'Spring');
+    });
+  }
 
-        if (msg.status === 'starting') {
-          this.loading = true;
-          this.logs.push(`[Spring ${msg.micro}] 🚀 Lanzando micro Spring...`);
-        }
+  handleLog(msg: any, type: 'Angular' | 'Spring') {
+    this.ngZone.run(() => {
+      const list = type === 'Angular' ? this.angularMicros : this.springMicros;
+      const micro = list.find((m) => m.key === msg.micro);
 
-        if (msg.status === 'running') {
-          this.loading = false;
-          this.logs.push(
-            `[Spring ${msg.micro}] ✅ Micro Spring arrancado correctamente.`
-          );
-          this.showSuccessMessage = true;
-        }
+      if (micro && msg.status) {
+        micro.status = msg.status;
+      }
 
-        if (msg.status === 'stopped') {
-          this.loading = false;
-          this.logs.push(`[Spring ${msg.micro}] 🛑 Micro Spring detenido.`);
-        }
+      if (msg.status === 'starting' && !this.loading) {
+        this.loading = true;
+        this.logs.push(`[${type} ${msg.micro}] 🚀 Lanzando...`);
+      }
 
-        this.scrollToBottom();
-      });
+      if (msg.status === 'running') {
+        this.loading = false;
+        this.logs.push(`[${type} ${msg.micro}] ✅ Arrancado correctamente.`);
+        this.showSuccessMessage = true;
+      }
+
+      if (msg.status === 'stopped') {
+        this.loading = false;
+        this.logs.push(`[${type} ${msg.micro}] 🛑 Detenido.`);
+      }
+
+      if (!msg.status) {
+        this.logs.push(`[${type} ${msg.micro}] ${msg.log}`);
+      }
+
+      this.scrollToBottom();
     });
   }
 
@@ -125,17 +117,30 @@ export class Launcher {
         const port = this.config.angular[micro.key]?.port;
 
         if (!path || path.trim() === '') {
-          alert(`El micro ${micro.label} no tiene ruta configurada.`);
+          alert(`El micro Angular ${micro.label} no tiene ruta configurada.`);
           this.loading = false;
           return;
         }
 
-        (window as any).electronAPI.startAngular({
-          micro: micro.key,
-          path,
-          port,
-        });
-        this.logs.push(`→ Arrancando ${micro.label}...`);
+        (window as any).electronAPI.startAngular({ micro: micro.key, path, port });
+        this.logs.push(`→ Arrancando Angular ${micro.label}...`);
+        micro.status = 'starting';
+        started = true;
+      }
+    });
+
+    this.springMicros.forEach((micro) => {
+      if (micro.selected) {
+        const path = this.config.spring[micro.key]?.path;
+
+        if (!path || path.trim() === '') {
+          alert(`El micro Spring ${micro.label} no tiene ruta configurada.`);
+          this.loading = false;
+          return;
+        }
+
+        (window as any).electronAPI.startSpring({ micro: micro.key, path });
+        this.logs.push(`→ Arrancando Spring ${micro.label}...`);
         micro.status = 'starting';
         started = true;
       }
@@ -148,13 +153,24 @@ export class Launcher {
 
   stopSelected() {
     this.logs.push('Parando micros seleccionados...');
+
     this.angularMicros.forEach((micro) => {
       if (micro.selected && micro.status === 'running') {
         (window as any).electronAPI.stopProcess(`angular-${micro.key}`);
-        this.logs.push(`→ Parando ${micro.label}...`);
+        this.logs.push(`→ Parando Angular ${micro.label}...`);
         micro.status = 'stopping';
       } else if (micro.selected && micro.status === 'stopped') {
-        this.logs.push(`→ El micro ${micro.label} ya está detenido.`);
+        this.logs.push(`→ Angular ${micro.label} ya está detenido.`);
+      }
+    });
+
+    this.springMicros.forEach((micro) => {
+      if (micro.selected && micro.status === 'running') {
+        (window as any).electronAPI.stopProcess(`spring-${micro.key}`);
+        this.logs.push(`→ Parando Spring ${micro.label}...`);
+        micro.status = 'stopping';
+      } else if (micro.selected && micro.status === 'stopped') {
+        this.logs.push(`→ Spring ${micro.label} ya está detenido.`);
       }
     });
 
@@ -165,8 +181,7 @@ export class Launcher {
     try {
       if (this.logBox) {
         setTimeout(() => {
-          this.logBox.nativeElement.scrollTop =
-            this.logBox.nativeElement.scrollHeight;
+          this.logBox.nativeElement.scrollTop = this.logBox.nativeElement.scrollHeight;
         }, 0);
       }
     } catch {}
@@ -182,11 +197,10 @@ export class Launcher {
   }
 
   goToConfig() {
-    const microsActivos = this.angularMicros.filter(
-      (m) => m.status !== 'stopped'
-    );
+    const angularActivos = this.angularMicros.some(m => m.status !== 'stopped');
+    const springActivos = this.springMicros.some(m => m.status !== 'stopped');
 
-    if (microsActivos.length > 0) {
+    if (angularActivos || springActivos) {
       alert('⚠️ No puedes ir a la configuración mientras haya micros activos.');
       return;
     }
