@@ -14,6 +14,8 @@ import gsap from 'gsap';
 })
 export class ConfigComponent {
   loading = true;
+  guardadoOK = false;
+  borradoOK = false;
 
   config: any = {
     angular: {
@@ -71,6 +73,22 @@ export class ConfigComponent {
 
   save() {
     (window as any).electronAPI.saveConfig(this.config);
+    this.guardadoOK = true;
+
+    setTimeout(() => {
+      const msg = document.querySelector('.msg-guardar');
+      if (msg) {
+        gsap.fromTo(
+          msg,
+          { opacity: 0, y: -10 },
+          { opacity: 1, y: 0, duration: 0.4 }
+        );
+        setTimeout(() => {
+          gsap.to(msg, { opacity: 0, y: -10, duration: 0.4 });
+          this.guardadoOK = false;
+        }, 2000);
+      }
+    }, 0);
   }
 
   goToLauncher() {
@@ -94,6 +112,23 @@ export class ConfigComponent {
           reportes: { path: '' },
         },
       };
+
+      this.borradoOK = true;
+
+      setTimeout(() => {
+        const msg = document.querySelector('.msg-borrar');
+        if (msg) {
+          gsap.fromTo(
+            msg,
+            { opacity: 0, y: -10 },
+            { opacity: 1, y: 0, duration: 0.4 }
+          );
+          setTimeout(() => {
+            gsap.to(msg, { opacity: 0, y: -10, duration: 0.4 });
+            this.borradoOK = false;
+          }, 2000);
+        }
+      }, 0);
     });
   }
 }

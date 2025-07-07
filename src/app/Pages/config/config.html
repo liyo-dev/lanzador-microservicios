@@ -30,4 +30,9 @@
   <button class="go-btn" (click)="goToLauncher()">🚀 Ir al launcher</button>
 </div>
 
+<div class="feedback-zone">
+  <div *ngIf="guardadoOK" class="msg msg-guardar">✅ Configuración guardada correctamente.</div>
+  <div *ngIf="borradoOK" class="msg msg-borrar">🗑️ Configuración eliminada.</div>
+</div>
+
 <app-spinner *ngIf="loading"></app-spinner>

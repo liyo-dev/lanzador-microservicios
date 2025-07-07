@@ -7,20 +7,23 @@
     </button>
   </div>
 
-  <h2>Micros Angular</h2>
+  <div class="tab-selector">
+    <button [class.active]="selectedTab === 'angular'" (click)="selectedTab = 'angular'">Angular</button>
+    <button [class.active]="selectedTab === 'spring'" (click)="selectedTab = 'spring'">Spring</button>
+  </div>
+
+  <h2 *ngIf="selectedTab === 'angular'">Micros Angular</h2>
   <div class="micro-selection">
+    @if(selectedTab === 'angular') {
     @for (micro of angularMicros; track micro.key) {
-    <div class="micro-card">
+    <div class="micro-card" [attr.data-key]="micro.key">
       <label class="checkbox-wrapper">
-        <input type="checkbox" [(ngModel)]="micro.selected" />
+        <input type="checkbox" [(ngModel)]="micro.selected"
+          [ngClass]="{ 'running-disabled': micro.status === 'running' }" />
         <span class="checkmark"></span>
         {{ micro.label }}
       </label>
-      <div
-        class="status"
-        [class.running]="micro.status === 'running'"
-        [class.stopped]="micro.status === 'stopped'"
-      >
+      <div class="status" [class.running]="micro.status === 'running'" [class.stopped]="micro.status === 'stopped'">
         {{ micro.status }}
       </div>
       <label class="checkbox-wrapper" style="margin-left: 1.5rem">
@@ -30,24 +33,23 @@
       </label>
     </div>
     }
+    }
   </div>
 
-  <h2>Micros Spring</h2>
+  <h2 *ngIf="selectedTab === 'spring'">Micros Spring</h2>
   <div class="micro-selection">
-    <div *ngFor="let micro of springMicros" class="micro-card">
+    @if(selectedTab === 'spring') {
+    <div *ngFor="let micro of springMicros" class="micro-card" [attr.data-key]="micro.key">
       <label class="checkbox-wrapper">
         <input type="checkbox" [(ngModel)]="micro.selected" />
         <span class="checkmark"></span>
         {{ micro.label }}
       </label>
-      <div
-        class="status"
-        [class.running]="micro.status === 'running'"
-        [class.stopped]="micro.status === 'stopped'"
-      >
+      <div class="status" [class.running]="micro.status === 'running'" [class.stopped]="micro.status === 'stopped'">
         {{ micro.status }}
       </div>
     </div>
+    }
   </div>
 
   <div class="button-bar">
@@ -55,7 +57,7 @@
     <button class="start-btn" (click)="startSelected()">🚀 Arrancar</button>
   </div>
 
-  <div *ngIf="showSuccessMessage && !loading" class="success-message">
+  <div *ngIf="showSuccessMessage && !loading" class="success-message" class="success-message" #successMessage>
     ✅ Todos los micros arrancaron correctamente.
   </div>
 

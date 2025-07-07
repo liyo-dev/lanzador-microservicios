@@ -123,3 +123,23 @@ button.go-btn {
     background: #2e46cc;
   }
 }
+
+.feedback-zone {
+  margin-top: 1rem;
+  text-align: center;
+}
+
+.msg {
+  font-weight: 600;
+  font-size: 1rem;
+  opacity: 0;
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+
+.msg-guardar {
+  color: #28a745;
+}
+
+.msg-borrar {
+  color: #dc3545;
+}

@@ -201,3 +201,33 @@ button.stop-btn {
 .log-line + .log-line {
   margin-top: 5px;
 }
+
+input[type="checkbox"].running-disabled {
+  opacity: 0.4;
+}
+
+.tab-selector {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 20px;
+
+  button {
+    background-color: #eee;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 20px;
+    margin: 0 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  button.active {
+    background-color: #3a59ff;
+    color: white;
+  }
+
+  button:not(.active):hover {
+    background-color: #dcdcdc;
+  }
+}
