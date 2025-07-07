@@ -16,10 +16,12 @@ export class Launcher {
   config: any = {};
 
   angularMicros = [
-    { key: 'intradia', label: 'intradía', selected: false, status: 'stopped' },
-    { key: 'upload', label: 'upload', selected: false, status: 'stopped' },
-    { key: 'reportes', label: 'reportes', selected: false, status: 'stopped' },
-    { key: 'pagos', label: 'pagos', selected: false, status: 'stopped' },
+    { key: 'upload', label: 'upload', selected: false, status: 'stopped', useLegacyProvider: false },
+    { key: 'notifica', label: 'notifica', selected: false, status: 'stopped', useLegacyProvider: false },
+    { key: 'pagos', label: 'pagos', selected: false, status: 'stopped', useLegacyProvider: false },
+    { key: 'reportes', label: 'reportes', selected: false, status: 'stopped', useLegacyProvider: false },
+    { key: 'psd2', label: 'psd2', selected: false, status: 'stopped', useLegacyProvider: false },
+    { key: 'intradia', label: 'intradía', selected: false, status: 'stopped', useLegacyProvider: false },
   ];
 
   springMicros = [
@@ -115,6 +117,7 @@ export class Launcher {
       if (micro.selected) {
         const path = this.config.angular[micro.key]?.path;
         const port = this.config.angular[micro.key]?.port;
+        const useLegacyProvider = micro.useLegacyProvider;
 
         if (!path || path.trim() === '') {
           alert(`El micro Angular ${micro.label} no tiene ruta configurada.`);
@@ -122,7 +125,7 @@ export class Launcher {
           return;
         }
 
-        (window as any).electronAPI.startAngular({ micro: micro.key, path, port });
+        (window as any).electronAPI.startAngular({ micro: micro.key, path, port, useLegacyProvider });
         this.logs.push(`→ Arrancando Angular ${micro.label}...`);
         micro.status = 'starting';
         started = true;

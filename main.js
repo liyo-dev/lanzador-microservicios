@@ -58,17 +58,19 @@ app.on("window-all-closed", function () {
   }
 });
 
-// Electron Store
+//#region Electron Store
 const Store = require("electron-store");
 const store = new Store.default();
 
 ipcMain.handle("get-config", () => {
   return store.get("launcherConfig", {
     angular: {
-      intradia: { path: "", port: 4201 },
-      upload: { path: "", port: 4202 },
-      pagos: { path: "", port: 4203 },
-      reportes: { path: "", port: 4204 },
+      upload: { path: "", port: 4200 },
+      notifica: { path: "", port: 4201 },
+      pagos: { path: "", port: 4202 },
+      reportes: { path: "", port: 4203 },
+      psd2: { path: "", port: 4204 },
+      intradia: { path: "", port: 4205 },
     },
     spring: {
       upload: { path: "" },
@@ -85,6 +87,7 @@ ipcMain.handle("save-config", (event, config) => {
 ipcMain.handle("clear-config", () => {
   store.delete("launcherConfig");
 });
+//#endregion
 
 // Lanzar Angular
 ipcMain.on("start-angular", (event, data) => {
@@ -106,9 +109,16 @@ ipcMain.on("start-angular", (event, data) => {
 
   angularStatus[data.micro] = "starting";
 
+  const env = { ...process.env };
+
+  if (data.useLegacyProvider) {
+    env.NODE_OPTIONS = "--openssl-legacy-provider"
+  }
+
   const angularProcess = spawn("ng.cmd", ["serve", "--port", data.port], {
     cwd: data.path,
     shell: true,
+    env,
   });
 
   processes[processKey] = angularProcess;

@@ -2,21 +2,34 @@
 
 <div class="launcher-container">
   <div class="top-bar">
-    <button class="go-config-btn" (click)="goToConfig()">⚙️ Configuración</button>
+    <button class="go-config-btn" (click)="goToConfig()">
+      ⚙️ Configuración
+    </button>
   </div>
 
   <h2>Micros Angular</h2>
   <div class="micro-selection">
-    <div *ngFor="let micro of angularMicros" class="micro-card">
+    @for (micro of angularMicros; track micro.key) {
+    <div class="micro-card">
       <label class="checkbox-wrapper">
         <input type="checkbox" [(ngModel)]="micro.selected" />
         <span class="checkmark"></span>
         {{ micro.label }}
       </label>
-      <div class="status" [class.running]="micro.status === 'running'" [class.stopped]="micro.status === 'stopped'">
+      <div
+        class="status"
+        [class.running]="micro.status === 'running'"
+        [class.stopped]="micro.status === 'stopped'"
+      >
         {{ micro.status }}
       </div>
+      <label class="checkbox-wrapper" style="margin-left: 1.5rem">
+        <input type="checkbox" [(ngModel)]="micro.useLegacyProvider" />
+        <span class="checkmark"></span>
+        <span style="font-size: 0.85rem">Compatibilidad Node</span>
+      </label>
     </div>
+    }
   </div>
 
   <h2>Micros Spring</h2>
@@ -27,7 +40,11 @@
         <span class="checkmark"></span>
         {{ micro.label }}
       </label>
-      <div class="status" [class.running]="micro.status === 'running'" [class.stopped]="micro.status === 'stopped'">
+      <div
+        class="status"
+        [class.running]="micro.status === 'running'"
+        [class.stopped]="micro.status === 'stopped'"
+      >
         {{ micro.status }}
       </div>
     </div>
