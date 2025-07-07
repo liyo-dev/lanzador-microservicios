@@ -113,7 +113,9 @@ export class Launcher {
 
     let started = false;
 
-    this.angularMicros.forEach((micro) => {
+    this.angularMicros
+    .filter((micro) => micro.selected && micro.status !== 'running')
+    .forEach((micro) => {
       if (micro.selected) {
         const path = this.config.angular[micro.key]?.path;
         const port = this.config.angular[micro.key]?.port;
@@ -132,7 +134,9 @@ export class Launcher {
       }
     });
 
-    this.springMicros.forEach((micro) => {
+    this.springMicros
+    .filter((micro) => micro.selected && micro.status !== 'running')
+    .forEach((micro) => {
       if (micro.selected) {
         const path = this.config.spring[micro.key]?.path;
 
@@ -157,7 +161,9 @@ export class Launcher {
   stopSelected() {
     this.logs.push('Parando micros seleccionados...');
 
-    this.angularMicros.forEach((micro) => {
+    this.angularMicros
+    .filter((micro) => micro.selected && micro.status === 'running')
+    .forEach((micro) => {
       if (micro.selected && micro.status === 'running') {
         (window as any).electronAPI.stopProcess(`angular-${micro.key}`);
         this.logs.push(`→ Parando Angular ${micro.label}...`);
@@ -167,7 +173,9 @@ export class Launcher {
       }
     });
 
-    this.springMicros.forEach((micro) => {
+    this.springMicros
+    .filter((micro) => micro.selected && micro.status === 'running')
+    .forEach((micro) => {
       if (micro.selected && micro.status === 'running') {
         (window as any).electronAPI.stopProcess(`spring-${micro.key}`);
         this.logs.push(`→ Parando Spring ${micro.label}...`);
