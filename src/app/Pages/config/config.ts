@@ -95,6 +95,10 @@ export class ConfigComponent {
     this.router.navigate(['/launcher']);
   }
 
+   goToHome() {
+    this.router.navigate(['']);
+  }
+
   clear() {
     (window as any).electronAPI.clearConfig().then(() => {
       this.config = {
