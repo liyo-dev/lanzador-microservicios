@@ -163,41 +163,62 @@ ipcMain.on("start-angular", (event, data) => {
   });
 });
 
+// Verificación previa de entorno antes de arrancar Spring
+function validateJavaAndMavenForSpring(micro, path) {
+  const javaHome = process.env.JAVA_HOME?.replace(/^"(.*)"$/, '$1');
+
+  if (!javaHome || !fs.existsSync(javaHome)) {
+    mainWindow.webContents.send("log-spring", {
+      micro,
+      log: `❌ No se ha encontrado JAVA_HOME configurado correctamente.\n` +
+           `Por favor, añade una variable de entorno de usuario llamada JAVA_HOME apuntando a tu instalación de Java (por ejemplo: C:\\DevTools\\Java\\jdk1.8.0_211) y reinicia el launcher.`,
+      status: "stopped"
+    });
+    return false;
+  }
+
+  const hasWrapper = fs.existsSync(path.join(path, "mvnw.cmd"));
+  const mavenOk = hasWrapper || (process.env.PATH && process.env.PATH.toLowerCase().includes("maven"));
+
+  if (!mavenOk) {
+    mainWindow.webContents.send("log-spring", {
+      micro,
+      log: `❌ No se encontró Maven ni mvnw.cmd en el microservicio.\n` +
+           `Instala Maven desde https://maven.apache.org/download.cgi o asegúrate de que mvnw.cmd existe en la carpeta del micro.`,
+      status: "stopped"
+    });
+    return false;
+  }
+
+  return true;
+}
+
 // Lanzar Spring
 ipcMain.on("start-spring", (event, data) => {
   const processKey = `spring-${data.micro || "default"}`;
+  const micro = data.micro || "default";
 
   if (processes[processKey]) {
     mainWindow.webContents.send("log-spring", {
-      micro: data.micro || "default",
+      micro,
       log: `Micro Spring ya está en ejecución.`,
     });
     return;
   }
 
-  // Si no hay JAVA_HOME definida, avisamos y salimos
-  if (!process.env.JAVA_HOME) {
-    mainWindow.webContents.send("log-spring", {
-      micro: data.micro || "default",
-      log: `❌ No se ha encontrado JAVA_HOME. No se puede arrancar el micro Spring.`,
-      status: "stopped",
-    });
-    return;
-  }
+  if (!validateJavaAndMavenForSpring(micro, data.path)) return;
 
-  const javaHome = process.env.JAVA_HOME.replace(/^"(.*)"$/, "$1"); // quitar comillas si las hubiera
+  const javaHome = process.env.JAVA_HOME.replace(/^"(.*)"$/, '$1');
+  const hasWrapper = fs.existsSync(path.join(data.path, "mvnw.cmd"));
+  const mvnCmd = hasWrapper ? "mvnw.cmd" : "mvn";
 
   mainWindow.webContents.send("log-spring", {
-    micro: data.micro || "default",
+    micro,
     log: `Lanzando Spring...`,
     status: "starting",
   });
 
-  springStatus[data.micro || "default"] = "starting";
-
-  const mvnCmd = fs.existsSync(path.join(data.path, "mvnw.cmd"))
-    ? "mvnw.cmd"
-    : "mvn";
+  springStatus[micro] = "starting";
 
   const springProcess = spawn(mvnCmd, ["spring-boot:run"], {
     cwd: data.path,
@@ -213,38 +234,38 @@ ipcMain.on("start-spring", (event, data) => {
 
   springProcess.stdout.on("data", (dataLog) => {
     const logClean = stripAnsi(dataLog.toString());
-
     const isRunning = logClean.includes("Started") && logClean.includes("in");
 
     mainWindow.webContents.send("log-spring", {
-      micro: data.micro || "default",
+      micro,
       log: logClean,
       status: isRunning ? "running" : undefined,
     });
 
     if (isRunning) {
-      springStatus[data.micro || "default"] = "running";
+      springStatus[micro] = "running";
     }
   });
 
   springProcess.stderr.on("data", (dataLog) => {
     const logClean = stripAnsi(dataLog.toString());
     mainWindow.webContents.send("log-spring", {
-      micro: data.micro || "default",
-      log: logClean,
+      micro,
+      log: `❗ Error: ${logClean}`,
     });
   });
 
-  springProcess.on("close", (code) => {
+  springProcess.on("close", (code, signal) => {
     mainWindow.webContents.send("log-spring", {
-      micro: data.micro || "default",
-      log: `Spring process exited with code ${code}`,
+      micro,
+      log: `❌ Spring se cerró inesperadamente (code: ${code}, signal: ${signal})`,
       status: "stopped",
     });
-    springStatus[data.micro || "default"] = "stopped";
+    springStatus[micro] = "stopped";
     delete processes[processKey];
   });
 });
+
 
 // Parar proceso
 ipcMain.on("stop-process", (event, processKey) => {
