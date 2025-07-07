@@ -18,8 +18,7 @@
     @for (micro of angularMicros; track micro.key) {
     <div class="micro-card" [attr.data-key]="micro.key">
       <label class="checkbox-wrapper">
-        <input type="checkbox" [(ngModel)]="micro.selected"
-          [ngClass]="{ 'running-disabled': micro.status === 'running' }" />
+        <input type="checkbox" [(ngModel)]="micro.selected" />
         <span class="checkmark"></span>
         {{ micro.label }}
       </label>
