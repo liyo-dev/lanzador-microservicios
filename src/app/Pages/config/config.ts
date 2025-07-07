@@ -17,10 +17,12 @@ export class ConfigComponent {
 
   config: any = {
     angular: {
-      intradia: { path: '', port: 4201 },
-      upload: { path: '', port: 4202 },
-      pagos: { path: '', port: 4203 },
-      reportes: { path: '', port: 4204 },
+      upload: { path: '', port: 4200 },
+      notifica: { path: '', port: 4201 },
+      pagos: { path: '', port: 4202 },
+      reportes: { path: '', port: 4203 },
+      psd2: { path: '', port: 4204 },
+      intradia: { path: '', port: 4205 },
     },
     spring: {
       upload: { path: '' },
@@ -30,10 +32,12 @@ export class ConfigComponent {
   };
 
   angularMicros = [
-    { key: 'intradia', label: 'intradía' },
     { key: 'upload', label: 'upload' },
+    { key: 'notifica', label: 'notifica' },
     { key: 'pagos', label: 'pagos' },
     { key: 'reportes', label: 'reportes' },
+    { key: 'psd2', label: 'psd2' },
+    { key: 'intradia', label: 'intradía' },
   ];
 
   springMicros = [
@@ -48,14 +52,20 @@ export class ConfigComponent {
     (window as any).electronAPI.getConfig().then((cfg: any) => {
       this.config = cfg;
       this.loading = false;
-      setTimeout(() => gsap.from('.section', { opacity: 0, y: 20, duration: 0.5 }), 0);
+      setTimeout(
+        () => gsap.from('.section', { opacity: 0, y: 20, duration: 0.5 }),
+        0
+      );
     });
   }
 
   changeTab(tab: 'angular' | 'spring') {
     if (this.selectedTab !== tab) {
       this.selectedTab = tab;
-      setTimeout(() => gsap.from('.section', { opacity: 0, y: 20, duration: 0.4 }), 0);
+      setTimeout(
+        () => gsap.from('.section', { opacity: 0, y: 20, duration: 0.4 }),
+        0
+      );
     }
   }
 
@@ -71,10 +81,12 @@ export class ConfigComponent {
     (window as any).electronAPI.clearConfig().then(() => {
       this.config = {
         angular: {
-          intradia: { path: '', port: 4201 },
-          upload: { path: '', port: 4202 },
-          pagos: { path: '', port: 4203 },
-          reportes: { path: '', port: 4204 },
+          upload: { path: '', port: 4200 },
+          notifica: { path: '', port: 4201 },
+          pagos: { path: '', port: 4202 },
+          reportes: { path: '', port: 4203 },
+          psd2: { path: '', port: 4204 },
+          intradia: { path: '', port: 4205 },
         },
         spring: {
           upload: { path: '' },
