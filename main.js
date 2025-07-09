@@ -259,11 +259,7 @@ ipcMain.on("start-spring", (event, data) => {
     }`,
   });
 
-  const mvnQuoted = `"${mvnCmd}"`;
-
-  console.log("RUTA mvn:", mvnQuoted); 
-
-  const springProcess = spawn(mvnQuoted, args, {
+  const springProcess = spawn(mvnCmd, args, {
     cwd: data.path,
     shell: true,
     env: {
