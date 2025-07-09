@@ -236,7 +236,15 @@ export class Launcher {
             return;
           }
 
-          (window as any).electronAPI.startSpring({ micro: micro.key, path });
+          (window as any).electronAPI.startSpring({
+            micro: micro.key,
+            path,
+            javaHome: this.config.spring.javaHome,
+            mavenHome: this.config.spring.mavenHome,
+            settingsXml: this.config.spring.settingsXml,
+            m2RepoPath: this.config.spring.m2RepoPath,
+          });
+
           this.pushLog(`→ Arrancando Spring ${micro.label}...`);
           micro.status = 'starting';
           started = true;
@@ -312,9 +320,7 @@ export class Launcher {
     this.router.navigate(['/config']);
   }
 
-
-
-   goToHome() {
+  goToHome() {
     const angularActivos = this.angularMicros.some(
       (m) => m.status !== 'stopped'
     );
