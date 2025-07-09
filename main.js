@@ -233,10 +233,10 @@ ipcMain.on("start-spring", (event, data) => {
 
   const args = ["spring-boot:run"];
   if (data.settingsXml) {
-    args.push("-s", `"${data.settingsXml}"`);
+    args.push("-s", data.settingsXml); 
   }
   if (data.m2RepoPath) {
-    args.push(`-Dmaven.repo.local="${data.m2RepoPath}"`);
+    args.push(`-Dmaven.repo.local=${data.m2RepoPath}`); 
   }
 
   mainWindow.webContents.send("log-spring", {
