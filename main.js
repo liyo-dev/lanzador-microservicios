@@ -235,6 +235,16 @@ ipcMain.on("start-spring", (event, data) => {
   if (data.settingsXml) args.push("-s", data.settingsXml);
   if (data.m2RepoPath) args.push(`-Dmaven.repo.local=${data.m2RepoPath}`);
 
+  // Comillas solo si hay espacios
+  const finalArgs = [
+    "/c",
+    [mvnCmd, ...args.map((arg) => (arg.includes(" ") ? `"${arg}"` : arg))].join(
+      " "
+    ),
+  ];
+
+  console.log("CMD.exe final:", finalArgs.join(" "));
+
   mainWindow.webContents.send("log-spring", {
     micro,
     log: `Lanzando Spring con configuración personalizada...`,
@@ -255,15 +265,7 @@ ipcMain.on("start-spring", (event, data) => {
     }`,
   });
 
-  // Construcción del comando en texto plano con todas las rutas entrecomilladas
-  const quotedArgs = args.map((arg) =>
-    arg.includes(" ") || arg.includes("=") ? `"${arg}"` : arg
-  );
-
-  const fullCommand = `"${mvnCmd}" ${quotedArgs.join(" ")}`;
-  console.log("FULL CMD:", fullCommand);
-
-  const springProcess = spawn("cmd.exe", ["/c", fullCommand], {
+  const springProcess = spawn("cmd.exe", finalArgs, {
     cwd: data.path,
     shell: false,
     env: {
