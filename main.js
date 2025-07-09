@@ -174,8 +174,8 @@ ipcMain.on("start-angular", (event, data) => {
 });
 
 // Verificación previa de entorno antes de arrancar Spring
-function validateJavaAndMavenForSpring(micro, path) {
-  const javaHome = process.env.JAVA_HOME?.replace(/^"(.*)"$/, '$1');
+function validateJavaAndMavenForSpring(micro, microPath) {
+  const javaHome = (process.env.JAVA_HOME || '').replace(/^"+|"+$/g, '');
 
   if (!javaHome || !fs.existsSync(javaHome)) {
     mainWindow.webContents.send("log-spring", {
@@ -187,7 +187,7 @@ function validateJavaAndMavenForSpring(micro, path) {
     return false;
   }
 
-  const hasWrapper = fs.existsSync(path.join(path, "mvnw.cmd"));
+  const hasWrapper = fs.existsSync(path.join(microPath, "mvnw.cmd"));
   const mavenOk = hasWrapper || (process.env.PATH && process.env.PATH.toLowerCase().includes("maven"));
 
   if (!mavenOk) {
