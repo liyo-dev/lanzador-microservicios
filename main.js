@@ -255,23 +255,25 @@ ipcMain.on("start-spring", (event, data) => {
     }`,
   });
 
-  const fullCommand = `"${mvnCmd}"`;
+  // Construcción del comando en texto plano con todas las rutas entrecomilladas
+  const quotedArgs = args.map((arg) =>
+    arg.includes(" ") || arg.includes("=") ? `"${arg}"` : arg
+  );
 
+  const fullCommand = `"${mvnCmd}" ${quotedArgs.join(" ")}`;
   console.log("FULL CMD:", fullCommand);
 
-  const springProcess = spawn(mvnCmd, args,
-    {
-      cwd: data.path,
-      shell: true,
-      env: {
-        ...process.env,
-        JAVA_HOME: javaHome,
-        PATH: `${path.join(javaHome, "bin")};${path.join(mavenHome, "bin")};${
-          process.env.PATH
-        }`,
-      },
-    }
-  );
+  const springProcess = spawn("cmd.exe", ["/c", fullCommand], {
+    cwd: data.path,
+    shell: false,
+    env: {
+      ...process.env,
+      JAVA_HOME: javaHome,
+      PATH: `${path.join(javaHome, "bin")};${path.join(mavenHome, "bin")};${
+        process.env.PATH
+      }`,
+    },
+  });
 
   springProcess.on("error", (err) => {
     mainWindow.webContents.send("log-spring", {
