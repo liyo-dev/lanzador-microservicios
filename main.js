@@ -112,7 +112,7 @@ ipcMain.on("start-angular", (event, data) => {
   const env = { ...process.env };
 
   if (data.useLegacyProvider) {
-    env.NODE_OPTIONS = "--openssl-legacy-provider"
+    env.NODE_OPTIONS = "--openssl-legacy-provider";
   }
 
   const angularProcess = spawn("ng.cmd", ["serve", "--port", data.port], {
@@ -175,27 +175,31 @@ ipcMain.on("start-angular", (event, data) => {
 
 // Verificación previa de entorno antes de arrancar Spring
 function validateJavaAndMavenForSpring(micro, microPath) {
-  const javaHome = (process.env.JAVA_HOME || '').replace(/^"+|"+$/g, '');
+  const javaHome = (process.env.JAVA_HOME || "").replace(/^"+|"+$/g, "");
 
   if (!javaHome || !fs.existsSync(javaHome)) {
     mainWindow.webContents.send("log-spring", {
       micro,
-      log: `❌ No se ha encontrado JAVA_HOME configurado correctamente.\n` +
-           `Por favor, añade una variable de entorno de usuario llamada JAVA_HOME apuntando a tu instalación de Java (por ejemplo: C:\\DevTools\\Java\\jdk1.8.0_211) y reinicia el launcher.`,
-      status: "stopped"
+      log:
+        `❌ No se ha encontrado JAVA_HOME configurado correctamente.\n` +
+        `Por favor, añade una variable de entorno de usuario llamada JAVA_HOME apuntando a tu instalación de Java (por ejemplo: C:\\DevTools\\Java\\jdk1.8.0_211) y reinicia el launcher.`,
+      status: "stopped",
     });
     return false;
   }
 
   const hasWrapper = fs.existsSync(path.join(microPath, "mvnw.cmd"));
-  const mavenOk = hasWrapper || (process.env.PATH && process.env.PATH.toLowerCase().includes("maven"));
+  const mavenOk =
+    hasWrapper ||
+    (process.env.PATH && process.env.PATH.toLowerCase().includes("maven"));
 
   if (!mavenOk) {
     mainWindow.webContents.send("log-spring", {
       micro,
-      log: `❌ No se encontró Maven ni mvnw.cmd en el microservicio.\n` +
-           `Instala Maven desde https://maven.apache.org/download.cgi o asegúrate de que mvnw.cmd existe en la carpeta del micro.`,
-      status: "stopped"
+      log:
+        `❌ No se encontró Maven ni mvnw.cmd en el microservicio.\n` +
+        `Instala Maven desde https://maven.apache.org/download.cgi o asegúrate de que mvnw.cmd existe en la carpeta del micro.`,
+      status: "stopped",
     });
     return false;
   }
@@ -216,27 +220,38 @@ ipcMain.on("start-spring", (event, data) => {
     return;
   }
 
-  if (!validateJavaAndMavenForSpring(micro, data.path)) return;
+  const javaHome = (data.javaHome || process.env.JAVA_HOME || "").replace(
+    /^"+|"+$/g,
+    ""
+  );
+  const mavenHome = (data.mavenHome || "").replace(/^"+|"+$/g, "");
+  const mvnCmd = path.join(mavenHome, "bin", "mvn.cmd");
 
-  const javaHome = (process.env.JAVA_HOME || '').replace(/^"+|"+$/g, '');
-  const hasWrapper = fs.existsSync(path.join(data.path, "mvnw.cmd"));
-  const mvnCmd = hasWrapper ? "mvnw.cmd" : "mvn";
+  const args = ["spring-boot:run"];
+  if (data.settingsXml) {
+    args.push("-s", data.settingsXml);
+  }
+  if (data.m2RepoPath) {
+    args.push(`-Dmaven.repo.local=${data.m2RepoPath}`);
+  }
 
   mainWindow.webContents.send("log-spring", {
     micro,
-    log: `Lanzando Spring...`,
+    log: `Lanzando Spring con configuración personalizada...`,
     status: "starting",
   });
 
   springStatus[micro] = "starting";
 
-  const springProcess = spawn(mvnCmd, ["spring-boot:run"], {
+  const springProcess = spawn(mvnCmd, args, {
     cwd: data.path,
     shell: true,
     env: {
       ...process.env,
       JAVA_HOME: javaHome,
-      PATH: `${path.join(javaHome, 'bin')};${process.env.PATH}`,
+      PATH: `${path.join(javaHome, "bin")};${path.join(mavenHome, "bin")};${
+        process.env.PATH
+      }`,
     },
   });
 
@@ -275,7 +290,6 @@ ipcMain.on("start-spring", (event, data) => {
     delete processes[processKey];
   });
 });
-
 
 // Parar proceso
 ipcMain.on("stop-process", (event, processKey) => {

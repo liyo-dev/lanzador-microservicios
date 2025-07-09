@@ -30,6 +30,10 @@ export class ConfigComponent {
       upload: { path: '' },
       pagos: { path: '' },
       reportes: { path: '' },
+      javaHome: '',
+      mavenHome: '',
+      settingsXml: '',
+      m2RepoPath: '',
     },
   };
 
@@ -95,7 +99,7 @@ export class ConfigComponent {
     this.router.navigate(['/launcher']);
   }
 
-   goToHome() {
+  goToHome() {
     this.router.navigate(['']);
   }
 
@@ -114,6 +118,10 @@ export class ConfigComponent {
           upload: { path: '' },
           pagos: { path: '' },
           reportes: { path: '' },
+          javaHome: '',
+          mavenHome: '',
+          settingsXml: '',
+          m2RepoPath: '',
         },
       };
 
