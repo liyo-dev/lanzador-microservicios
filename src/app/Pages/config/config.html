@@ -22,18 +22,22 @@
       <label>
         JAVA_HOME:
         <input [(ngModel)]="config.spring.javaHome" type="text" placeholder="Ej: C:\Java\jdk1.8.0_211" />
+        <button type="button" class="browse-btn" (click)="browseFolder($event)">📁</button>
       </label>
       <label>
         MAVEN_HOME:
         <input [(ngModel)]="config.spring.mavenHome" type="text" placeholder="Ej: C:\Herramientas\apache-maven-3.8.6" />
+        <button type="button" class="browse-btn" (click)="browseFolder($event)">📁</button>
       </label>
       <label>
         settings.xml:
         <input [(ngModel)]="config.spring.settingsXml" type="text" placeholder="Ej: C:\.m2\settings.xml" />
+        <button type="button" class="browse-btn" (click)="browseFolder($event)">📁</button>
       </label>
       <label>
         Repositorio .m2:
         <input [(ngModel)]="config.spring.m2RepoPath" type="text" placeholder="Ej: C:\Users\usuario\.m2\repository" />
+        <button type="button" class="browse-btn" (click)="browseFolder($event)">📁</button>
       </label>
     </fieldset>
   </div>

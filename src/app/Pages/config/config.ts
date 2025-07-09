@@ -155,4 +155,29 @@ export class ConfigComponent {
       }, 0);
     });
   }
+
+  browseFolder(event: Event) {
+    const input = (event.target as HTMLElement)
+      .previousElementSibling as HTMLInputElement;
+
+    if ((window as any).electronAPI?.showOpenDialog) {
+      (window as any).electronAPI
+        .showOpenDialog({ properties: ['openDirectory'] })
+        .then((result: any) => {
+          if (!result.canceled && result.filePaths.length > 0) {
+            input.value = result.filePaths[0];
+            const modelPath = input.getAttribute('ng-reflect-model');
+
+            if (modelPath) {
+              const keys = modelPath.split('.');
+              let ref = this.config;
+              for (let i = 0; i < keys.length - 1; i++) {
+                ref = ref[keys[i]];
+              }
+              ref[keys[keys.length - 1]] = result.filePaths[0];
+            }
+          }
+        });
+    }
+  }
 }

@@ -154,4 +154,35 @@ button.go-btn {
   color: #dc3545;
 }
 
+.spring-settings {
+  fieldset {
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+    legend {
+      font-weight: bold;
+      font-size: 1.1rem;
+    }
+    label {
+      display: flex;
+      flex-direction: column;
+      margin-bottom: 1rem;
+    }
+    .input-with-btn {
+      display: flex;
+      gap: 0.5rem;
+      input {
+        flex: 1;
+      }
+      .browse-btn {
+        background-color: #eee;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        padding: 0 0.6rem;
+        cursor: pointer;
+      }
+    }
+  }
+}
 
