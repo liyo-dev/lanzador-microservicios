@@ -218,7 +218,7 @@ ipcMain.on("start-spring", (event, data) => {
 
   if (!validateJavaAndMavenForSpring(micro, data.path)) return;
 
-  const javaHome = process.env.JAVA_HOME.replace(/^"(.*)"$/, '$1');
+  const javaHome = (process.env.JAVA_HOME || '').replace(/^"+|"+$/g, '');
   const hasWrapper = fs.existsSync(path.join(data.path, "mvnw.cmd"));
   const mvnCmd = hasWrapper ? "mvnw.cmd" : "mvn";
 
@@ -236,7 +236,7 @@ ipcMain.on("start-spring", (event, data) => {
     env: {
       ...process.env,
       JAVA_HOME: javaHome,
-      PATH: `${javaHome}\\bin;${process.env.PATH}`,
+      PATH: `${path.join(javaHome, 'bin')};${process.env.PATH}`,
     },
   });
 
