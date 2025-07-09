@@ -232,12 +232,8 @@ ipcMain.on("start-spring", (event, data) => {
   const mvnCmd = path.join(mavenHome, "bin", "mvn.cmd");
 
   const args = ["spring-boot:run"];
-  if (data.settingsXml) {
-    args.push("-s", data.settingsXml); // ❌ sin comillas
-  }
-  if (data.m2RepoPath) {
-    args.push(`-Dmaven.repo.local=${data.m2RepoPath}`); // ❌ sin comillas
-  }
+  if (data.settingsXml) args.push("-s", data.settingsXml);
+  if (data.m2RepoPath) args.push(`-Dmaven.repo.local=${data.m2RepoPath}`);
 
   mainWindow.webContents.send("log-spring", {
     micro,
@@ -259,10 +255,11 @@ ipcMain.on("start-spring", (event, data) => {
     }`,
   });
 
-  const fullCommand = `${mvnCmd} ${args.join(" ")}`;
+  const fullCommand = `"${mvnCmd}"`;
+
   console.log("FULL CMD:", fullCommand);
 
-  const springProcess = spawn("cmd.exe", ["/c", fullCommand], {
+  const springProcess = spawn("cmd.exe", ["/c", fullCommand, ...args], {
     cwd: data.path,
     shell: false,
     env: {
