@@ -259,17 +259,25 @@ ipcMain.on("start-spring", (event, data) => {
 
   console.log("FULL CMD:", fullCommand);
 
-  const springProcess = spawn("cmd.exe", ["/c", fullCommand, ...args], {
-    cwd: data.path,
-    shell: false,
-    env: {
-      ...process.env,
-      JAVA_HOME: javaHome,
-      PATH: `${path.join(javaHome, "bin")};${path.join(mavenHome, "bin")};${
-        process.env.PATH
-      }`,
-    },
-  });
+  const springProcess = spawn(
+    "cmd.exe",
+    [
+      "/c",
+      `"${mvnCmd}"`,
+      ...args.map((arg) => (arg.includes(" ") ? `"${arg}"` : arg)),
+    ],
+    {
+      cwd: data.path,
+      shell: false,
+      env: {
+        ...process.env,
+        JAVA_HOME: javaHome,
+        PATH: `${path.join(javaHome, "bin")};${path.join(mavenHome, "bin")};${
+          process.env.PATH
+        }`,
+      },
+    }
+  );
 
   springProcess.on("error", (err) => {
     mainWindow.webContents.send("log-spring", {
