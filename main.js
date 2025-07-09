@@ -259,7 +259,7 @@ ipcMain.on("start-spring", (event, data) => {
     }`,
   });
 
-  const fullCommand = `"${mvnCmd}" ${args.join(" ")}`;
+  const fullCommand = `${mvnCmd} ${args.join(" ")}`;
   console.log("FULL CMD:", fullCommand);
 
   const springProcess = spawn("cmd.exe", ["/c", fullCommand], {
