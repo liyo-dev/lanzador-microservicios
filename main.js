@@ -236,7 +236,7 @@ ipcMain.on("start-spring", (event, data) => {
     args.push("-s", data.settingsXml);
   }
   if (data.m2RepoPath) {
-    args.push(`-Dmaven.repo.local=${data.m2RepoPath}`); 
+    args.push(`-Dmaven.repo.local=${data.m2RepoPath}`);
   }
 
   mainWindow.webContents.send("log-spring", {
@@ -259,7 +259,9 @@ ipcMain.on("start-spring", (event, data) => {
     }`,
   });
 
-  const springProcess = spawn(mvnCmd, args, {
+  const mvnCmdQuoted = `"${mvnCmd}"`; 
+
+  const springProcess = spawn(mvnCmdQuoted, args, {
     cwd: data.path,
     shell: true,
     env: {
