@@ -259,7 +259,7 @@ ipcMain.on("start-spring", (event, data) => {
     }`,
   });
 
-  const springProcess = spawn(`"${mvnCmd}"`, args, {
+  const springProcess = spawn(mvnCmd, args, {
     cwd: data.path,
     shell: true,
     env: {
