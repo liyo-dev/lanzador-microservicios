@@ -263,7 +263,7 @@ ipcMain.on("start-spring", (event, data) => {
     "cmd.exe",
     [
       "/c",
-      `"${mvnCmd}"`,
+      mvnCmd,
       ...args.map((arg) => (arg.includes(" ") ? `"${arg}"` : arg)),
     ],
     {
