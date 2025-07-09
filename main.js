@@ -243,6 +243,18 @@ ipcMain.on("start-spring", (event, data) => {
 
   springStatus[micro] = "starting";
 
+  console.log("RUTA mvn:", mvnCmd);
+  console.log("ARGS:", args);
+  console.log("CWD:", data.path);
+  console.log("JAVA_HOME:", javaHome);
+  console.log("MAVEN_HOME:", mavenHome);
+  console.log("ENV:", {
+    JAVA_HOME: javaHome,
+    PATH: `${path.join(javaHome, "bin")};${path.join(mavenHome, "bin")};${
+      process.env.PATH
+    }`,
+  });
+
   const springProcess = spawn(mvnCmd, args, {
     cwd: data.path,
     shell: true,
@@ -253,6 +265,15 @@ ipcMain.on("start-spring", (event, data) => {
         process.env.PATH
       }`,
     },
+  });
+
+  springProcess.on("error", (err) => {
+    mainWindow.webContents.send("log-spring", {
+      micro,
+      log: `❌ Error en spawn: ${err.message}`,
+      status: "stopped",
+    });
+    console.error("Error en spawn:", err);
   });
 
   processes[processKey] = springProcess;
