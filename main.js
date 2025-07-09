@@ -233,7 +233,7 @@ ipcMain.on("start-spring", (event, data) => {
 
   const args = ["spring-boot:run"];
   if (data.settingsXml) {
-    args.push("-s", data.settingsXml); 
+    args.push("-s", data.settingsXml);
   }
   if (data.m2RepoPath) {
     args.push(`-Dmaven.repo.local=${data.m2RepoPath}`);
@@ -260,6 +260,8 @@ ipcMain.on("start-spring", (event, data) => {
   });
 
   const mvnQuoted = `"${mvnCmd}"`;
+
+  console.log("RUTA mvn:", mvnQuoted); 
 
   const springProcess = spawn(mvnQuoted, args, {
     cwd: data.path,
