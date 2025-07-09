@@ -16,6 +16,7 @@ export class ConfigComponent {
   loading = true;
   guardadoOK = false;
   borradoOK = false;
+  showSpringConfig = true;
 
   config: any = {
     angular: {
@@ -166,18 +167,20 @@ export class ConfigComponent {
         .then((result: any) => {
           if (!result.canceled && result.filePaths.length > 0) {
             input.value = result.filePaths[0];
-            const modelPath = input.getAttribute('ng-reflect-model');
 
+            const modelPath = input.getAttribute('ng-reflect-model');
             if (modelPath) {
               const keys = modelPath.split('.');
               let ref = this.config;
-              for (let i = 0; i < keys.length - 1; i++) {
-                ref = ref[keys[i]];
-              }
+              for (let i = 0; i < keys.length - 1; i++) ref = ref[keys[i]];
               ref[keys[keys.length - 1]] = result.filePaths[0];
             }
           }
         });
     }
+  }
+
+  toggleSpringConfig() {
+    this.showSpringConfig = !this.showSpringConfig;
   }
 }

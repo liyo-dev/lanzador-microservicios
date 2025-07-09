@@ -163,6 +163,10 @@ button.go-btn {
     legend {
       font-weight: bold;
       font-size: 1.1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      user-select: none;
     }
     label {
       display: flex;
@@ -181,6 +185,10 @@ button.go-btn {
         border-radius: 4px;
         padding: 0 0.6rem;
         cursor: pointer;
+        transition: background-color 0.2s;
+        &:hover {
+          background-color: #ddd;
+        }
       }
     }
   }

@@ -1,4 +1,4 @@
-const { contextBridge, ipcRenderer } = require('electron');
+const { contextBridge, ipcRenderer, dialog } = require('electron');
 
 contextBridge.exposeInMainWorld('electronAPI', {
   getConfig: () => ipcRenderer.invoke('get-config'),
@@ -10,4 +10,5 @@ contextBridge.exposeInMainWorld('electronAPI', {
   stopProcess: (processKey) => ipcRenderer.send('stop-process', processKey),
   onLogAngular: (callback) => ipcRenderer.on('log-angular', (event, data) => callback(data)),
   onLogSpring: (callback) => ipcRenderer.on('log-spring', (event, data) => callback(data)),
+  showOpenDialog: (options) => dialog.showOpenDialog(options),
 });

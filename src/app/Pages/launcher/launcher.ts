@@ -66,6 +66,10 @@ export class Launcher {
     { key: 'upload', label: 'upload', selected: false, status: 'stopped' },
     { key: 'pagos', label: 'pagos', selected: false, status: 'stopped' },
     { key: 'reportes', label: 'reportes', selected: false, status: 'stopped' },
+    { key: 'gateway', label: 'gateway', selected: false, status: 'stopped' },
+    { key: 'notifica', label: 'notifica', selected: false, status: 'stopped' },
+    { key: 'psd2', label: 'psd2', selected: false, status: 'stopped' },
+    { key: 'intradia', label: 'intradía', selected: false, status: 'stopped' },
   ];
 
   logs: string[] = [];
