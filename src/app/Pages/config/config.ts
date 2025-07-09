@@ -30,6 +30,10 @@ export class ConfigComponent {
       upload: { path: '' },
       pagos: { path: '' },
       reportes: { path: '' },
+      gateway: { path: '' },
+      notifica: { path: '' },
+      psd2: { path: '' },
+      intradia: { path: '' },
       javaHome: '',
       mavenHome: '',
       settingsXml: '',
@@ -50,6 +54,10 @@ export class ConfigComponent {
     { key: 'upload', label: 'upload' },
     { key: 'pagos', label: 'pagos' },
     { key: 'reportes', label: 'reportes' },
+    { key: 'gateway', label: 'gateway' },
+    { key: 'notifica', label: 'notifica' },
+    { key: 'psd2', label: 'psd2' },
+    { key: 'intradia', label: 'intradía' },
   ];
 
   selectedTab: 'angular' | 'spring' = 'angular';
@@ -118,6 +126,10 @@ export class ConfigComponent {
           upload: { path: '' },
           pagos: { path: '' },
           reportes: { path: '' },
+          gateway: { path: '' },
+          notifica: { path: '' },
+          psd2: { path: '' },
+          intradia: { path: '' },
           javaHome: '',
           mavenHome: '',
           settingsXml: '',

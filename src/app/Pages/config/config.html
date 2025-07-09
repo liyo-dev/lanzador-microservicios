@@ -17,22 +17,25 @@
 
 <div class="section" *ngIf="!loading && selectedTab === 'spring'">
   <div class="spring-settings">
-    <label>
-      Ruta JAVA_HOME:
-      <input [(ngModel)]="config.spring.javaHome" type="text" placeholder="Ej: C:\Java\jdk1.8.0_211" />
-    </label>
-    <label>
-      Ruta MAVEN_HOME:
-      <input [(ngModel)]="config.spring.mavenHome" type="text" placeholder="Ej: C:\Herramientas\apache-maven-3.8.6" />
-    </label>
-    <label>
-      Ruta settings.xml:
-      <input [(ngModel)]="config.spring.settingsXml" type="text" placeholder="Ej: C:\.m2\settings.xml" />
-    </label>
-    <label>
-      Ruta del repositorio .m2:
-      <input [(ngModel)]="config.spring.m2RepoPath" type="text" placeholder="Ej: C:\Users\usuario\.m2\repository" />
-    </label>
+    <fieldset>
+      <legend>Configuración general de entorno</legend>
+      <label>
+        JAVA_HOME:
+        <input [(ngModel)]="config.spring.javaHome" type="text" placeholder="Ej: C:\Java\jdk1.8.0_211" />
+      </label>
+      <label>
+        MAVEN_HOME:
+        <input [(ngModel)]="config.spring.mavenHome" type="text" placeholder="Ej: C:\Herramientas\apache-maven-3.8.6" />
+      </label>
+      <label>
+        settings.xml:
+        <input [(ngModel)]="config.spring.settingsXml" type="text" placeholder="Ej: C:\.m2\settings.xml" />
+      </label>
+      <label>
+        Repositorio .m2:
+        <input [(ngModel)]="config.spring.m2RepoPath" type="text" placeholder="Ej: C:\Users\usuario\.m2\repository" />
+      </label>
+    </fieldset>
   </div>
   <div class="micro-grid">
     <div *ngFor="let micro of springMicros" class="micro-card">

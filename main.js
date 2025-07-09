@@ -76,6 +76,10 @@ ipcMain.handle("get-config", () => {
       upload: { path: "" },
       pagos: { path: "" },
       reportes: { path: "" },
+      gateway: { path: "" },
+      notifica: { path: "" },
+      psd2: { path: "" },
+      intradia: { path: "" },
     },
   });
 });
