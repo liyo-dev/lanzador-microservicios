@@ -1,59 +1,69 @@
-# Launcher
+# 🚀 Lanzador de Microservicios
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 20.0.1.
+Aplicación de escritorio para lanzar y gestionar microservicios de Angular y Spring Boot sin necesidad de abrir una consola o un IDE. Pensada para facilitar el trabajo diario en entornos locales y mantener todos los servicios controlados desde una sola interfaz visual.
 
-## Development server
+---
 
-To start a local development server, run:
+## 📦 Formatos disponibles
 
-```bash
-ng serve
-```
+- **`.exe` (instalador)**: instala la aplicación en el sistema con acceso desde el menú de inicio.
+- **`.portable`**: ejecuta la aplicación sin instalación. Ideal para llevar en un USB o usar sin permisos de administrador.
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
+---
 
-## Code scaffolding
+## 🖥️ Requisitos previos
 
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
+| Tecnología | Requisito                                        |
+|------------|--------------------------------------------------|
+| Node.js    | Necesario para ejecutar microservicios Angular   |
+| Java (JDK) | Necesario para ejecutar microservicios Spring    |
+| Maven      | Recomendado (si no se usa el `mvnw` del micro)   |
 
-```bash
-ng generate component component-name
-```
+> ✅ El lanzador permite configurar rutas personalizadas para `JAVA_HOME`, `MAVEN_HOME` y `settings.xml`.
 
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
+---
 
-```bash
-ng generate --help
-```
+## 🔧 Instalación
 
-## Building
+### Opción 1: Instalador `.exe`
+1. Descarga el archivo `launcher.7z` desde la sección [Releases](../../releases).
+2. Ejecuta el instalador y sigue los pasos.
+3. Una vez instalado, abre la aplicación desde el menú inicio.
 
-To build the project run:
+### Opción 2: Versión portable
+1. Descarga el archivo `launcher.7z` desde la sección [Releases](../../releases).
+2. Abre la carpeta `win-unpacked`.
+3. Ejecuta directamente el archivo `Launcher.exe`.
 
-```bash
-ng build
-```
+> ⚠️ **Importante:** asegúrate de no ubicar la carpeta en un path con espacios si los servicios tienen problemas al arrancar.
 
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
+---
 
-## Running unit tests
+## ⚙️ Configuración inicial
 
-To execute unit tests with the [Karma](https://karma-runner.github.io) test runner, use the following command:
+1. Pulsa el botón **⚙️ Configuración** desde la pantalla principal.
+2. Introduce las rutas de los microservicios Angular y Spring.
+3. Configura si es necesario:
+   - JAVA_HOME
+   - MAVEN_HOME
+   - Ruta de `settings.xml`
+   - Repositorio `.m2` local
+4. Guarda los cambios.
 
-```bash
-ng test
-```
+---
 
-## Running end-to-end tests
+## 🏁 Arrancar microservicios
 
-For end-to-end (e2e) testing, run:
+1. Desde la pantalla principal, selecciona los microservicios que deseas arrancar.
+2. Pulsa el botón **🚀 Arrancar**.
+3. Observa los logs en la consola integrada o verifica el estado visual.
+4. Puedes detenerlos con **🛑 Parar**.
 
-```bash
-ng e2e
-```
+---
 
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
+## 📝 Licencia
 
-## Additional Resources
+@Liyodev
 
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+---
+
