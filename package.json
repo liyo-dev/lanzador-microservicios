@@ -49,6 +49,7 @@
   "build": {
     "appId": "com.example.launcher",
     "productName": "Launcher",
+    "icon": "icon.ico",
     "files": [
       "main.js",
       "preload.js",
