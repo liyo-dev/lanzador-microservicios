@@ -1,0 +1,77 @@
+.home-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  overflow: hidden;
+  position: relative;
+
+  background: linear-gradient(-45deg, #6dd5ed, #2193b0, #f7971e, #ff6a00);
+  background-size: 400% 400%;
+  animation: gradientAnimation 15s ease infinite;
+}
+
+@keyframes gradientAnimation {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.icon-float {
+  font-size: 4rem;
+  animation: floatRocket 3s ease-in-out infinite;
+}
+
+@keyframes floatRocket {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-15px);
+  }
+}
+
+.title {
+  text-align: center;
+  h2 {
+    font-size: 4rem;
+    margin: 0;
+    color: #fff;
+  }
+
+  p {
+    margin: 10px 0 30px;
+    font-size: 1.2rem;
+    color: #e0e0e0;
+  }
+}
+
+.buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+
+  button {
+    padding: 15px 30px;
+    font-size: 1.1rem;
+    border: none;
+    border-radius: 8px;
+    background-color: rgba(255, 255, 255, 0.9);
+    color: #333;
+    cursor: pointer;
+    transition: background-color 0.3s ease, transform 0.2s;
+
+    &:hover {
+      background-color: #fff;
+      transform: scale(1.05);
+    }
+  }
+}

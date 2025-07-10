@@ -1,31 +1,79 @@
+<app-spinner *ngIf="loading"></app-spinner>
+
 <div class="launcher-container">
-  <!-- Panel izquierdo: Micros -->
-  <div class="micro-list">
-    <label
-      *ngFor="let micro of angularMicros"
-      [class.disabled]="!config.angular?.[micro.key]?.path"
-      [class.running]="micro.status === 'running'"
-    >
-      <input
-        type="checkbox"
-        [(ngModel)]="micro.selected"
-        [disabled]="!config.angular?.[micro.key]?.path"
-      />
-      <span class="micro-name">{{ micro.label }}</span>
-    </label>
+  <div class="top-bar">
+    <button class="go-btn" (click)="goToHome()">
+      🏠 Home
+    </button>
+    <div class="top-bar-end">
+      <button class="go-btn" (click)="goToConfig()">
+        ⚙️ Configuración
+      </button>
+    </div>
   </div>
 
-  <!-- Panel derecho: Botones y Logs -->
-  <div class="main-panel">
-    <!-- Botones -->
-    <div class="button-bar">
-      <button class="stop-btn" (click)="stopSelected()">⛔ Parar</button>
-      <button class="start-btn" (click)="startSelected()">🚀 Arrancar</button>
-    </div>
+  <div class="tab-selector">
+    <button [class.active]="selectedTab === 'angular'" (click)="selectedTab = 'angular'">Angular</button>
+    <button [class.active]="selectedTab === 'spring'" (click)="selectedTab = 'spring'">Spring</button>
+  </div>
 
-    <!-- Logs -->
-    <div class="logs-panel">
-      <div *ngFor="let log of logs" class="log-line">{{ log }}</div>
+  <h2 *ngIf="selectedTab === 'angular'">Micros Angular</h2>
+  <div class="micro-selection">
+    @if(selectedTab === 'angular') {
+    @for (micro of angularMicros; track micro.key) {
+    <div class="micro-card" [attr.data-key]="micro.key">
+      <label class="checkbox-wrapper">
+        <input type="checkbox" [(ngModel)]="micro.selected" />
+        <span class="checkmark"></span>
+        {{ micro.label }}
+      </label>
+      <div class="status" [class.running]="micro.status === 'running'" [class.stopped]="micro.status === 'stopped'">
+        {{ micro.status }}
+      </div>
+      <div class="legacy-node-toggle">
+        <label>
+          <input type="checkbox" [(ngModel)]="micro.useLegacyProvider" />
+          <span class="toggle-label">
+            🧪 Compat. Node 
+          </span>
+        </label>
+      </div>
+
     </div>
+    }
+    }
+  </div>
+
+  <h2 *ngIf="selectedTab === 'spring'">Micros Spring</h2>
+  <div class="micro-selection">
+    @if(selectedTab === 'spring') {
+    <div *ngFor="let micro of springMicros" class="micro-card" [attr.data-key]="micro.key">
+      <label class="checkbox-wrapper">
+        <input type="checkbox" [(ngModel)]="micro.selected" />
+        <span class="checkmark"></span>
+        {{ micro.label }}
+      </label>
+      <div class="status" [class.running]="micro.status === 'running'" [class.stopped]="micro.status === 'stopped'">
+        {{ micro.status }}
+      </div>
+    </div>
+    }
+  </div>
+
+  <div class="button-bar">
+    <button class="stop-btn" (click)="stopSelected()">🛑 Parar</button>
+    <button class="start-btn" (click)="startSelected()">🚀 Arrancar</button>
+  </div>
+
+  <div *ngIf="showSuccessMessage && !loading" class="success-message" class="success-message" #successMessage>
+    ✅ Todos los micros arrancaron correctamente.
+  </div>
+
+  <button class="console-toggle" (click)="toggleLogs()">
+    {{ showLogs ? '🛑 Ocultar consola' : '🖥️ Ver consola' }}
+  </button>
+
+  <div *ngIf="showLogs" #logBox class="log-box">
+    <div *ngFor="let log of logs" class="log-line">{{ log }}</div>
   </div>
 </div>

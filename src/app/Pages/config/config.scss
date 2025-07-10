@@ -1,75 +1,246 @@
+:host {
+  display: block;
+  min-height: 100vh;
+  background: linear-gradient(-45deg, #e3f2fd, #fce4ec, #f3e5f5, #e1f5fe);
+  background-size: 400% 400%;
+  animation: bgMove 15s ease infinite;
+  padding: 2rem;
+  box-sizing: border-box;
+}
+
+@keyframes bgMove {
+  0% {
+    background-position: 0% 50%;
+  }
+
+  50% {
+    background-position: 100% 50%;
+  }
+
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
 h1 {
   text-align: center;
-  color: #3a59ff;
+  color: #2c3e50;
   margin-bottom: 20px;
+  font-size: 28px;
+}
+
+.tab-selector {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 20px;
+
+  button {
+    padding: 10px 18px;
+    border: none;
+    border-radius: 30px;
+    background: #dcdcdc;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 14px;
+    color: #444;
+    transition: all 0.2s ease;
+
+    &.active {
+      background: #3a59ff;
+      color: white;
+    }
+
+    &:hover {
+      background-color: #5f77ff;
+      color: white;
+    }
+  }
 }
 
 .section {
-  border: 2px solid #3a59ff;
-  border-radius: 12px;
-  padding: 15px;
-  margin-bottom: 20px;
+  margin-bottom: 30px;
+}
+
+.micro-grid {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 20px;
 }
 
 .micro-card {
-  border: 2px solid #00bfff;
+  width: 240px;
+  padding: 16px;
   border-radius: 12px;
-  padding: 10px;
-  margin-bottom: 15px;
-  background-color: #f9f9f9;
-}
+  background: #ffffff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  transition: transform 0.2s, box-shadow 0.3s;
 
-.micro-card h3 {
-  margin-top: 0;
-  color: #2ecc71;
-}
+  &:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 6px 18px rgba(58, 89, 255, 0.2);
+  }
 
-label {
-  display: block;
-  margin-bottom: 5px;
-  font-weight: bold;
-}
+  h3 {
+    font-size: 18px;
+    margin-bottom: 10px;
+    color: #3a59ff;
+    text-align: center;
+  }
 
-input[type='text'],
-input[type='number'] {
-  box-sizing: border-box; 
-  width: 100%;
-  padding: 8px;
-  border-radius: 6px;
-  border: 1px solid #ccc;
-  margin-bottom: 10px;
-  font-size: 16px;
+  input {
+    width: 90%;
+    padding: 10px;
+    margin: 6px 0;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    font-size: 14px;
+    transition: border-color 0.2s;
+
+    &:focus {
+      border-color: #3a59ff;
+      outline: none;
+    }
+  }
+
+  &:hover {
+    transform: translateY(-2px);
+  }
 }
 
 .button-bar {
   display: flex;
   justify-content: center;
   gap: 15px;
-  margin-top: 20px;
+  margin-top: 30px;
+
+  button {
+    flex: 1 0 auto;
+    min-width: 140px;
+    text-align: center;
+  }
 }
 
-.save-btn,
-.clear-btn {
-  padding: 10px 20px;
-  border-radius: 8px;
-  font-size: 16px;
-  font-weight: bold;
-  cursor: pointer;
+
+button.home-btn,
+button.save-btn,
+button.clear-btn,
+button.go-btn {
+  padding: 12px 22px;
+  border-radius: 30px;
+  font-size: 14px;
+  font-weight: 600;
   border: none;
-  transition: transform 0.2s;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: white;
 }
 
 .save-btn {
-  background-color: #2ecc71;
-  color: white;
+  background: #2ecc71;
+
+  &:hover {
+    background: #27ae60;
+  }
 }
+
+.home-btn {
+  background: #3a59ff;
+
+  &:hover {
+    background: #3a59ff;
+  }
+}
+
 
 .clear-btn {
-  background-color: #e74c3c;
-  color: white;
+  background: #e74c3c;
+
+  &:hover {
+    background: #c0392b;
+  }
 }
 
-.save-btn:hover,
-.clear-btn:hover {
-  transform: scale(1.05);
+.go-btn {
+  background: #3a59ff;
+
+  &:hover {
+    background: #2e46cc;
+  }
+}
+
+.feedback-zone {
+  margin-top: 1rem;
+  text-align: center;
+}
+
+.msg {
+  font-weight: 600;
+  font-size: 1.1rem;
+  padding: 0.6rem 1.2rem;
+  border-radius: 8px;
+  display: inline-block;
+  background-color: white;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.msg-guardar {
+  color: #28a745;
+  border: 1px solid #28a745;
+}
+
+.msg-borrar {
+  color: #dc3545;
+  border: 1px solid #dc3545;
+}
+
+.spring-settings {
+  fieldset {
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+
+    legend {
+      font-weight: bold;
+      font-size: 1.1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      user-select: none;
+    }
+
+    label {
+      display: flex;
+      flex-direction: column;
+      margin-bottom: 1rem;
+    }
+
+    .input-with-btn {
+      display: flex;
+      gap: 0.5rem;
+
+      input {
+        flex: 1;
+      }
+
+      .browse-btn {
+        background-color: #eee;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        padding: 0 0.6rem;
+        cursor: pointer;
+        transition: background-color 0.2s;
+
+        &:hover {
+          background-color: #ddd;
+        }
+      }
+    }
+  }
+}
+
+.invisible {
+  opacity: 0 !important;
 }

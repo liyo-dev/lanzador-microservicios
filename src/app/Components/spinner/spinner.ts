@@ -1,11 +1,15 @@
 import { Component } from '@angular/core';
+import { CommonModule } from '@angular/common';
 
 @Component({
   selector: 'app-spinner',
-  imports: [],
-  templateUrl: './spinner.html',
-  styleUrl: './spinner.scss'
+  standalone: true,
+  imports: [CommonModule],
+  template: `
+    <div class="spinner-overlay">
+      <div class="spinner"></div>
+    </div>
+  `,
+  styleUrls: ['./spinner.scss']
 })
-export class Spinner {
-
-}
+export class SpinnerComponent {}
