@@ -63,7 +63,8 @@
     },
     "win": {
       "target": "nsis",
-      "executableName": "LauncherApp.exe",
+      "executableName": "Launcher",
+      "artifactName": "${productName}-${version}-${arch}.${ext}",
       "sign": false,
       "signAndEditExecutable": false,
       "publisherName": null,
