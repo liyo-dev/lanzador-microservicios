@@ -108,6 +108,8 @@ export class Launcher {
       this.loading = anyStarting;
     });
 
+    
+
     (window as any).electronAPI.onLogAngular((msg: any) => {
       this.handleLog(msg, 'Angular');
     });

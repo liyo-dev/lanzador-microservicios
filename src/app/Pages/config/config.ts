@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { AfterViewInit, Component } from '@angular/core';
 import { Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -13,6 +13,7 @@ import gsap from 'gsap';
   styleUrls: ['./config.scss'],
 })
 export class ConfigComponent {
+  //#region Variables
   loading = true;
   guardadoOK = false;
   borradoOK = false;
@@ -62,27 +63,62 @@ export class ConfigComponent {
   ];
 
   selectedTab: 'angular' | 'spring' = 'angular';
-
+  //#endregion
   constructor(private router: Router) {
     (window as any).electronAPI.getConfig().then((cfg: any) => {
       this.config = cfg;
-      this.loading = false;
-      setTimeout(
-        () => gsap.from('.section', { opacity: 0, y: 20, duration: 0.5 }),
-        0
-      );
+
+      setTimeout(() => this.loading = false , 500);
+
+      requestAnimationFrame(() => {
+        gsap.fromTo('h1', { opacity: 0, y: -20 }, { opacity: 1, y: 0, duration: 0.6, ease: 'power2.out' });
+
+        gsap.fromTo('.tab-selector button', { opacity: 0, y: -10 }, {
+          opacity: 1,
+          y: 0,
+          duration: 0.3,
+          stagger: 0.1,
+          delay: 0.4
+        });
+
+        gsap.fromTo('.micro-card', { opacity: 0, y: 20 }, {
+          opacity: 1,
+          y: 0,
+          duration: 0.4,
+          stagger: 0.1,
+          delay: 0.6
+        });
+
+        // 👇 Este es el bloque que te interesa
+        const buttons = document.querySelectorAll('.button-bar button');
+        const bar = document.querySelector('.button-bar');
+
+        if (bar && buttons.length > 0) {
+          bar.classList.remove('invisible'); // 👈 evita el parpadeo
+          gsap.fromTo(buttons, { opacity: 0, y: 10 }, {
+            opacity: 1,
+            y: 0,
+            stagger: 0.1,
+            delay: 1,
+            duration: 0.3
+          });
+        }
+      });
+
+
     });
   }
 
   changeTab(tab: 'angular' | 'spring') {
     if (this.selectedTab !== tab) {
       this.selectedTab = tab;
-      setTimeout(
-        () => gsap.from('.section', { opacity: 0, y: 20, duration: 0.4 }),
-        0
-      );
+      requestAnimationFrame(() => {
+        gsap.from('.section', { opacity: 0, y: 20, duration: 0.4 });
+        gsap.from('.micro-card', { opacity: 0, y: 20, duration: 0.4, stagger: 0.1 });
+      });
     }
   }
+
 
   save() {
     (window as any).electronAPI.saveConfig(this.config);

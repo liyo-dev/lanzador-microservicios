@@ -2,9 +2,9 @@
 
 <div class="launcher-container">
   <div class="top-bar">
-      <button class="go-btn" (click)="goToHome()">
-        🏠 Home
-      </button>
+    <button class="go-btn" (click)="goToHome()">
+      🏠 Home
+    </button>
     <div class="top-bar-end">
       <button class="go-btn" (click)="goToConfig()">
         ⚙️ Configuración
@@ -30,11 +30,15 @@
       <div class="status" [class.running]="micro.status === 'running'" [class.stopped]="micro.status === 'stopped'">
         {{ micro.status }}
       </div>
-      <label class="checkbox-wrapper" style="margin-left: 1.5rem">
-        <input type="checkbox" [(ngModel)]="micro.useLegacyProvider" />
-        <span class="checkmark"></span>
-        <span style="font-size: 0.85rem">Compatibilidad Node</span>
-      </label>
+      <div class="legacy-node-toggle">
+        <label>
+          <input type="checkbox" [(ngModel)]="micro.useLegacyProvider" />
+          <span class="toggle-label">
+            🧪 Compat. Node 
+          </span>
+        </label>
+      </div>
+
     </div>
     }
     }

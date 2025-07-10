@@ -1,3 +1,27 @@
+:host {
+  display: block;
+  min-height: 100vh;
+  background: linear-gradient(-45deg, #e3f2fd, #fce4ec, #f3e5f5, #e1f5fe);
+  background-size: 400% 400%;
+  animation: bgMove 15s ease infinite;
+  padding: 2rem;
+  box-sizing: border-box;
+}
+
+@keyframes bgMove {
+  0% {
+    background-position: 0% 50%;
+  }
+
+  50% {
+    background-position: 100% 50%;
+  }
+
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
 h1 {
   text-align: center;
   color: #2c3e50;
@@ -51,7 +75,12 @@ h1 {
   border-radius: 12px;
   background: #ffffff;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-  transition: transform 0.2s;
+  transition: transform 0.2s, box-shadow 0.3s;
+
+  &:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 6px 18px rgba(58, 89, 255, 0.2);
+  }
 
   h3 {
     font-size: 18px;
@@ -85,7 +114,14 @@ h1 {
   justify-content: center;
   gap: 15px;
   margin-top: 30px;
+
+  button {
+    flex: 1 0 auto;
+    min-width: 140px;
+    text-align: center;
+  }
 }
+
 
 button.home-btn,
 button.save-btn,
@@ -141,17 +177,22 @@ button.go-btn {
 
 .msg {
   font-weight: 600;
-  font-size: 1rem;
-  opacity: 0;
-  transition: opacity 0.4s ease, transform 0.4s ease;
+  font-size: 1.1rem;
+  padding: 0.6rem 1.2rem;
+  border-radius: 8px;
+  display: inline-block;
+  background-color: white;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .msg-guardar {
   color: #28a745;
+  border: 1px solid #28a745;
 }
 
 .msg-borrar {
   color: #dc3545;
+  border: 1px solid #dc3545;
 }
 
 .spring-settings {
@@ -160,6 +201,7 @@ button.go-btn {
     border-radius: 8px;
     padding: 1rem;
     margin-bottom: 1.5rem;
+
     legend {
       font-weight: bold;
       font-size: 1.1rem;
@@ -168,17 +210,21 @@ button.go-btn {
       gap: 0.5rem;
       user-select: none;
     }
+
     label {
       display: flex;
       flex-direction: column;
       margin-bottom: 1rem;
     }
+
     .input-with-btn {
       display: flex;
       gap: 0.5rem;
+
       input {
         flex: 1;
       }
+
       .browse-btn {
         background-color: #eee;
         border: 1px solid #ccc;
@@ -186,6 +232,7 @@ button.go-btn {
         padding: 0 0.6rem;
         cursor: pointer;
         transition: background-color 0.2s;
+
         &:hover {
           background-color: #ddd;
         }
@@ -194,3 +241,6 @@ button.go-btn {
   }
 }
 
+.invisible {
+  opacity: 0 !important;
+}
