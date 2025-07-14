@@ -67,6 +67,42 @@ Para que el lanzador funcione correctamente es necesario tener instaladas alguna
 
 ---
 
+## 🛠️ Resolución de errores comunes
+
+### ❌ No se encuentra el comando `ng`
+Este error aparece si Angular CLI no está instalado globalmente o si el sistema no puede encontrar el ejecutable `ng.cmd`.
+
+#### Solución:
+1. Abre una terminal (CMD o PowerShell).
+2. Ejecuta:
+
+   npm install -g @angular/cli
+
+3. Asegúrate de que la carpeta %APPDATA%\npm esté incluida en la variable de entorno PATH.
+
+    Puedes verificar en una consola con: 'where ng'
+
+❌ No se encuentra Node.js
+El lanzador necesita Node.js para ejecutar microservicios Angular.
+
+Solución:
+Instala Node.js desde https://nodejs.org (elige la versión LTS).
+
+Reinicia el sistema si no lo reconoce tras instalarlo.
+
+Verifica desde la consola con:
+node -v
+npm -v
+
+❌ No se encuentra Java o Maven
+Consulta la sección 🖥️ Requisitos previos para verificar que:
+
+JAVA_HOME esté correctamente definido.
+
+PATH incluya %JAVA_HOME%\bin.
+
+Si usas Maven externo, define también MAVEN_HOME y %MAVEN_HOME%\bin.
+
 ## 📝 Licencia
 
 @Liyodev
