@@ -1,7 +1,7 @@
 import { Component, AfterViewInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { gsap } from 'gsap';
-import { appVersion } from '../../../version';
+import packageJson from '../../../../package.json';
 
 @Component({
   selector: 'app-home',
@@ -10,7 +10,7 @@ import { appVersion } from '../../../version';
   standalone: true,
 })
 export class Home implements AfterViewInit {
-  version = appVersion;
+  version = packageJson.version;
 
   constructor(private router: Router) {}
 
