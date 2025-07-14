@@ -76,33 +76,51 @@ Este error aparece si Angular CLI no está instalado globalmente o si el sistema
 1. Abre una terminal (CMD o PowerShell).
 2. Ejecuta:
 
+   ```bash
    npm install -g @angular/cli
+   ```
 
-3. Asegúrate de que la carpeta %APPDATA%\npm esté incluida en la variable de entorno PATH.
+3. Asegúrate de que la carpeta `%APPDATA%\npm` esté incluida en la variable de entorno `PATH`.
 
-    Puedes verificar en una consola con: 'where ng'
+Puedes verificar con:
 
-❌ No se encuentra Node.js
+```cmd
+where ng
+```
+
+Debería mostrar una ruta similar a:
+
+```
+C:\Users\TU_USUARIO\AppData\Roaming\npm\ng.cmd
+```
+
+---
+
+### ❌ No se encuentra Node.js
+
 El lanzador necesita Node.js para ejecutar microservicios Angular.
 
-Solución:
-Instala Node.js desde https://nodejs.org (elige la versión LTS).
+#### Solución:
+1. Instala Node.js desde https://nodejs.org (elige la versión LTS).
+2. Reinicia el sistema si no lo reconoce tras instalarlo.
+3. Verifica desde la consola con:
 
-Reinicia el sistema si no lo reconoce tras instalarlo.
+   ```cmd
+   node -v
+   npm -v
+   ```
 
-Verifica desde la consola con:
-node -v
-npm -v
+---
 
-❌ No se encuentra Java o Maven
-Consulta la sección 🖥️ Requisitos previos para verificar que:
+### ❌ No se encuentra Java o Maven
 
-JAVA_HOME esté correctamente definido.
+Consulta la sección **🖥️ Requisitos previos** para verificar que:
 
-PATH incluya %JAVA_HOME%\bin.
+- `JAVA_HOME` esté correctamente definido.
+- `PATH` incluya `%JAVA_HOME%\bin`.
+- Si usas Maven externo, define también `MAVEN_HOME` y `%MAVEN_HOME%\bin`.
 
-Si usas Maven externo, define también MAVEN_HOME y %MAVEN_HOME%\bin.
-
+---
 ## 📝 Licencia
 
 @Liyodev
