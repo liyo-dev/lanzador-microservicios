@@ -120,7 +120,37 @@ ipcMain.on("start-angular", (event, data) => {
     env.NODE_OPTIONS = "--openssl-legacy-provider";
   }
 
-  const angularProcess = spawn("ng.cmd", ["serve", "--port", data.port], {
+  
+  const { dialog } = require("electron");
+
+  const ngCmdPaths = [
+    "C:\Program Files\nodejs\ng.cmd",
+    path.join(process.env.APPDATA || "", "npm", "ng.cmd"),
+    path.join(process.env.USERPROFILE || "", "AppData", "Roaming", "npm", "ng.cmd")
+  ];
+
+  const isNgAvailable = ngCmdPaths.some(fs.existsSync);
+
+  if (!isNgAvailable) {
+    const message = `No se encontró Angular CLI instalado globalmente.
+
+🔧 Solución recomendada:
+1. Abre una terminal y ejecuta:
+   npm install -g @angular/cli
+
+2. Asegúrate de que la ruta %APPDATA%\npm esté en la variable de entorno PATH.`;
+
+    dialog.showErrorBox("Angular CLI no encontrado", message);
+
+    mainWindow.webContents.send("log-angular", {
+      micro: data.micro,
+      log: "❌ No se encontró Angular CLI global. Ejecuta `npm install -g @angular/cli`",
+      status: "stopped",
+    });
+
+    return;
+  }
+const angularProcess = spawn("ng.cmd", ["serve", "--port", data.port], {
     cwd: data.path,
     shell: true,
     env,
