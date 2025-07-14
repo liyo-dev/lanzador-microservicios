@@ -13,25 +13,19 @@ Aplicación de escritorio para lanzar y gestionar microservicios de Angular y Sp
 
 ## 🖥️ Requisitos previos
 
-| Tecnología | Requisito                                        |
-|------------|--------------------------------------------------|
-| Node.js    | Necesario para ejecutar microservicios Angular   |
-| Java (JDK) | Necesario para ejecutar microservicios Spring    |
-| Maven      | Recomendado (si no se usa el `mvnw` del micro)   |
+Para que el lanzador funcione correctamente es necesario tener instaladas algunas herramientas y configurar ciertas variables de entorno en tu usuario de Windows.
 
-> ✅ El lanzador permite configurar rutas personalizadas para `JAVA_HOME`, `MAVEN_HOME` y `settings.xml`.
+| Tecnología     | Requisito                                                                 |
+|----------------|---------------------------------------------------------------------------|
+| Node.js        | Instalar desde https://nodejs.org (recomendado LTS 18+)                   |
+| Angular CLI    | Ejecutar `npm install -g @angular/cli` para disponer del comando `ng`     |
+| Java (JDK)     | Instalar JDK (por ejemplo: https://adoptium.net/)                         |
+| JAVA_HOME      | Variable de entorno apuntando a la carpeta del JDK (ej: `C:\Java\jdk-21`) |
+| Maven (opcional) | Si no se usa `mvnw.cmd`, instalar desde https://maven.apache.org/       |
+| MAVEN_HOME     | (Opcional) Variable apuntando a la carpeta de Maven                       |
+| PATH           | Debe incluir `%JAVA_HOME%\bin` y, si aplica, `%MAVEN_HOME%\bin`           |
 
-VARIABLES DE ENTORNO DE LA CUENTA DE WINDOWS:
-✅ Variables necesarias para Angular
-Angular usa ng.cmd, que viene con Angular CLI y Node.js.
-No requiere variables específicas si tienes bien instalado Node.js y Angular CLI, pero asegúrate de:
-
-1. PATH
-Debe incluir:
-
-La ruta a tu instalación de Node.js (por ejemplo: C:\Program Files\nodejs\)
-
-La carpeta donde se instala Angular CLI globalmente (si usaste npm install -g @angular/cli ya está en PATH)
+> ✅ El lanzador también permite definir estas rutas de forma manual si no quieres configurar las variables de entorno permanentemente.
 
 ---
 
@@ -73,6 +67,60 @@ La carpeta donde se instala Angular CLI globalmente (si usaste npm install -g @a
 
 ---
 
+## 🛠️ Resolución de errores comunes
+
+### ❌ No se encuentra el comando `ng`
+Este error aparece si Angular CLI no está instalado globalmente o si el sistema no puede encontrar el ejecutable `ng.cmd`.
+
+#### Solución:
+1. Abre una terminal (CMD o PowerShell).
+2. Ejecuta:
+
+   ```bash
+   npm install -g @angular/cli
+   ```
+
+3. Asegúrate de que la carpeta `%APPDATA%\npm` esté incluida en la variable de entorno `PATH`.
+
+Puedes verificar con:
+
+```cmd
+where ng
+```
+
+Debería mostrar una ruta similar a:
+
+```
+C:\Users\TU_USUARIO\AppData\Roaming\npm\ng.cmd
+```
+
+---
+
+### ❌ No se encuentra Node.js
+
+El lanzador necesita Node.js para ejecutar microservicios Angular.
+
+#### Solución:
+1. Instala Node.js desde https://nodejs.org (elige la versión LTS).
+2. Reinicia el sistema si no lo reconoce tras instalarlo.
+3. Verifica desde la consola con:
+
+   ```cmd
+   node -v
+   npm -v
+   ```
+
+---
+
+### ❌ No se encuentra Java o Maven
+
+Consulta la sección **🖥️ Requisitos previos** para verificar que:
+
+- `JAVA_HOME` esté correctamente definido.
+- `PATH` incluya `%JAVA_HOME%\bin`.
+- Si usas Maven externo, define también `MAVEN_HOME` y `%MAVEN_HOME%\bin`.
+
+---
 ## 📝 Licencia
 
 @Liyodev
