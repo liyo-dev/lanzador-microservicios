@@ -108,8 +108,6 @@ export class Launcher {
       this.loading = anyStarting;
     });
 
-    
-
     (window as any).electronAPI.onLogAngular((msg: any) => {
       this.handleLog(msg, 'Angular');
     });
@@ -182,19 +180,12 @@ export class Launcher {
     const card = document.querySelector(`.micro-card[data-key="${microKey}"]`);
     if (!card) return;
 
-    if (status === 'running') {
-      gsap.fromTo(
-        card,
-        { backgroundColor: '#d4edda' },
-        { backgroundColor: 'transparent', duration: 1 }
-      );
-    } else if (status === 'stopped') {
-      gsap.fromTo(
-        card,
-        { backgroundColor: '#f8d7da' },
-        { backgroundColor: 'transparent', duration: 1 }
-      );
-    }
+    // Solo una pequeña animación de escalado para indicar cambio visual
+    gsap.fromTo(
+      card,
+      { scale: 0.97 },
+      { scale: 1, duration: 0.3, ease: 'power2.out' }
+    );
   }
 
   startSelected() {
