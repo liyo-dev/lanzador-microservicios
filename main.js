@@ -120,36 +120,6 @@ ipcMain.on("start-angular", (event, data) => {
     env.NODE_OPTIONS = "--openssl-legacy-provider";
   }
 
-  const which = require("which");
-
-  let isNgAvailable = false;
-  try {
-    const ngPath = which.sync("ng", { nothrow: true });
-    isNgAvailable = !!ngPath && fs.existsSync(ngPath);
-  } catch {
-    isNgAvailable = false;
-  }
-
-  if (!isNgAvailable) {
-    const message = `No se encontró Angular CLI instalado globalmente.
-
-🔧 Solución recomendada:
-1. Abre una terminal y ejecuta:
-   npm install -g @angular/cli
-
-2. Asegúrate de que la ruta %APPDATA%\\npm esté en la variable de entorno PATH.`;
-
-    dialog.showErrorBox("Angular CLI no encontrado", message);
-
-    mainWindow.webContents.send("log-angular", {
-      micro: data.micro,
-      log: "❌ No se encontró Angular CLI global. Ejecuta `npm install -g @angular/cli`",
-      status: "stopped",
-    });
-
-    return;
-  }
-
   const angularProcess = spawn("ng.cmd", ["serve", "--port", data.port], {
     cwd: data.path,
     shell: true,
