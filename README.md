@@ -21,6 +21,18 @@ Aplicación de escritorio para lanzar y gestionar microservicios de Angular y Sp
 
 > ✅ El lanzador permite configurar rutas personalizadas para `JAVA_HOME`, `MAVEN_HOME` y `settings.xml`.
 
+VARIABLES DE ENTORNO DE LA CUENTA DE WINDOWS:
+✅ Variables necesarias para Angular
+Angular usa ng.cmd, que viene con Angular CLI y Node.js.
+No requiere variables específicas si tienes bien instalado Node.js y Angular CLI, pero asegúrate de:
+
+1. PATH
+Debe incluir:
+
+La ruta a tu instalación de Node.js (por ejemplo: C:\Program Files\nodejs\)
+
+La carpeta donde se instala Angular CLI globalmente (si usaste npm install -g @angular/cli ya está en PATH)
+
 ---
 
 ## 🔧 Instalación
