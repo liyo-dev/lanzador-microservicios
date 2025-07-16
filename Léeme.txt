@@ -1,15 +1,15 @@
-# 🚀 Lanzador de Microservicios
+# Lanzador de Microservicios
 
 Aplicación de escritorio para lanzar y gestionar microservicios de Angular y Spring Boot sin necesidad de abrir una consola o un IDE. Pensada para facilitar el trabajo diario en entornos locales y mantener todos los servicios controlados desde una sola interfaz visual.
 
 
-## 📦 Formatos disponibles
+## Formatos disponibles
 
 - **`.exe` (instalador)**: instala la aplicación en el sistema con acceso desde el menú de inicio.
 - **`.portable`**: ejecuta la aplicación sin instalación. Ideal para llevar en un USB o usar sin permisos de administrador.
 
 
-## 🖥️ Requisitos previos
+## Requisitos previos
 
 Para que el lanzador funcione correctamente es necesario tener instaladas algunas herramientas y configurar ciertas variables de entorno en tu usuario de Windows.
 
@@ -23,10 +23,10 @@ Para que el lanzador funcione correctamente es necesario tener instaladas alguna
 | MAVEN_HOME     | (Opcional) Variable apuntando a la carpeta de Maven                       |
 | PATH           | Debe incluir `%JAVA_HOME%\bin` y, si aplica, `%MAVEN_HOME%\bin`           |
 
-> ✅ El lanzador también permite definir estas rutas de forma manual si no quieres configurar las variables de entorno permanentemente.
+> El lanzador también permite definir estas rutas de forma manual si no quieres configurar las variables de entorno permanentemente.
 
 
-## 🔧 Instalación
+## Instalación
 
 ### Opción 1: Instalador `.exe`
 1. Haz doble click sobre el archivo `launcher-setup.exe`.
@@ -37,9 +37,9 @@ Para que el lanzador funcione correctamente es necesario tener instaladas alguna
 1. Abre la carpeta `win-unpacked`.
 2. Ejecuta directamente el archivo `Launcher.exe`.
 
-> ⚠️ **Importante:** asegúrate de no ubicar la carpeta en un path con espacios si los servicios tienen problemas al arrancar.
+> **Importante:** asegúrate de no ubicar la carpeta en un path con espacios si los servicios tienen problemas al arrancar.
 
-## ⚙️ Configuración inicial
+## Configuración inicial
 
 1. Pulsa el botón **⚙️ Configuración** desde la pantalla principal.
 2. Introduce las rutas de los microservicios Angular y Spring.
@@ -57,9 +57,9 @@ Para que el lanzador funcione correctamente es necesario tener instaladas alguna
 3. Observa los logs en la consola integrada o verifica el estado visual.
 4. Puedes detenerlos con **🛑 Parar**.
 
-## 🛠️ Resolución de errores comunes
+## Resolución de errores comunes
 
-### ❌ No se encuentra el comando `ng`
+### No se encuentra el comando `ng`
 Este error aparece si Angular CLI no está instalado globalmente o si el sistema no puede encontrar el ejecutable `ng.cmd`.
 
 #### Solución:
@@ -86,7 +86,7 @@ C:\Users\TU_USUARIO\AppData\Roaming\npm\ng.cmd
 
 ---
 
-### ❌ No se encuentra Node.js
+### No se encuentra Node.js
 
 El lanzador necesita Node.js para ejecutar microservicios Angular.
 
@@ -102,9 +102,9 @@ El lanzador necesita Node.js para ejecutar microservicios Angular.
 
 ---
 
-### ❌ No se encuentra Java o Maven
+### No se encuentra Java o Maven
 
-Consulta la sección **🖥️ Requisitos previos** para verificar que:
+Consulta la sección **Requisitos previos** para verificar que:
 
 - `JAVA_HOME` esté correctamente definido.
 - `PATH` incluya `%JAVA_HOME%\bin`.
@@ -112,6 +112,6 @@ Consulta la sección **🖥️ Requisitos previos** para verificar que:
 
 ---
 
-## 📝 Licencia
+## Licencia
 
 Lo he hecho yo asi que pa mi: @Liyodev.
