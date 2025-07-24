@@ -5,10 +5,49 @@
   <button [class.active]="selectedTab === 'spring'" (click)="changeTab('spring')">Spring</button>
 </div>
 
+<!-- Botón para agregar microservicio -->
+<div class="add-micro-section" *ngIf="!loading">
+  <button class="add-micro-btn" (click)="toggleAddMicroForm()" *ngIf="!showAddMicroForm">
+    ➕ Agregar Microservicio {{ selectedTab === 'angular' ? 'Angular' : 'Spring' }}
+  </button>
+  
+  <!-- Formulario para agregar microservicio -->
+  <div class="add-micro-form" *ngIf="showAddMicroForm">
+    <h3>Agregar Nuevo Microservicio</h3>
+    <div class="form-row">
+      <input 
+        [(ngModel)]="newMicroName" 
+        type="text" 
+        placeholder="Nombre del microservicio"
+        maxlength="50"
+        (keyup.enter)="addCustomMicroservice()"
+      />
+      <select [(ngModel)]="newMicroType">
+        <option value="angular">Angular</option>
+        <option value="spring">Spring</option>
+      </select>
+    </div>
+    <div class="form-buttons">
+      <button class="confirm-btn" (click)="addCustomMicroservice()">✅ Agregar</button>
+      <button class="cancel-btn" (click)="toggleAddMicroForm()">❌ Cancelar</button>
+    </div>
+  </div>
+</div>
+
 <div class="section" *ngIf="!loading && selectedTab === 'angular'">
   <div class="micro-grid">
-    <div *ngFor="let micro of angularMicros" class="micro-card">
-      <h3>{{ micro.label }}</h3>
+    <div *ngFor="let micro of angularMicros" class="micro-card" [attr.data-key]="micro.key">
+      <div class="micro-header">
+        <h3>{{ micro.label }}</h3>
+        <button 
+          *ngIf="micro.isCustom" 
+          class="remove-btn" 
+          (click)="removeCustomMicroservice(micro.key, 'angular')"
+          title="Eliminar microservicio personalizado"
+        >
+          🗑️
+        </button>
+      </div>
       <input [(ngModel)]="config.angular[micro.key].path" type="text" placeholder="Ruta del microservicio" />
       <input [(ngModel)]="config.angular[micro.key].port" type="number" placeholder="Puerto" />
     </div>
@@ -48,8 +87,18 @@
     </fieldset>
   </div>
   <div class="micro-grid">
-    <div *ngFor="let micro of springMicros" class="micro-card">
-      <h3>{{ micro.label }}</h3>
+    <div *ngFor="let micro of springMicros" class="micro-card" [attr.data-key]="micro.key">
+      <div class="micro-header">
+        <h3>{{ micro.label }}</h3>
+        <button 
+          *ngIf="micro.isCustom" 
+          class="remove-btn" 
+          (click)="removeCustomMicroservice(micro.key, 'spring')"
+          title="Eliminar microservicio personalizado"
+        >
+          🗑️
+        </button>
+      </div>
       <input [(ngModel)]="config.spring[micro.key].path" type="text" placeholder="Ruta del microservicio" />
     </div>
   </div>
@@ -61,7 +110,6 @@
   <button class="clear-btn" (click)="clear()">🗑 Borrar</button>
   <button class="go-btn" (click)="goToLauncher()">🚀 Ir al launcher</button>
 </div>
-
 
 <div class="feedback-zone">
   <div *ngIf="guardadoOK" class="msg msg-guardar">✅ Configuración guardada correctamente.</div>

@@ -17,63 +17,60 @@
     <button [class.active]="selectedTab === 'spring'" (click)="selectedTab = 'spring'">Spring</button>
   </div>
 
-  <h2 *ngIf="selectedTab === 'angular'">Micros Angular</h2>
-  <div class="micro-selection">
-    @if(selectedTab === 'angular') {
-    @for (micro of angularMicros; track micro.key) {
-    <div class="micro-card" [attr.data-key]="micro.key">
-      <label class="checkbox-wrapper">
-        <input type="checkbox" [(ngModel)]="micro.selected" />
-        <span class="checkmark"></span>
-        {{ micro.label }}
-      </label>
-      <div class="status" [class.running]="micro.status === 'running'" [class.stopped]="micro.status === 'stopped'">
-        {{ micro.status }}
-      </div>
-      <div class="legacy-node-toggle">
-        <label>
-          <input type="checkbox" [(ngModel)]="micro.useLegacyProvider" />
-          <span class="toggle-label">
-            🧪 Compat. Node 
-          </span>
-        </label>
-      </div>
-
-    </div>
-    }
-    }
+  <!-- Estado vacío cuando no hay microservicios configurados -->
+  <div class="empty-state" *ngIf="!hasMicrosToShow()">
+    <div class="empty-icon">📦</div>
+    <h3>No hay microservicios {{ selectedTab === 'angular' ? 'Angular' : 'Spring' }} configurados</h3>
+    <p>Ve a la configuración para agregar microservicios y configurar sus rutas.</p>
+    <button class="config-btn" (click)="goToConfig()">
+      ⚙️ Ir a Configuración
+    </button>
   </div>
 
-  <h2 *ngIf="selectedTab === 'spring'">Micros Spring</h2>
-  <div class="micro-selection">
-    @if(selectedTab === 'spring') {
-    <div *ngFor="let micro of springMicros" class="micro-card" [attr.data-key]="micro.key">
-      <label class="checkbox-wrapper">
-        <input type="checkbox" [(ngModel)]="micro.selected" />
-        <span class="checkmark"></span>
-        {{ micro.label }}
-      </label>
-      <div class="status" [class.running]="micro.status === 'running'" [class.stopped]="micro.status === 'stopped'">
-        {{ micro.status }}
+  <!-- Microservicios cuando hay configurados -->
+  <div *ngIf="hasMicrosToShow()">
+    <h2>Micros {{ selectedTab === 'angular' ? 'Angular' : 'Spring' }}</h2>
+    <div class="micro-selection">
+      <div *ngFor="let micro of getDisplayedMicros()" class="micro-card" [attr.data-key]="micro.key">
+        <div class="micro-header">
+          <label class="checkbox-wrapper">
+            <input type="checkbox" [(ngModel)]="micro.selected" />
+            <span class="checkmark"></span>
+            {{ micro.label }}
+          </label>
+          <span class="custom-badge" *ngIf="micro.isCustom" title="Microservicio personalizado">✨</span>
+        </div>
+        <div class="status" [class.running]="micro.status === 'running'" [class.stopped]="micro.status === 'stopped'">
+          {{ micro.status }}
+        </div>
+        <div class="legacy-node-toggle" *ngIf="selectedTab === 'angular'">
+          <label>
+            <input type="checkbox" [(ngModel)]="micro.useLegacyProvider" />
+            <span class="toggle-label">
+              🧪 Compat. Node 
+            </span>
+          </label>
+        </div>
       </div>
     </div>
-    }
+
+    <div class="button-bar">
+      <button class="stop-btn" (click)="stopSelected()">🛑 Parar</button>
+      <button class="start-btn" (click)="startSelected()">🚀 Arrancar</button>
+    </div>
+
+    <div *ngIf="showSuccessMessage && !loading" class="success-message" #successMessage>
+      ✅ Todos los micros arrancaron correctamente.
+    </div>
   </div>
 
-  <div class="button-bar">
-    <button class="stop-btn" (click)="stopSelected()">🛑 Parar</button>
-    <button class="start-btn" (click)="startSelected()">🚀 Arrancar</button>
-  </div>
+  <div class="logs-section">
+    <button class="logs-toggle" (click)="toggleLogs()">
+      {{ showLogs ? '🔼 Ocultar logs' : '🔽 Mostrar logs' }}
+    </button>
 
-  <div *ngIf="showSuccessMessage && !loading" class="success-message" class="success-message" #successMessage>
-    ✅ Todos los micros arrancaron correctamente.
-  </div>
-
-  <button class="console-toggle" (click)="toggleLogs()">
-    {{ showLogs ? '🛑 Ocultar consola' : '🖥️ Ver consola' }}
-  </button>
-
-  <div *ngIf="showLogs" #logBox class="log-box">
-    <div *ngFor="let log of logs" class="log-line">{{ log }}</div>
+    <div *ngIf="showLogs" class="log-box" #logBox>
+      <div *ngFor="let log of logs" class="log-line">{{ log }}</div>
+    </div>
   </div>
 </div>

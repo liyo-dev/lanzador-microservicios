@@ -5,6 +5,13 @@ import { FormsModule } from '@angular/forms';
 import { SpinnerComponent } from '../../Components/spinner/spinner';
 import gsap from 'gsap';
 
+// Añadir interface para microservicios personalizados
+interface CustomMicroservice {
+  key: string;
+  label: string;
+  isCustom?: boolean;
+}
+
 @Component({
   selector: 'app-config',
   standalone: true,
@@ -19,54 +26,43 @@ export class ConfigComponent {
   borradoOK = false;
   showSpringConfig = true;
 
+  // Agregar campos para el formulario de nuevo microservicio
+  newMicroName = '';
+  newMicroType: 'angular' | 'spring' = 'angular';
+  showAddMicroForm = false;
+
   config: any = {
     angular: {
-      upload: { path: '', port: 4200 },
-      notifica: { path: '', port: 4201 },
-      pagos: { path: '', port: 4202 },
-      reportes: { path: '', port: 4203 },
-      psd2: { path: '', port: 4204 },
-      intradia: { path: '', port: 4205 },
+      // Eliminar microservicios predefinidos - ahora inicia vacío
     },
     spring: {
-      upload: { path: '' },
-      pagos: { path: '' },
-      reportes: { path: '' },
-      gateway: { path: '' },
-      notifica: { path: '' },
-      psd2: { path: '' },
-      intradia: { path: '' },
+      // Eliminar microservicios predefinidos - ahora inicia vacío
       javaHome: '',
       mavenHome: '',
       settingsXml: '',
       m2RepoPath: '',
     },
+    // Configuración para microservicios personalizados
+    customMicros: {
+      angular: [],
+      spring: []
+    }
   };
 
-  angularMicros = [
-    { key: 'upload', label: 'upload' },
-    { key: 'notifica', label: 'notifica' },
-    { key: 'pagos', label: 'pagos' },
-    { key: 'reportes', label: 'reportes' },
-    { key: 'psd2', label: 'psd2' },
-    { key: 'intradia', label: 'intradía' },
-  ];
-
-  springMicros = [
-    { key: 'upload', label: 'upload' },
-    { key: 'pagos', label: 'pagos' },
-    { key: 'reportes', label: 'reportes' },
-    { key: 'gateway', label: 'gateway' },
-    { key: 'notifica', label: 'notifica' },
-    { key: 'psd2', label: 'psd2' },
-    { key: 'intradia', label: 'intradía' },
-  ];
+  // Eliminar listas predefinidas - ahora todo es dinámico
+  angularMicros: CustomMicroservice[] = [];
+  springMicros: CustomMicroservice[] = [];
 
   selectedTab: 'angular' | 'spring' = 'angular';
   //#endregion
   constructor(private router: Router) {
     (window as any).electronAPI.getConfig().then((cfg: any) => {
       this.config = cfg;
+      
+      // Cargar microservicios personalizados si existen
+      if (cfg.customMicros) {
+        this.loadCustomMicros();
+      }
 
       setTimeout(() => this.loading = false , 500);
 
@@ -107,6 +103,51 @@ export class ConfigComponent {
 
 
     });
+  }
+
+  // Nuevo método para cargar microservicios personalizados
+  loadCustomMicros() {
+    if (this.config.customMicros?.angular) {
+      this.config.customMicros.angular.forEach((micro: any) => {
+        if (!this.angularMicros.find(m => m.key === micro.key)) {
+          this.angularMicros.push({ ...micro, isCustom: true });
+          // Asegurar que la configuración exista
+          if (!this.config.angular[micro.key]) {
+            this.config.angular[micro.key] = { path: '', port: this.getNextAvailablePort() };
+          }
+        }
+      });
+    }
+
+    if (this.config.customMicros?.spring) {
+      this.config.customMicros.spring.forEach((micro: any) => {
+        if (!this.springMicros.find(m => m.key === micro.key)) {
+          this.springMicros.push({ ...micro, isCustom: true });
+          // Asegurar que la configuración exista
+          if (!this.config.spring[micro.key]) {
+            this.config.spring[micro.key] = { path: '' };
+          }
+        }
+      });
+    }
+  }
+
+  // Método para obtener el siguiente puerto disponible
+  getNextAvailablePort(): number {
+    const usedPorts = Object.values(this.config.angular)
+      .map((config: any) => config.port)
+      .filter(port => typeof port === 'number')
+      .sort((a, b) => a - b);
+    
+    let nextPort = 4200;
+    for (const port of usedPorts) {
+      if (nextPort === port) {
+        nextPort++;
+      } else {
+        break;
+      }
+    }
+    return nextPort;
   }
 
   changeTab(tab: 'angular' | 'spring') {
@@ -152,27 +193,24 @@ export class ConfigComponent {
     (window as any).electronAPI.clearConfig().then(() => {
       this.config = {
         angular: {
-          upload: { path: '', port: 4200 },
-          notifica: { path: '', port: 4201 },
-          pagos: { path: '', port: 4202 },
-          reportes: { path: '', port: 4203 },
-          psd2: { path: '', port: 4204 },
-          intradia: { path: '', port: 4205 },
+          // Eliminar microservicios predefinidos - ahora inicia vacío
         },
         spring: {
-          upload: { path: '' },
-          pagos: { path: '' },
-          reportes: { path: '' },
-          gateway: { path: '' },
-          notifica: { path: '' },
-          psd2: { path: '' },
-          intradia: { path: '' },
+          // Eliminar microservicios predefinidos - ahora inicia vacío
           javaHome: '',
           mavenHome: '',
           settingsXml: '',
           m2RepoPath: '',
         },
+        customMicros: {
+          angular: [],
+          spring: []
+        }
       };
+
+      // Limpiar también las listas dinámicas
+      this.angularMicros = [];
+      this.springMicros = [];
 
       this.borradoOK = true;
 
@@ -218,5 +256,99 @@ export class ConfigComponent {
 
   toggleSpringConfig() {
     this.showSpringConfig = !this.showSpringConfig;
+  }
+
+  // Método para mostrar/ocultar formulario de agregar microservicio
+  toggleAddMicroForm() {
+    this.showAddMicroForm = !this.showAddMicroForm;
+    this.newMicroName = '';
+    this.newMicroType = this.selectedTab;
+  }
+
+  // Método para agregar un nuevo microservicio
+  addCustomMicroservice() {
+    if (!this.newMicroName.trim()) {
+      alert('⚠️ El nombre del microservicio no puede estar vacío.');
+      return;
+    }
+
+    // Convertir a key válida (sin espacios, caracteres especiales)
+    const key = this.newMicroName.toLowerCase()
+      .replace(/[^a-z0-9]/g, '')
+      .substring(0, 20);
+
+    if (!key) {
+      alert('⚠️ El nombre debe contener al menos una letra o número.');
+      return;
+    }
+
+    // Verificar que no exista ya
+    const existingMicros = this.newMicroType === 'angular' ? this.angularMicros : this.springMicros;
+    if (existingMicros.find(m => m.key === key)) {
+      alert('⚠️ Ya existe un microservicio con ese nombre.');
+      return;
+    }
+
+    // Crear el nuevo microservicio
+    const newMicro: CustomMicroservice = {
+      key,
+      label: this.newMicroName.trim(),
+      isCustom: true
+    };
+
+    // Agregarlo a la lista correspondiente
+    if (this.newMicroType === 'angular') {
+      this.angularMicros.push(newMicro);
+      this.config.angular[key] = { path: '', port: this.getNextAvailablePort() };
+      
+      // Guardar en customMicros
+      if (!this.config.customMicros.angular) {
+        this.config.customMicros.angular = [];
+      }
+      this.config.customMicros.angular.push(newMicro);
+    } else {
+      this.springMicros.push(newMicro);
+      this.config.spring[key] = { path: '' };
+      
+      // Guardar en customMicros
+      if (!this.config.customMicros.spring) {
+        this.config.customMicros.spring = [];
+      }
+      this.config.customMicros.spring.push(newMicro);
+    }
+
+    // Limpiar formulario
+    this.newMicroName = '';
+    this.showAddMicroForm = false;
+
+    // Animar la nueva card
+    setTimeout(() => {
+      const newCard = document.querySelector(`.micro-card[data-key="${key}"]`);
+      if (newCard) {
+        gsap.fromTo(newCard, 
+          { opacity: 0, scale: 0.8, y: 20 }, 
+          { opacity: 1, scale: 1, y: 0, duration: 0.5, ease: 'back.out(1.7)' }
+        );
+      }
+    }, 100);
+  }
+
+  // Método para eliminar microservicio personalizado
+  removeCustomMicroservice(microKey: string, type: 'angular' | 'spring') {
+    if (confirm('¿Estás seguro de que quieres eliminar este microservicio personalizado?')) {
+      if (type === 'angular') {
+        this.angularMicros = this.angularMicros.filter(m => m.key !== microKey);
+        delete this.config.angular[microKey];
+        if (this.config.customMicros?.angular) {
+          this.config.customMicros.angular = this.config.customMicros.angular.filter((m: any) => m.key !== microKey);
+        }
+      } else {
+        this.springMicros = this.springMicros.filter(m => m.key !== microKey);
+        delete this.config.spring[microKey];
+        if (this.config.customMicros?.spring) {
+          this.config.customMicros.spring = this.config.customMicros.spring.filter((m: any) => m.key !== microKey);
+        }
+      }
+    }
   }
 }

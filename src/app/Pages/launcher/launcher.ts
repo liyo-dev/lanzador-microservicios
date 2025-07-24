@@ -5,6 +5,16 @@ import { SpinnerComponent } from '../../Components/spinner/spinner';
 import { Router } from '@angular/router';
 import gsap from 'gsap';
 
+// Interface para microservicios
+interface MicroService {
+  key: string;
+  label: string;
+  selected: boolean;
+  status: 'stopped' | 'starting' | 'running' | 'stopping';
+  useLegacyProvider?: boolean;
+  isCustom?: boolean;
+}
+
 @Component({
   selector: 'app-launcher',
   standalone: true,
@@ -14,63 +24,9 @@ import gsap from 'gsap';
 })
 export class Launcher {
   config: any = {};
-
   selectedTab: 'angular' | 'spring' = 'angular';
-
-  angularMicros = [
-    {
-      key: 'upload',
-      label: 'upload',
-      selected: false,
-      status: 'stopped',
-      useLegacyProvider: false,
-    },
-    {
-      key: 'notifica',
-      label: 'notifica',
-      selected: false,
-      status: 'stopped',
-      useLegacyProvider: false,
-    },
-    {
-      key: 'pagos',
-      label: 'pagos',
-      selected: false,
-      status: 'stopped',
-      useLegacyProvider: false,
-    },
-    {
-      key: 'reportes',
-      label: 'reportes',
-      selected: false,
-      status: 'stopped',
-      useLegacyProvider: false,
-    },
-    {
-      key: 'psd2',
-      label: 'psd2',
-      selected: false,
-      status: 'stopped',
-      useLegacyProvider: false,
-    },
-    {
-      key: 'intradia',
-      label: 'intradía',
-      selected: false,
-      status: 'stopped',
-      useLegacyProvider: false,
-    },
-  ];
-
-  springMicros = [
-    { key: 'upload', label: 'upload', selected: false, status: 'stopped' },
-    { key: 'pagos', label: 'pagos', selected: false, status: 'stopped' },
-    { key: 'reportes', label: 'reportes', selected: false, status: 'stopped' },
-    { key: 'gateway', label: 'gateway', selected: false, status: 'stopped' },
-    { key: 'notifica', label: 'notifica', selected: false, status: 'stopped' },
-    { key: 'psd2', label: 'psd2', selected: false, status: 'stopped' },
-    { key: 'intradia', label: 'intradía', selected: false, status: 'stopped' },
-  ];
+  angularMicros: MicroService[] = [];
+  springMicros: MicroService[] = [];
 
   logs: string[] = [];
   loading = false;
@@ -80,10 +36,142 @@ export class Launcher {
   @ViewChild('logBox') logBox!: ElementRef;
 
   constructor(private ngZone: NgZone, private router: Router) {
+    this.loadConfiguration();
+    this.setupElectronListeners();
+  }
+
+  private loadConfiguration() {
     (window as any).electronAPI.getConfig().then((cfg: any) => {
       this.config = cfg;
+      this.buildMicroServiceLists();
+      this.loadLastStatus();
     });
+  }
 
+  private buildMicroServiceLists() {
+    // Limpiar listas
+    this.angularMicros = [];
+    this.springMicros = [];
+
+    // Cargar microservicios Angular que tienen configuración válida
+    if (this.config.angular) {
+      Object.keys(this.config.angular).forEach((key) => {
+        // Excluir campos de configuración que no son microservicios
+        if (
+          key !== 'javaHome' &&
+          key !== 'mavenHome' &&
+          key !== 'settingsXml' &&
+          key !== 'm2RepoPath'
+        ) {
+          const config = this.config.angular[key];
+          // Solo agregar si tiene configuración válida Y ruta no vacía
+          if (
+            config &&
+            typeof config === 'object' &&
+            config.path &&
+            config.path.trim() !== '' &&
+            config.port
+          ) {
+            // Determinar si es personalizado
+            const isCustom =
+              this.config.customMicros?.angular?.some(
+                (m: any) => m.key === key
+              ) || false;
+            const label = isCustom
+              ? this.config.customMicros.angular.find(
+                  (m: any) => m.key === key
+                )?.label || key
+              : key;
+
+            this.angularMicros.push({
+              key,
+              label,
+              selected: false,
+              status: 'stopped',
+              useLegacyProvider: false,
+              isCustom,
+            });
+          }
+        }
+      });
+    }
+
+    // Cargar microservicios Spring que tienen configuración válida
+    if (this.config.spring) {
+      Object.keys(this.config.spring).forEach((key) => {
+        // Excluir campos de configuración que no son microservicios
+        if (
+          key !== 'javaHome' &&
+          key !== 'mavenHome' &&
+          key !== 'settingsXml' &&
+          key !== 'm2RepoPath'
+        ) {
+          const config = this.config.spring[key];
+          // Solo agregar si tiene configuración válida Y ruta no vacía
+          if (
+            config &&
+            typeof config === 'object' &&
+            config.path &&
+            config.path.trim() !== ''
+          ) {
+            // Determinar si es personalizado
+            const isCustom =
+              this.config.customMicros?.spring?.some(
+                (m: any) => m.key === key
+              ) || false;
+            const label = isCustom
+              ? this.config.customMicros.spring.find(
+                  (m: any) => m.key === key
+                )?.label || key
+              : key;
+
+            this.springMicros.push({
+              key,
+              label,
+              selected: false,
+              status: 'stopped',
+              isCustom,
+            });
+          }
+        }
+      });
+    }
+
+    // Si no hay microservicios configurados, mostrar mensaje
+    if (this.angularMicros.length === 0 && this.springMicros.length === 0) {
+      this.showEmptyState();
+    }
+
+    // Debug: Mostrar en consola qué microservicios se están cargando
+    console.log('🔍 Microservicios cargados:', {
+      angular: this.angularMicros.map((m) => ({
+        key: m.key,
+        label: m.label,
+        isCustom: m.isCustom,
+      })),
+      spring: this.springMicros.map((m) => ({
+        key: m.key,
+        label: m.label,
+        isCustom: m.isCustom,
+      })),
+      configCompleta: this.config,
+    });
+  }
+
+  private showEmptyState() {
+    setTimeout(() => {
+      const emptyMessage = document.querySelector('.empty-state');
+      if (emptyMessage) {
+        gsap.fromTo(
+          emptyMessage,
+          { opacity: 0, y: 20 },
+          { opacity: 1, y: 0, duration: 0.6, ease: 'power2.out' }
+        );
+      }
+    }, 100);
+  }
+
+  private loadLastStatus() {
     (window as any).electronAPI.getLastStatus().then((statuses: any) => {
       let anyStarting = false;
 
@@ -107,7 +195,9 @@ export class Launcher {
 
       this.loading = anyStarting;
     });
+  }
 
+  private setupElectronListeners() {
     (window as any).electronAPI.onLogAngular((msg: any) => {
       this.handleLog(msg, 'Angular');
     });
@@ -115,6 +205,16 @@ export class Launcher {
     (window as any).electronAPI.onLogSpring((msg: any) => {
       this.handleLog(msg, 'Spring');
     });
+  }
+
+  // Obtener microservicios filtrados por tab
+  getDisplayedMicros(): MicroService[] {
+    return this.selectedTab === 'angular' ? this.angularMicros : this.springMicros;
+  }
+
+  // Verificar si hay microservicios para mostrar
+  hasMicrosToShow(): boolean {
+    return this.getDisplayedMicros().length > 0;
   }
 
   handleLog(msg: any, type: 'Angular' | 'Spring') {
