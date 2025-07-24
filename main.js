@@ -66,22 +66,20 @@ const store = new Store.default();
 ipcMain.handle("get-config", () => {
   return store.get("launcherConfig", {
     angular: {
-      upload: { path: "", port: 4200 },
-      notifica: { path: "", port: 4201 },
-      pagos: { path: "", port: 4202 },
-      reportes: { path: "", port: 4203 },
-      psd2: { path: "", port: 4204 },
-      intradia: { path: "", port: 4205 },
+      // Eliminar microservicios predefinidos - ahora inicia vacío
     },
     spring: {
-      upload: { path: "" },
-      pagos: { path: "" },
-      reportes: { path: "" },
-      gateway: { path: "" },
-      notifica: { path: "" },
-      psd2: { path: "" },
-      intradia: { path: "" },
+      // Eliminar microservicios predefinidos - ahora inicia vacío
+      javaHome: "",
+      mavenHome: "",
+      settingsXml: "",
+      m2RepoPath: "",
     },
+    // Soporte para microservicios personalizados
+    customMicros: {
+      angular: [],
+      spring: []
+    }
   });
 });
 

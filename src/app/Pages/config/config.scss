@@ -122,7 +122,6 @@ h1 {
   }
 }
 
-
 button.home-btn,
 button.save-btn,
 button.clear-btn,
@@ -152,7 +151,6 @@ button.go-btn {
     background: #3a59ff;
   }
 }
-
 
 .clear-btn {
   background: #e74c3c;
@@ -243,4 +241,188 @@ button.go-btn {
 
 .invisible {
   opacity: 0 !important;
+}
+
+.add-micro-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 20px 0;
+  gap: 15px;
+}
+
+.add-micro-btn {
+  background: linear-gradient(45deg, #28a745, #20c997);
+  color: white;
+  padding: 12px 24px;
+  border: none;
+  border-radius: 25px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(40, 167, 69, 0.4);
+    background: linear-gradient(45deg, #218838, #1e7e34);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+}
+
+.add-micro-form {
+  background: white;
+  padding: 20px;
+  border-radius: 15px;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+  width: 100%;
+  max-width: 500px;
+  border: 2px solid #e9ecef;
+
+  h3 {
+    text-align: center;
+    color: #2c3e50;
+    margin-bottom: 20px;
+    font-size: 18px;
+  }
+
+  .form-row {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+
+    input {
+      flex: 2;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-size: 14px;
+      transition: border-color 0.2s;
+
+      &:focus {
+        border-color: #3a59ff;
+        outline: none;
+        box-shadow: 0 0 0 2px rgba(58, 89, 255, 0.1);
+      }
+    }
+
+    select {
+      flex: 1;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-size: 14px;
+      background: white;
+      cursor: pointer;
+
+      &:focus {
+        border-color: #3a59ff;
+        outline: none;
+      }
+    }
+  }
+
+  .form-buttons {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+
+    button {
+      padding: 8px 16px;
+      border: none;
+      border-radius: 20px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      transition: all 0.2s;
+    }
+
+    .confirm-btn {
+      background: #28a745;
+      color: white;
+
+      &:hover {
+        background: #218838;
+        transform: translateY(-1px);
+      }
+    }
+
+    .cancel-btn {
+      background: #6c757d;
+      color: white;
+
+      &:hover {
+        background: #5a6268;
+        transform: translateY(-1px);
+      }
+    }
+  }
+}
+
+.micro-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+
+  h3 {
+    margin: 0;
+    flex: 1;
+  }
+
+  .remove-btn {
+    background: #dc3545;
+    color: white;
+    border: none;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    opacity: 0.8;
+
+    &:hover {
+      opacity: 1;
+      transform: scale(1.1);
+      box-shadow: 0 2px 8px rgba(220, 53, 69, 0.3);
+    }
+
+    &:active {
+      transform: scale(0.95);
+    }
+  }
+}
+
+// Animar las nuevas cards
+@keyframes slideInFromRight {
+  from {
+    opacity: 0;
+    transform: translateX(30px) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+.micro-card[data-key*="custom"] {
+  border-left: 4px solid #28a745;
+  position: relative;
+
+  &::before {
+    content: "✨";
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    font-size: 12px;
+    opacity: 0.7;
+  }
 }
