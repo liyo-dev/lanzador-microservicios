@@ -125,6 +125,11 @@ export class Launcher {
       if (micro && msg.status) {
         micro.status = msg.status;
         this.animateMicroCard(micro.key, msg.status);
+
+        // Desactivar checkbox cuando el microservicio se arranca correctamente
+        if (msg.status === 'running' && micro.selected) {
+          micro.selected = false;
+        }
       }
 
       if (msg.status === 'starting' && !this.loading) {
