@@ -1,4 +1,4 @@
-import { Component, ViewChild, ElementRef, NgZone } from '@angular/core';
+import { Component, ViewChild, ElementRef, NgZone, OnDestroy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { SpinnerComponent } from '../../Components/spinner/spinner';
@@ -22,7 +22,7 @@ interface MicroService {
   templateUrl: './launcher.html',
   styleUrls: ['./launcher.scss'],
 })
-export class Launcher {
+export class Launcher implements OnDestroy {
   config: any = {};
   selectedTab: 'angular' | 'spring' = 'angular';
   angularMicros: MicroService[] = [];
@@ -33,18 +33,58 @@ export class Launcher {
   showLogs = false;
   showSuccessMessage = false;
 
+  // Configuración para gestión de logs - hacemos públicas las constantes que necesita el template
+  readonly MAX_LOGS = 500; // Máximo número de logs antes de limpiar
+  private readonly AUTO_CLEAN_INTERVAL = 5 * 60 * 1000; // 5 minutos en milisegundos
+  private readonly LOGS_TO_KEEP_AFTER_CLEAN = 100; // Logs a mantener después de limpiar
+  private logCleanTimer: any = null;
+
   @ViewChild('logBox') logBox!: ElementRef;
 
   constructor(private ngZone: NgZone, private router: Router) {
     this.loadConfiguration();
     this.setupElectronListeners();
+    this.setupLogCleanup();
   }
 
   private loadConfiguration() {
     (window as any).electronAPI.getConfig().then((cfg: any) => {
       this.config = cfg;
       this.buildMicroServiceLists();
+      // Cargar el último estado guardado sin verificar puertos
       this.loadLastStatus();
+    });
+  }
+
+  private loadLastStatus() {
+    (window as any).electronAPI.getLastStatus().then((statuses: any) => {
+      let anyStarting = false;
+
+      this.angularMicros.forEach((micro) => {
+        const lastStatus = statuses.angular?.[micro.key];
+        if (lastStatus) {
+          micro.status = lastStatus;
+          if (lastStatus === 'starting' || lastStatus === 'running')
+            anyStarting = true;
+        }
+      });
+
+      this.springMicros.forEach((micro) => {
+        const lastStatus = statuses.spring?.[micro.key];
+        if (lastStatus) {
+          micro.status = lastStatus;
+          if (lastStatus === 'starting' || lastStatus === 'running')
+            anyStarting = true;
+        }
+      });
+
+      this.loading = anyStarting;
+      
+      if (anyStarting) {
+        this.pushLog('🔄 Restaurando estado de microservicios desde sesión anterior');
+      } else {
+        this.pushLog('💤 Todos los microservicios están detenidos');
+      }
     });
   }
 
@@ -171,32 +211,6 @@ export class Launcher {
     }, 100);
   }
 
-  private loadLastStatus() {
-    (window as any).electronAPI.getLastStatus().then((statuses: any) => {
-      let anyStarting = false;
-
-      this.angularMicros.forEach((micro) => {
-        const lastStatus = statuses.angular?.[micro.key];
-        if (lastStatus) {
-          micro.status = lastStatus;
-          if (lastStatus === 'starting' || lastStatus === 'running')
-            anyStarting = true;
-        }
-      });
-
-      this.springMicros.forEach((micro) => {
-        const lastStatus = statuses.spring?.[micro.key];
-        if (lastStatus) {
-          micro.status = lastStatus;
-          if (lastStatus === 'starting' || lastStatus === 'running')
-            anyStarting = true;
-        }
-      });
-
-      this.loading = anyStarting;
-    });
-  }
-
   private setupElectronListeners() {
     (window as any).electronAPI.onLogAngular((msg: any) => {
       this.handleLog(msg, 'Angular');
@@ -268,7 +282,22 @@ export class Launcher {
   }
 
   pushLog(message: string) {
-    this.logs.push(message);
+    // Agregar timestamp al mensaje
+    const timestamp = new Date().toLocaleTimeString('es-ES', { 
+      hour12: false, 
+      hour: '2-digit', 
+      minute: '2-digit', 
+      second: '2-digit' 
+    });
+    const timestampedMessage = `[${timestamp}] ${message}`;
+    
+    this.logs.push(timestampedMessage);
+    
+    // Verificar si necesitamos limpiar logs inmediatamente
+    if (this.logs.length > this.MAX_LOGS) {
+      this.cleanOldLogs();
+    }
+    
     setTimeout(() => {
       const lastLog = document.querySelector('.log-box .log-line:last-child');
       if (lastLog) {
@@ -294,68 +323,89 @@ export class Launcher {
   }
 
   startSelected() {
-    this.pushLog('Arrancando micros seleccionados...');
+    this.pushLog('Verificando puertos y arrancando micros seleccionados...');
     this.loading = true;
     this.showSuccessMessage = false;
 
+    this.startSelectedMicros();
+  }
+
+  private async startSelectedMicros() {
     let started = false;
 
-    this.angularMicros
-      .filter((micro) => micro.selected && micro.status !== 'running')
-      .forEach((micro) => {
-        if (micro.selected) {
-          const path = this.config.angular[micro.key]?.path;
-          const port = this.config.angular[micro.key]?.port;
-          const useLegacyProvider = micro.useLegacyProvider;
+    // Procesar microservicios Angular
+    for (const micro of this.angularMicros.filter(m => m.selected)) {
+      const path = this.config.angular[micro.key]?.path;
+      const port = this.config.angular[micro.key]?.port;
 
-          if (!path || path.trim() === '') {
-            alert(`El micro Angular ${micro.label} no tiene ruta configurada.`);
-            this.loading = false;
-            return;
-          }
+      if (!path || path.trim() === '') {
+        alert(`El micro Angular ${micro.label} no tiene ruta configurada.`);
+        continue;
+      }
 
-          (window as any).electronAPI.startAngular({
-            micro: micro.key,
-            path,
-            port,
-            useLegacyProvider,
-          });
-          this.pushLog(`→ Arrancando Angular ${micro.label}...`);
-          micro.status = 'starting';
-          started = true;
-        }
-      });
+      // Verificar si ya está corriendo basado en el estado guardado
+      if (micro.status === 'running') {
+        micro.selected = false; // Desseleccionar automáticamente
+        this.pushLog(`→ Angular ${micro.label} ya está corriendo en puerto ${port} ✅`);
+      } else {
+        // Arrancar normalmente
+        this.startMicroservice('angular', micro, { path, port });
+        started = true;
+      }
+    }
 
-    this.springMicros
-      .filter((micro) => micro.selected && micro.status !== 'running')
-      .forEach((micro) => {
-        if (micro.selected) {
-          const path = this.config.spring[micro.key]?.path;
+    // Procesar microservicios Spring
+    for (const micro of this.springMicros.filter(m => m.selected)) {
+      const path = this.config.spring[micro.key]?.path;
 
-          if (!path || path.trim() === '') {
-            alert(`El micro Spring ${micro.label} no tiene ruta configurada.`);
-            this.loading = false;
-            return;
-          }
+      if (!path || path.trim() === '') {
+        alert(`El micro Spring ${micro.label} no tiene ruta configurada.`);
+        continue;
+      }
 
-          (window as any).electronAPI.startSpring({
-            micro: micro.key,
-            path,
-            javaHome: this.config.spring.javaHome,
-            mavenHome: this.config.spring.mavenHome,
-            settingsXml: this.config.spring.settingsXml,
-            m2RepoPath: this.config.spring.m2RepoPath,
-          });
+      // Verificar si ya está corriendo basado en el estado guardado
+      if (micro.status === 'running') {
+        micro.selected = false;
+        this.pushLog(`→ Spring ${micro.label} ya está corriendo ✅`);
+      } else {
+        // Arrancar normalmente
+        this.startMicroservice('spring', micro, { path });
+        started = true;
+      }
+    }
 
-          this.pushLog(`→ Arrancando Spring ${micro.label}...`);
-          micro.status = 'starting';
-          started = true;
-        }
-      });
-
-    if (!started) this.loading = false;
+    // Ajustar el estado de loading basado en los resultados
+    if (!started) {
+      this.loading = false;
+      this.showSuccessMessage = true;
+      this.pushLog('✅ Todos los microservicios seleccionados ya estaban corriendo.');
+    }
 
     this.scrollToBottom();
+  }
+
+  private startMicroservice(type: 'angular' | 'spring', micro: any, config: any) {
+    if (type === 'angular') {
+      (window as any).electronAPI.startAngular({
+        micro: micro.key,
+        path: config.path,
+        port: config.port,
+        useLegacyProvider: micro.useLegacyProvider,
+      });
+      this.pushLog(`→ Arrancando Angular ${micro.label} en puerto ${config.port}...`);
+    } else {
+      (window as any).electronAPI.startSpring({
+        micro: micro.key,
+        path: config.path,
+        javaHome: this.config.spring.javaHome,
+        mavenHome: this.config.spring.mavenHome,
+        settingsXml: this.config.spring.settingsXml,
+        m2RepoPath: this.config.spring.m2RepoPath,
+      });
+      this.pushLog(`→ Arrancando Spring ${micro.label}...`);
+    }
+    
+    micro.status = 'starting';
   }
 
   stopSelected() {
@@ -434,5 +484,56 @@ export class Launcher {
     }
 
     this.router.navigate(['']);
+  }
+
+  private setupLogCleanup() {
+    // Limpiar logs antiguos al iniciar
+    this.cleanOldLogs();
+
+    // Configurar limpieza automática de logs
+    this.logCleanTimer = setInterval(() => {
+      this.cleanOldLogs();
+    }, this.AUTO_CLEAN_INTERVAL);
+  }
+
+  private cleanOldLogs() {
+    if (this.logs.length > this.LOGS_TO_KEEP_AFTER_CLEAN) {
+      const removedLogs = this.logs.length - this.LOGS_TO_KEEP_AFTER_CLEAN;
+      // Mantener solo los últimos LOGS_TO_KEEP_AFTER_CLEAN logs
+      this.logs = this.logs.slice(-this.LOGS_TO_KEEP_AFTER_CLEAN);
+      
+      // Notificar la limpieza
+      const timestamp = new Date().toLocaleTimeString('es-ES', { 
+        hour12: false, 
+        hour: '2-digit', 
+        minute: '2-digit', 
+        second: '2-digit' 
+      });
+      this.logs.push(`[${timestamp}] 🧹 Limpiados ${removedLogs} logs antiguos para optimizar rendimiento`);
+      
+      console.log(`🧹 Logs limpiados: ${removedLogs} logs eliminados, ${this.logs.length} logs restantes`);
+    }
+  }
+
+  // Método para limpiar logs manualmente
+  clearLogs() {
+    const clearedCount = this.logs.length;
+    this.logs = [];
+    const timestamp = new Date().toLocaleTimeString('es-ES', { 
+      hour12: false, 
+      hour: '2-digit', 
+      minute: '2-digit', 
+      second: '2-digit' 
+    });
+    this.logs.push(`[${timestamp}] 🗑️ ${clearedCount} logs limpiados manualmente`);
+    console.log(`🗑️ Logs limpiados manualmente: ${clearedCount} logs eliminados`);
+  }
+
+  // Limpiar timer al destruir el componente
+  ngOnDestroy() {
+    if (this.logCleanTimer) {
+      clearInterval(this.logCleanTimer);
+      this.logCleanTimer = null;
+    }
   }
 }

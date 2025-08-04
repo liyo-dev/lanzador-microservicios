@@ -424,6 +424,36 @@ button.stop-btn {
 .logs-section {
   margin-top: 30px;
 
+  .logs-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 15px;
+
+    .clear-logs-btn {
+      background: #dc3545;
+      border: 1px solid #dc3545;
+      color: white;
+      padding: 6px 12px;
+      border-radius: 15px;
+      cursor: pointer;
+      font-size: 12px;
+      transition: all 0.2s;
+      white-space: nowrap;
+
+      &:hover {
+        background: #c82333;
+        border-color: #c82333;
+        transform: scale(1.05);
+      }
+
+      &:active {
+        transform: scale(0.95);
+      }
+    }
+  }
+
   .logs-toggle {
     background: #f8f9fa;
     border: 1px solid #dee2e6;
@@ -433,7 +463,7 @@ button.stop-btn {
     cursor: pointer;
     font-size: 14px;
     transition: all 0.2s;
-    width: 100%;
+    flex: 1;
 
     &:hover {
       background: #e9ecef;
@@ -442,7 +472,6 @@ button.stop-btn {
   }
 
   .log-box {
-    margin-top: 15px;
     background: #1e1e1e;
     color: #f8f8f2;
     border-radius: 8px;
@@ -453,14 +482,65 @@ button.stop-btn {
     font-size: 13px;
     line-height: 1.4;
 
+    .log-stats {
+      color: #888;
+      font-size: 11px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid #333;
+      margin-bottom: 10px;
+      text-align: center;
+    }
+
     .log-line {
-      margin-bottom: 4px;
+      margin-bottom: 3px;
+      word-wrap: break-word;
+
+      &:last-child {
+        margin-bottom: 0;
+      }
+
+      // Diferentes colores para diferentes tipos de logs
+      &:contains("🧹") {
+        color: #90ee90;
+      }
+
+      &:contains("🗑️") {
+        color: #87ceeb;
+      }
+
+      &:contains("✅") {
+        color: #98fb98;
+      }
+
+      &:contains("❌") {
+        color: #ffa07a;
+      }
+
+      &:contains("⚠️") {
+        color: #ffd700;
+      }
+
+      &:contains("🔄") {
+        color: #87cefa;
+      }
+    }
+
+    // Scroll personalizado
+    &::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    &::-webkit-scrollbar-track {
+      background: #2d2d2d;
+      border-radius: 4px;
+    }
+
+    &::-webkit-scrollbar-thumb {
+      background: #555;
+      border-radius: 4px;
 
       &:hover {
-        background: rgba(255, 255, 255, 0.05);
-        border-radius: 3px;
-        padding: 2px 4px;
-        margin: 2px -4px;
+        background: #777;
       }
     }
   }

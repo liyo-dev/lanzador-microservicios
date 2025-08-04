@@ -38,7 +38,6 @@
             <span class="checkmark"></span>
             {{ micro.label }}
           </label>
-          <span class="custom-badge" *ngIf="micro.isCustom" title="Microservicio personalizado">✨</span>
         </div>
         <div class="status" [class.running]="micro.status === 'running'" [class.stopped]="micro.status === 'stopped'">
           {{ micro.status }}
@@ -65,11 +64,19 @@
   </div>
 
   <div class="logs-section">
-    <button class="logs-toggle" (click)="toggleLogs()">
-      {{ showLogs ? '🔼 Ocultar logs' : '🔽 Mostrar logs' }}
-    </button>
+    <div class="logs-header">
+      <button class="logs-toggle" (click)="toggleLogs()">
+        {{ showLogs ? '🔼 Ocultar logs' : '🔽 Mostrar logs' }}
+      </button>
+      <button class="clear-logs-btn" (click)="clearLogs()" *ngIf="showLogs && logs.length > 1" title="Limpiar logs manualmente">
+        🗑️ Limpiar
+      </button>
+    </div>
 
     <div *ngIf="showLogs" class="log-box" #logBox>
+      <div class="log-stats" *ngIf="logs.length > 0">
+        <small>{{ logs.length }} logs | Límite: {{ MAX_LOGS }} | Limpieza automática cada 5 min</small>
+      </div>
       <div *ngFor="let log of logs" class="log-line">{{ log }}</div>
     </div>
   </div>
