@@ -499,6 +499,10 @@ export class Launcher implements OnDestroy {
     this.router.navigate(['/config']);
   }
 
+  goToUsers() {
+    this.router.navigate(['/users']);
+  }
+
   goToHome() {
     const angularActivos = this.angularMicros.some(
       (m) => m.status !== 'stopped'

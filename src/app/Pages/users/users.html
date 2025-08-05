@@ -1,0 +1,175 @@
+<div class="users-container">
+  <header class="page-header">
+    <div class="header-content">
+      <h1>
+        <span class="icon">👥</span>
+        Gestión de Usuarios Portal
+      </h1>
+      <p class="subtitle">Administra los usuarios para acceso automático al portal</p>
+    </div>
+    
+    <div class="header-actions">
+      <button class="btn btn-primary" (click)="showAddUserForm()">
+        <span class="icon">➕</span>
+        Añadir Usuario
+      </button>
+    </div>
+  </header>
+
+  <!-- Lista de usuarios -->
+  <div class="users-grid" *ngIf="users.length > 0">
+    <div 
+      class="user-card" 
+      *ngFor="let user of users" 
+      [attr.data-user-id]="user.id"
+    >
+      <div class="user-info">
+        <h3 class="user-name">{{ user.name }}</h3>
+        <div class="user-details">
+          <div class="detail-item">
+            <span class="label">Empresa:</span>
+            <span class="value">{{ user.companyID }}</span>
+          </div>
+          <div class="detail-item">
+            <span class="label">Usuario:</span>
+            <span class="value">{{ user.username }}</span>
+          </div>
+          <div class="detail-item" *ngIf="user.description">
+            <span class="label">Descripción:</span>
+            <span class="value">{{ user.description }}</span>
+          </div>
+        </div>
+      </div>
+      
+      <div class="user-actions">
+        <button 
+          class="btn btn-success btn-login" 
+          (click)="loginWithUser(user)"
+          title="Abrir portal con este usuario"
+        >
+          <span class="icon">🚀</span>
+          Acceder al Portal
+        </button>
+        
+        <div class="action-buttons">
+          <button 
+            class="btn btn-outline btn-small" 
+            (click)="editUser(user)"
+            title="Editar usuario"
+          >
+            <span class="icon">✏️</span>
+          </button>
+          <button 
+            class="btn btn-danger btn-small" 
+            (click)="deleteUser(user.id)"
+            title="Eliminar usuario"
+          >
+            <span class="icon">🗑️</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Estado vacío -->
+  <div class="empty-state" *ngIf="users.length === 0">
+    <div class="empty-icon">👤</div>
+    <h3>No hay usuarios configurados</h3>
+    <p>Añade usuarios para acceder rápidamente al portal</p>
+    <button class="btn btn-primary" (click)="showAddUserForm()">
+      <span class="icon">➕</span>
+      Añadir Primer Usuario
+    </button>
+  </div>
+
+  <!-- Formulario de añadir/editar usuario -->
+  <div class="form-overlay" *ngIf="showAddForm" (click)="cancelForm()">
+    <div class="user-form" (click)="$event.stopPropagation()">
+      <h2>
+        <span class="icon">{{ editingUser ? '✏️' : '➕' }}</span>
+        {{ editingUser ? 'Editar Usuario' : 'Nuevo Usuario' }}
+      </h2>
+      
+      <div class="form-group">
+        <label for="userName">Nombre del Usuario</label>
+        <input 
+          id="userName"
+          type="text" 
+          [(ngModel)]="newUser.name" 
+          placeholder="Ej: Test Raul"
+          class="form-control"
+        >
+      </div>
+      
+      <div class="form-group">
+        <label for="companyID">Company ID</label>
+        <input 
+          id="companyID"
+          type="text" 
+          [(ngModel)]="newUser.companyID" 
+          placeholder="Ej: TESTPORTAL"
+          class="form-control"
+        >
+      </div>
+      
+      <div class="form-group">
+        <label for="username">Usuario</label>
+        <input 
+          id="username"
+          type="text" 
+          [(ngModel)]="newUser.username" 
+          placeholder="Ej: Testraul"
+          class="form-control"
+        >
+      </div>
+      
+      <div class="form-group">
+        <label for="password">Contraseña</label>
+        <input 
+          id="password"
+          type="password" 
+          [(ngModel)]="newUser.password" 
+          placeholder="Contraseña del usuario"
+          class="form-control"
+        >
+      </div>
+      
+      <div class="form-group">
+        <label for="description">Descripción (opcional)</label>
+        <input 
+          id="description"
+          type="text" 
+          [(ngModel)]="newUser.description" 
+          placeholder="Descripción del usuario"
+          class="form-control"
+        >
+      </div>
+      
+      <div class="form-actions">
+        <button class="btn btn-outline" (click)="cancelForm()">
+          Cancelar
+        </button>
+        <button class="btn btn-primary" (click)="saveUser()">
+          <span class="icon">💾</span>
+          {{ editingUser ? 'Actualizar' : 'Guardar' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Navegación -->
+  <nav class="bottom-nav">
+    <button class="nav-btn" (click)="goToHome()" title="Ir al inicio">
+      <span class="icon">🏠</span>
+      Inicio
+    </button>
+    <button class="nav-btn" (click)="goBack()" title="Volver al launcher">
+      <span class="icon">🚀</span>
+      Launcher
+    </button>
+    <button class="nav-btn" (click)="goToConfig()" title="Ir a configuración">
+      <span class="icon">⚙️</span>
+      Configuración
+    </button>
+  </nav>
+</div>

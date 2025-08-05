@@ -1,0 +1,450 @@
+.users-container {
+  height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  overflow: hidden;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px 20px 10px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  grid-row: 1;
+
+  @media (max-width: 768px) {
+    flex-direction: column;
+    gap: 10px;
+    text-align: center;
+    padding: 12px 15px 8px 15px;
+  }
+}
+
+.header-content {
+  h1 {
+    font-size: 2rem;
+    margin: 0 0 8px 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+
+    .icon {
+      font-size: 1.8rem;
+    }
+
+    @media (max-width: 768px) {
+      font-size: 1.8rem;
+      justify-content: center;
+    }
+  }
+
+  .subtitle {
+    color: rgba(255, 255, 255, 0.8);
+    margin: 0;
+    font-size: 1rem;
+  }
+}
+
+.header-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.users-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 10px;
+  padding: 15px 20px;
+  overflow-y: auto;
+  grid-row: 2;
+
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    padding: 10px 15px;
+  }
+}
+
+.user-card {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border-radius: 8px;
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  height: fit-content;
+  max-height: 170px; /* Altura más pequeña */
+
+  &:hover {
+    transform: translateY(-2px);
+    background: rgba(255, 255, 255, 0.15);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+  }
+}
+
+.user-info {
+  margin-bottom: 8px;
+  flex: 1;
+
+  .user-name {
+    font-size: 1rem;
+    margin: 0 0 6px 0;
+    color: #fff;
+    font-weight: 600;
+    line-height: 1.2;
+  }
+
+  .user-details {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .detail-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+
+    .label {
+      font-weight: 500;
+      color: rgba(255, 255, 255, 0.8);
+      min-width: 55px;
+      font-size: 0.75rem;
+    }
+
+    .value {
+      color: #fff;
+      background: rgba(255, 255, 255, 0.1);
+      padding: 2px 4px;
+      border-radius: 3px;
+      font-family: 'Courier New', monospace;
+      font-size: 0.7rem;
+      line-height: 1;
+    }
+  }
+}
+
+.user-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+
+  .btn-login {
+    width: 100%;
+    padding: 6px;
+    font-size: 0.8rem;
+    font-weight: 600;
+  }
+
+  .action-buttons {
+    display: flex;
+    gap: 5px;
+    justify-content: flex-end;
+  }
+}
+
+.empty-state {
+  text-align: center;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  grid-row: 2;
+
+  .empty-icon {
+    font-size: 2.5rem;
+    margin-bottom: 10px;
+    opacity: 0.7;
+  }
+
+  h3 {
+    font-size: 1.3rem;
+    margin-bottom: 6px;
+    color: #fff;
+  }
+
+  p {
+    color: rgba(255, 255, 255, 0.8);
+    margin-bottom: 20px;
+    font-size: 0.9rem;
+  }
+}
+
+.form-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.user-form {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
+  border-radius: 15px;
+  padding: 25px;
+  width: 100%;
+  max-width: 450px;
+  color: #333;
+  box-shadow: 0 15px 50px rgba(0, 0, 0, 0.3);
+  max-height: 80vh;
+  overflow-y: auto;
+
+  h2 {
+    margin: 0 0 20px 0;
+    color: #333;
+    font-size: 1.4rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    .icon {
+      font-size: 1.2rem;
+    }
+  }
+}
+
+.form-group {
+  margin-bottom: 15px;
+
+  label {
+    display: block;
+    margin-bottom: 6px;
+    font-weight: 600;
+    color: #555;
+    font-size: 0.9rem;
+  }
+
+  .form-control {
+    width: 100%;
+    padding: 10px 12px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    transition: all 0.3s ease;
+    background: #fff;
+
+    &:focus {
+      outline: none;
+      border-color: #667eea;
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+
+    &::placeholder {
+      color: #aaa;
+    }
+  }
+}
+
+.form-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 20px;
+}
+
+.bottom-nav {
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(20px);
+  padding: 12px 20px;
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  grid-row: 3;
+
+  .nav-btn {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #fff;
+    padding: 8px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.85rem;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.2);
+      transform: translateY(-2px);
+    }
+
+    .icon {
+      font-size: 0.9rem;
+    }
+  }
+}
+
+// Botones generales
+.btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  text-decoration: none;
+
+  .icon {
+    font-size: 0.9rem;
+  }
+
+  &.btn-primary {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white;
+
+    &:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+  }
+
+  &.btn-success {
+    background: linear-gradient(135deg, #56ab2f, #a8e6cf);
+    color: white;
+
+    &:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(86, 171, 47, 0.4);
+    }
+  }
+
+  &.btn-danger {
+    background: linear-gradient(135deg, #ff416c, #ff4b2b);
+    color: white;
+
+    &:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(255, 65, 108, 0.4);
+    }
+  }
+
+  &.btn-outline {
+    background: transparent;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    color: #333;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: rgba(255, 255, 255, 0.5);
+    }
+  }
+
+  &.btn-small {
+    padding: 5px 10px;
+    font-size: 0.8rem;
+  }
+}
+
+// Notificación de login
+.login-notification {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 1001;
+
+  .notification-content {
+    background: linear-gradient(135deg, #56ab2f, #a8e6cf);
+    color: white;
+    padding: 15px 20px;
+    border-radius: 10px;
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+
+    .notification-icon {
+      font-size: 1.2rem;
+    }
+
+    .notification-text {
+      font-weight: 500;
+    }
+  }
+}
+
+// Animaciones responsivas
+@media (max-width: 768px) {
+  .bottom-nav {
+    padding: 8px 15px;
+    
+    .nav-btn {
+      padding: 6px 12px;
+      font-size: 0.75rem;
+      
+      .icon {
+        display: none;
+      }
+    }
+  }
+
+  .form-actions {
+    flex-direction: column;
+    
+    .btn {
+      width: 100%;
+      justify-content: center;
+    }
+  }
+
+  .user-card {
+    padding: 10px;
+    max-height: 150px;
+  }
+
+  .user-form {
+    margin: 15px;
+    padding: 20px;
+  }
+}
+
+// 🔔 Notificaciones
+.success-notification {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 10000;
+  background: linear-gradient(135deg, #4caf50, #45a049);
+  color: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
+  max-width: 350px;
+  
+  .notification-content {
+    display: flex;
+    align-items: center;
+    padding: 15px 20px;
+    gap: 10px;
+    
+    .notification-icon {
+      font-size: 20px;
+      flex-shrink: 0;
+    }
+    
+    .notification-text {
+      font-weight: 500;
+      line-height: 1.3;
+    }
+  }
+}

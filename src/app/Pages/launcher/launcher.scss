@@ -56,6 +56,17 @@
   font-weight: 500;
   transition: all 0.2s;
   width: 200px;
+  margin-left: 10px;
+
+  &.users-btn {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    
+    &:hover {
+      background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    }
+  }
 }
 
 .go-btn:hover {

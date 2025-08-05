@@ -51,6 +51,10 @@ export class Home implements AfterViewInit {
     this.router.navigate(['/config']);
   }
 
+  goToUsers() {
+    this.router.navigate(['/users']);
+  }
+
   goToLauncher() {
     this.router.navigate(['/launcher']);
   }

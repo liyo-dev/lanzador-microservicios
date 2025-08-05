@@ -11,4 +11,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onLogAngular: (callback) => ipcRenderer.on('log-angular', (event, data) => callback(data)),
   onLogSpring: (callback) => ipcRenderer.on('log-spring', (event, data) => callback(data)),
   showOpenDialog: (options) => dialog.showOpenDialog(options),
+  
+  // === GESTIÓN DE USUARIOS ===
+  getUsers: () => ipcRenderer.invoke('get-users'),
+  saveUsers: (users) => ipcRenderer.invoke('save-users', users),
+  openPortalWithAutoLogin: (userData) => ipcRenderer.invoke('open-portal-with-autologin', userData),
 });

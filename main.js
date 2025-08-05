@@ -1,9 +1,10 @@
-const { app, BrowserWindow, ipcMain } = require("electron");
+const { app, BrowserWindow, ipcMain, shell } = require("electron");
 const { spawn } = require("child_process");
 const stripAnsi = require("strip-ansi");
 const kill = require("tree-kill");
 const path = require("path");
 const fs = require("fs");
+const os = require("os");
 
 // ----------------------------------------------
 // DETECCIÓN DEV vs PROD
@@ -367,4 +368,107 @@ ipcMain.handle("get-last-status", () => {
     angular: angularStatus,
     spring: springStatus,
   };
+});
+
+// ===== GESTIÓN DE USUARIOS =====
+
+// Obtener usuarios guardados
+ipcMain.handle('get-users', () => {
+  return store.get('users', []);
+});
+
+// Guardar usuarios
+ipcMain.handle('save-users', (event, users) => {
+  store.set('users', users);
+  return { success: true };
+});
+
+// Abrir portal con navegador
+ipcMain.handle('open-portal-with-autologin', async (event, userData) => {
+  console.log('🌐 Abriendo portal para:', userData.name);
+  
+  try {
+    // URL correcta del portal
+    const portalUrl = 'http://localhost:8080/GBMSGF_ESCE/BtoChannelDriver.ssobto?dse_parentContextName=&dse_processorState=initial&dse_nextEventName=start&dse_operationName=inicio';
+    
+    // Detectar Chrome específicamente
+    const platform = os.platform();
+    let chromePath = '';
+    
+    if (platform === 'win32') {
+      // Windows - buscar Chrome en ubicaciones típicas
+      const possiblePaths = [
+        'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+        'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+        path.join(os.homedir(), 'AppData', 'Local', 'Google', 'Chrome', 'Application', 'chrome.exe')
+      ];
+      
+      for (const possiblePath of possiblePaths) {
+        if (fs.existsSync(possiblePath)) {
+          chromePath = possiblePath;
+          console.log('✅ Chrome encontrado en:', chromePath);
+          break;
+        }
+      }
+    } else if (platform === 'darwin') {
+      // macOS
+      chromePath = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+    } else {
+      // Linux
+      chromePath = 'google-chrome';
+    }
+
+    if (chromePath && fs.existsSync(chromePath)) {
+      // Usar exactamente tus argumentos que funcionan
+      const chromeArgs = [
+        '--disable-web-security',
+        '--incognito',
+        portalUrl
+      ];
+      
+      console.log('� Abriendo Chrome con tus argumentos:', chromePath);
+      console.log('📋 Argumentos:', chromeArgs.join(' '));
+      
+      const chromeProcess = spawn(chromePath, chromeArgs, {
+        detached: true,
+        stdio: 'ignore'
+      });
+      
+      chromeProcess.unref();
+      
+      console.log('✅ Chrome abierto correctamente');
+      return { 
+        success: true, 
+        message: `Chrome abierto para ${userData.name}.
+
+Para auto-login manual, ejecuta en la consola de Chrome (F12):
+document.getElementsByName('companyID')[0].value='${userData.companyID}';
+document.getElementsByName('usuario')[0].value='${userData.username}';
+document.getElementsByName('password')[0].value='${userData.password}';
+document.querySelector('.opLogonStandardButton').click();` 
+      };
+      
+    } else {
+      // Fallback: usar navegador por defecto si Chrome no se encuentra
+      console.log('⚠️ Chrome no encontrado, usando navegador por defecto');
+      await shell.openExternal(portalUrl);
+      
+      return { 
+        success: true, 
+        message: `Portal abierto en navegador por defecto para ${userData.name}.
+
+Datos para login manual:
+Company: ${userData.companyID}
+Usuario: ${userData.username}
+Contraseña: ${userData.password}` 
+      };
+    }
+    
+  } catch (error) {
+    console.error('❌ Error al abrir portal:', error);
+    return { 
+      success: false, 
+      message: 'Error al abrir el portal: ' + error.message 
+    };
+  }
 });

@@ -1,0 +1,693 @@
+import { Component, OnInit } from '@angular/core';
+import { FormsModule } from '@angular/forms';
+import { CommonModule } from '@angular/common';
+import { Router } from '@angular/router';
+import gsap from 'gsap';
+
+interface User {
+  id: string;
+  name: string;
+  companyID: string;
+  username: string;
+  password: string;
+  description?: string;
+}
+
+@Component({
+  selector: 'app-users',
+  standalone: true,
+  imports: [FormsModule, CommonModule],
+  templateUrl: './users.html',
+  styleUrls: ['./users.scss'],
+})
+export class UsersComponent implements OnInit {
+  users: User[] = [];
+  showAddForm = false;
+  editingUser: User | null = null;
+  
+  newUser: User = {
+    id: '',
+    name: '',
+    companyID: '',
+    username: '',
+    password: '',
+    description: ''
+  };
+
+  portalUrl = 'http://localhost:8080/GBMSGF_ESCE/BtoChannelDriver.ssobto?dse_parentContextName=&dse_processorState=initial&dse_nextEventName=start&dse_operationName=inicio';
+
+  constructor(private router: Router) {}
+
+  ngOnInit() {
+    this.loadUsers();
+    this.animateEntrance();
+    
+    // Event listener removido para evitar modales
+  }
+
+  private animateEntrance() {
+    setTimeout(() => {
+      gsap.fromTo('.users-container', 
+        { opacity: 0, y: 30 }, 
+        { opacity: 1, y: 0, duration: 0.6, ease: 'power2.out' }
+      );
+    }, 0);
+  }
+
+  private handlePortalResult(result: any) {
+    console.log('📊 Resultado de apertura del portal:', result);
+    
+    if (result.success) {
+      console.log('✅ Portal abierto exitosamente para:', result.user.name);
+      
+      // Mostrar notificación de éxito
+      const message = result.method === 'chrome' 
+        ? `Portal abierto en Chrome para ${result.user.name}`
+        : `Portal abierto para ${result.user.name}`;
+        
+      this.showSuccessNotification(message);
+      
+    } else {
+      console.error('❌ Error al abrir portal:', result.error);
+      
+      // Mostrar script de emergencia
+      this.showEmergencyScript(result.user);
+    }
+  }
+
+  private showSuccessNotification(message: string) {
+    const notification = document.createElement('div');
+    notification.className = 'success-notification';
+    notification.innerHTML = `
+      <div class="notification-content">
+        <span class="notification-icon">✅</span>
+        <span class="notification-text">${message}</span>
+      </div>
+    `;
+    
+    document.body.appendChild(notification);
+    
+    // Animar entrada
+    gsap.fromTo(notification, 
+      { opacity: 0, y: -50 }, 
+      { opacity: 1, y: 0, duration: 0.5, ease: 'power2.out' }
+    );
+    
+    // Remover después de 4 segundos
+    setTimeout(() => {
+      gsap.to(notification, {
+        opacity: 0,
+        y: -50,
+        duration: 0.3,
+        ease: 'power2.in',
+        onComplete: () => {
+          document.body.removeChild(notification);
+        }
+      });
+    }, 4000);
+  }
+
+  private showEmergencyScript(user: any) {
+    const script = `document.getElementsByName('companyID')[0].value='${user.companyID}';
+document.getElementsByName('usuario')[0].value='${user.username}';
+document.getElementsByName('password')[0].value='${user.password}';
+document.querySelector('.opLogonStandardButton').click();`;
+
+    // Crear ventana de emergencia
+    const emergencyWindow = window.open('', '_blank', 'width=600,height=400');
+    if (emergencyWindow) {
+      emergencyWindow.document.write(`
+        <html>
+          <head>
+            <title>⚠️ Error de Apertura - ${user.name}</title>
+            <style>
+              body { 
+                font-family: Arial, sans-serif; 
+                padding: 20px; 
+                background: #fff5f5; 
+                color: #333;
+              }
+              .error-container { 
+                max-width: 500px; 
+                margin: 0 auto; 
+                background: white; 
+                padding: 25px; 
+                border-radius: 10px; 
+                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                border-left: 5px solid #ff4444;
+              }
+              .script-box { 
+                background: #f8f8f8; 
+                border: 1px solid #ddd; 
+                padding: 15px; 
+                border-radius: 5px; 
+                font-family: monospace; 
+                margin: 15px 0;
+                white-space: pre-wrap;
+              }
+              .btn { 
+                background: #007cba; 
+                color: white; 
+                border: none; 
+                padding: 10px 20px; 
+                border-radius: 5px; 
+                cursor: pointer; 
+                margin: 5px;
+              }
+              .btn:hover { background: #005a8b; }
+              .manual-url { 
+                background: #e7f3ff; 
+                border: 1px solid #b3d9ff; 
+                padding: 10px; 
+                border-radius: 5px; 
+                margin: 15px 0;
+                word-break: break-all;
+              }
+            </style>
+          </head>
+          <body>
+            <div class="error-container">
+              <h2>⚠️ No se pudo abrir automáticamente</h2>
+              <p><strong>Usuario:</strong> ${user.name}</p>
+              
+              <h3>🔗 Opción 1: Abrir manualmente</h3>
+              <div class="manual-url">
+                <strong>URL:</strong><br>
+                ${this.portalUrl}
+              </div>
+              <button class="btn" onclick="window.open('${this.portalUrl}', '_blank')">🌐 Abrir Portal</button>
+              
+              <h3>📋 Opción 2: Script de login</h3>
+              <p>Abre la consola del navegador (F12) y pega:</p>
+              <div class="script-box">${script}</div>
+              <button class="btn" onclick="copyScript()">📋 Copiar Script</button>
+              
+              <h3>✋ Opción 3: Login manual</h3>
+              <p><strong>Company ID:</strong> ${user.companyID}<br>
+                 <strong>Usuario:</strong> ${user.username}<br>
+                 <strong>Contraseña:</strong> ${user.password}</p>
+            </div>
+            
+            <script>
+              function copyScript() {
+                const script = \`${script}\`;
+                navigator.clipboard.writeText(script).then(() => {
+                  alert('✅ Script copiado al portapapeles!');
+                }).catch(() => {
+                  prompt('Copia este script:', script);
+                });
+              }
+            </script>
+          </body>
+        </html>
+      `);
+    }
+  }
+
+  private loadUsers() {
+    const savedUsers = localStorage.getItem('portal-users');
+    if (savedUsers) {
+      this.users = JSON.parse(savedUsers);
+    } else {
+      // Usuarios por defecto
+      this.users = [
+        {
+          id: '1',
+          name: 'Test Raul',
+          companyID: 'TESTPORTAL',
+          username: 'Testraul',
+          password: '85BUui!:',
+          description: 'Usuario de prueba principal'
+        }
+      ];
+      this.saveUsers();
+    }
+  }
+
+  private saveUsers() {
+    localStorage.setItem('portal-users', JSON.stringify(this.users));
+  }
+
+  showAddUserForm() {
+    this.showAddForm = true;
+    this.editingUser = null;
+    this.resetNewUser();
+    
+    setTimeout(() => {
+      gsap.fromTo('.user-form', 
+        { opacity: 0, scale: 0.9 }, 
+        { opacity: 1, scale: 1, duration: 0.4, ease: 'back.out(1.7)' }
+      );
+    }, 0);
+  }
+
+  editUser(user: User) {
+    this.editingUser = { ...user };
+    this.newUser = { ...user };
+    this.showAddForm = true;
+    
+    setTimeout(() => {
+      gsap.fromTo('.user-form', 
+        { opacity: 0, scale: 0.9 }, 
+        { opacity: 1, scale: 1, duration: 0.4, ease: 'back.out(1.7)' }
+      );
+    }, 0);
+  }
+
+  saveUser() {
+    if (!this.newUser.name || !this.newUser.companyID || !this.newUser.username || !this.newUser.password) {
+      alert('⚠️ Todos los campos son obligatorios');
+      return;
+    }
+
+    if (this.editingUser) {
+      // Editar usuario existente
+      const index = this.users.findIndex(u => u.id === this.editingUser!.id);
+      if (index !== -1) {
+        this.users[index] = { ...this.newUser };
+      }
+    } else {
+      // Añadir nuevo usuario
+      const newId = Date.now().toString();
+      this.users.push({ ...this.newUser, id: newId });
+    }
+
+    this.saveUsers();
+    this.cancelForm();
+    
+    // Animación de confirmación
+    setTimeout(() => {
+      const lastCard = document.querySelector('.user-card:last-child');
+      if (lastCard) {
+        gsap.fromTo(lastCard, 
+          { scale: 0.8, opacity: 0 }, 
+          { scale: 1, opacity: 1, duration: 0.5, ease: 'back.out(1.7)' }
+        );
+      }
+    }, 0);
+  }
+
+  deleteUser(userId: string) {
+    if (confirm('¿Estás seguro de que quieres eliminar este usuario?')) {
+      const cardToRemove = document.querySelector(`[data-user-id="${userId}"]`);
+      
+      if (cardToRemove) {
+        gsap.to(cardToRemove, {
+          scale: 0.8,
+          opacity: 0,
+          duration: 0.3,
+          ease: 'power2.in',
+          onComplete: () => {
+            this.users = this.users.filter(u => u.id !== userId);
+            this.saveUsers();
+          }
+        });
+      } else {
+        this.users = this.users.filter(u => u.id !== userId);
+        this.saveUsers();
+      }
+    }
+  }
+
+  cancelForm() {
+    gsap.to('.user-form', {
+      opacity: 0,
+      scale: 0.9,
+      duration: 0.3,
+      ease: 'power2.in',
+      onComplete: () => {
+        this.showAddForm = false;
+        this.editingUser = null;
+        this.resetNewUser();
+      }
+    });
+  }
+
+  private resetNewUser() {
+    this.newUser = {
+      id: '',
+      name: '',
+      companyID: '',
+      username: '',
+      password: '',
+      description: ''
+    };
+  }
+
+  async loginWithUser(user: User) {
+    try {
+      console.log('🚀 Intentando abrir portal para usuario:', user.name);
+      console.log('📍 URL del portal:', this.portalUrl);
+      
+      // Verificar si estamos en Electron
+      const isElectron = (window as any).electronAPI;
+      
+      if (isElectron) {
+        console.log('⚡ Usando modo Electron para login automático');
+        this.loginWithElectron(user);
+      } else {
+        console.log('🌐 Usando modo navegador web');
+        this.loginWithBrowser(user);
+      }
+      
+    } catch (error) {
+      console.error('❌ Error general al abrir portal:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+      alert(`❌ Error al abrir el portal: ${errorMessage}\n\nURL: ${this.portalUrl}\n\nVerifica que la URL sea correcta y que el servidor esté funcionando.`);
+    }
+  }
+
+  private loginWithElectron(user: User) {
+    // Mostrar mensaje de confirmación simple
+    this.showLoginConfirmation(user.name);
+    
+    try {
+      // Verificar si tenemos acceso a electronAPI
+      const electronAPI = (window as any).electronAPI;
+      
+      if (!electronAPI) {
+        throw new Error('electronAPI no está disponible');
+      }
+
+      console.log('🌐 Abriendo portal con Chrome directamente');
+      
+      // Crear datos para el main process de Electron
+      const loginData = {
+        url: this.portalUrl,
+        user: {
+          name: user.name,
+          companyID: user.companyID,
+          username: user.username,
+          password: user.password
+        }
+      };
+
+      // Usar electronAPI para abrir Chrome
+      if (electronAPI.openPortalWithAutoLogin) {
+        electronAPI.openPortalWithAutoLogin(loginData);
+        console.log('✅ Solicitud enviada a Chrome');
+      } else {
+        throw new Error('Función openPortalWithAutoLogin no disponible');
+      }
+
+    } catch (error) {
+      console.error('❌ Error al ejecutar login:', error);
+      alert(`❌ Error: ${error}\n\nURL del portal: ${this.portalUrl}`);
+    }
+  }
+
+  private showScriptInstructions(user: User) {
+    // Crear el script simple para backup
+    const simpleScript = `document.getElementsByName('companyID')[0].value='${user.companyID}';
+document.getElementsByName('usuario')[0].value='${user.username}';
+document.getElementsByName('password')[0].value='${user.password}';
+document.querySelector('.opLogonStandardButton').click();`;
+
+    // Crear una ventana con instrucciones alternativas
+    setTimeout(() => {
+      const instructionWindow = window.open('', '_blank', 'width=700,height=500');
+      if (instructionWindow) {
+        instructionWindow.document.write(`
+          <html>
+            <head>
+              <title>Login Automático - ${user.name}</title>
+              <style>
+                body { 
+                  font-family: Arial, sans-serif; 
+                  padding: 20px; 
+                  background: #f0f0f0; 
+                  line-height: 1.6;
+                }
+                .container { 
+                  max-width: 600px; 
+                  margin: 0 auto; 
+                  background: white; 
+                  padding: 25px; 
+                  border-radius: 10px; 
+                  box-shadow: 0 2px 10px rgba(0,0,0,0.1); 
+                }
+                .status { 
+                  background: #e7f3ff; 
+                  border: 1px solid #b3d9ff; 
+                  padding: 15px; 
+                  border-radius: 5px; 
+                  margin: 15px 0; 
+                  text-align: center;
+                }
+                .btn { 
+                  background: #007cba; 
+                  color: white; 
+                  border: none; 
+                  padding: 10px 20px; 
+                  border-radius: 5px; 
+                  cursor: pointer; 
+                  margin: 5px; 
+                }
+                .btn:hover { background: #005a8b; }
+                .simple-script {
+                  background: #fffacd;
+                  border: 2px solid #ffd700;
+                  padding: 15px;
+                  border-radius: 5px;
+                  font-family: monospace;
+                  margin: 15px 0;
+                  font-size: 12px;
+                  white-space: pre-wrap;
+                }
+                .user-data {
+                  background: #f0f8ff;
+                  border: 1px solid #add8e6;
+                  padding: 15px;
+                  border-radius: 5px;
+                  margin: 15px 0;
+                }
+              </style>
+            </head>
+            <body>
+              <div class="container">
+                <h2>🚀 Login Automático - ${user.name}</h2>
+                
+                <div class="status">
+                  ⚡ Chrome se ha abierto con auto-login activado<br>
+                  🤖 Los campos se rellenarán automáticamente<br>
+                  ⏱️ Si no funciona, usa las opciones de abajo:
+                </div>
+                
+                <h3>🎯 Script de Emergencia</h3>
+                <p>Si el auto-login no funciona, abre la consola (F12) y pega:</p>
+                <div class="simple-script">${simpleScript}</div>
+                
+                <button class="btn" onclick="copyScript()">📋 Copiar Script</button>
+                
+                <h3>📝 Datos Manuales</h3>
+                <div class="user-data">
+                  <strong>Company ID:</strong> ${user.companyID}<br>
+                  <strong>Usuario:</strong> ${user.username}<br>
+                  <strong>Contraseña:</strong> ${user.password}
+                </div>
+                
+                <div style="text-align: center; margin-top: 20px;">
+                  <button class="btn" onclick="window.close()">❌ Cerrar</button>
+                </div>
+                
+                <div style="margin-top: 20px; font-size: 12px; color: #666; text-align: center;">
+                  Esta ventana se cerrará automáticamente en 2 minutos
+                </div>
+              </div>
+              
+              <script>
+                function copyScript() {
+                  const script = \`${simpleScript}\`;
+                  
+                  navigator.clipboard.writeText(script).then(() => {
+                    alert('✅ Script copiado! Pégalo en la consola del portal (F12)');
+                  }).catch(() => {
+                    prompt('Copia este script:', script);
+                  });
+                }
+                
+                // Auto-cerrar después de 2 minutos
+                setTimeout(() => {
+                  if (confirm('¿Cerrar esta ventana de instrucciones?')) {
+                    window.close();
+                  }
+                }, 120000);
+              </script>
+            </body>
+          </html>
+        `);
+      }
+    }, 1500);
+  }
+
+  private loginWithBrowser(user: User) {
+    // Verificar si la URL es accesible (básica validación)
+    if (!this.portalUrl || !this.portalUrl.startsWith('http')) {
+      alert('❌ URL del portal no válida. Verifica la configuración.');
+      return;
+    }
+
+    // Mostrar mensaje de confirmación inmediatamente
+    this.showLoginConfirmation(user.name);
+    
+    // Intentar abrir el portal en una nueva ventana
+    const portalWindow = window.open(this.portalUrl, '_blank', 'width=1200,height=800,resizable=yes,scrollbars=yes');
+    
+    if (!portalWindow) {
+      alert('⚠️ No se pudo abrir el portal. El navegador puede estar bloqueando las ventanas emergentes.\n\nPor favor:\n1. Permite ventanas emergentes para este sitio\n2. O copia esta URL manualmente: ' + this.portalUrl);
+      return;
+    }
+
+    console.log('✅ Ventana del portal abierta correctamente');
+
+    // Función mejorada para intentar el login
+    const tryLogin = (): boolean => {
+      try {
+        console.log('🔐 Intentando login automático...');
+        
+        // Verificar si la ventana sigue abierta
+        if (portalWindow.closed) {
+          console.log('❌ La ventana del portal fue cerrada');
+          return true; // Terminar intentos
+        }
+
+        const doc = portalWindow.document;
+        
+        // Buscar los campos del formulario
+        const companyField = doc.querySelector('input[name="companyID"]') as HTMLInputElement;
+        const userField = doc.querySelector('input[name="usuario"]') as HTMLInputElement;
+        const passwordField = doc.querySelector('input[name="password"]') as HTMLInputElement;
+        const loginButton = doc.querySelector('.opLogonStandardButton') as HTMLElement;
+
+        console.log('🔍 Campos encontrados:', {
+          companyField: !!companyField,
+          userField: !!userField,
+          passwordField: !!passwordField,
+          loginButton: !!loginButton
+        });
+
+        if (companyField && userField && passwordField && loginButton) {
+          console.log('📝 Rellenando campos de login...');
+          
+          // Limpiar campos primero
+          companyField.value = '';
+          userField.value = '';
+          passwordField.value = '';
+          
+          // Rellenar con los datos del usuario
+          companyField.value = user.companyID;
+          userField.value = user.username;
+          passwordField.value = user.password;
+          
+          // Disparar eventos de cambio para asegurar que se registren
+          companyField.dispatchEvent(new Event('input', { bubbles: true }));
+          userField.dispatchEvent(new Event('input', { bubbles: true }));
+          passwordField.dispatchEvent(new Event('input', { bubbles: true }));
+          
+          console.log('🎯 Haciendo clic en el botón de login...');
+          
+          // Hacer clic en el botón de login
+          setTimeout(() => {
+            loginButton.click();
+            console.log('✅ Login automático completado');
+          }, 500);
+          
+          return true;
+        } else {
+          console.log('⏳ Campos de login aún no disponibles, reintentando...');
+          return false;
+        }
+      } catch (error) {
+        console.log('🔒 Error de acceso cross-origin (normal):', error);
+        // Este error es normal cuando la página está en otro dominio
+        return false;
+      }
+    };
+
+    // Estrategia de múltiples intentos
+    let attempts = 0;
+    const maxAttempts = 30; // 15 segundos total
+    
+    const loginInterval = setInterval(() => {
+      attempts++;
+      console.log(`🔄 Intento ${attempts}/${maxAttempts} de login automático`);
+      
+      if (portalWindow.closed) {
+        console.log('🚪 Ventana cerrada por el usuario');
+        clearInterval(loginInterval);
+        return;
+      }
+      
+      if (tryLogin() || attempts >= maxAttempts) {
+        clearInterval(loginInterval);
+        if (attempts >= maxAttempts) {
+          console.log('⏰ Se agotaron los intentos de login automático');
+          this.showManualLoginInstructions(user);
+        }
+      }
+    }, 500);
+
+    // También intentar inmediatamente
+    setTimeout(() => tryLogin(), 1000);
+  }
+
+  private showManualLoginInstructions(user: User) {
+    const instructions = `
+🔐 Login Manual Requerido
+
+No se pudo realizar el login automático. 
+Por favor, introduce manualmente estos datos:
+
+Company ID: ${user.companyID}
+Usuario: ${user.username}
+Contraseña: ${user.password}
+    `;
+    
+    alert(instructions);
+  }
+
+  private showLoginConfirmation(userName: string) {
+    // Crear elemento de notificación temporal
+    const notification = document.createElement('div');
+    notification.className = 'login-notification';
+    notification.innerHTML = `
+      <div class="notification-content">
+        <span class="notification-icon">🚀</span>
+        <span class="notification-text">Abriendo portal con usuario: ${userName}</span>
+      </div>
+    `;
+    
+    document.body.appendChild(notification);
+    
+    // Animar entrada
+    gsap.fromTo(notification, 
+      { opacity: 0, y: -50 }, 
+      { opacity: 1, y: 0, duration: 0.5, ease: 'power2.out' }
+    );
+    
+    // Remover después de 3 segundos
+    setTimeout(() => {
+      gsap.to(notification, {
+        opacity: 0,
+        y: -50,
+        duration: 0.3,
+        ease: 'power2.in',
+        onComplete: () => {
+          document.body.removeChild(notification);
+        }
+      });
+    }, 3000);
+  }
+
+  goBack() {
+    this.router.navigate(['/launcher']);
+  }
+
+  goToConfig() {
+    this.router.navigate(['/config']);
+  }
+
+  goToHome() {
+    this.router.navigate(['']);
+  }
+}
