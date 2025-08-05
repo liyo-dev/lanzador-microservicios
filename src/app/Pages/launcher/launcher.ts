@@ -252,25 +252,41 @@ export class Launcher implements OnDestroy {
       }
 
       if (msg.status === 'running') {
-        this.loading = false;
         this.pushLog(`[${type} ${msg.micro}] ✅ Arrancado correctamente.`);
-        this.showSuccessMessage = true;
+        
+        // Solo desactivar el spinner si no hay más microservicios arrancando
+        const hasStartingMicros = this.angularMicros.some(m => m.status === 'starting') || 
+                                 this.springMicros.some(m => m.status === 'starting');
+        
+        if (!hasStartingMicros) {
+          this.loading = false;
+          this.showSuccessMessage = true;
 
-        setTimeout(() => {
-          const box = document.querySelector('.success-message');
-          if (box) {
-            gsap.fromTo(
-              box,
-              { opacity: 0, y: -10 },
-              { opacity: 1, y: 0, duration: 0.5, ease: 'bounce.out' }
-            );
-          }
-        }, 0);
+          setTimeout(() => {
+            const box = document.querySelector('.success-message');
+            if (box) {
+              gsap.fromTo(
+                box,
+                { opacity: 0, y: -10 },
+                { opacity: 1, y: 0, duration: 0.5, ease: 'bounce.out' }
+              );
+            }
+          }, 0);
+        }
       }
 
       if (msg.status === 'stopped') {
-        this.loading = false;
         this.pushLog(`[${type} ${msg.micro}] 🛑 Detenido.`);
+        
+        // Solo desactivar el spinner si no hay más microservicios arrancando o parando
+        const hasStartingMicros = this.angularMicros.some(m => m.status === 'starting') || 
+                                 this.springMicros.some(m => m.status === 'starting');
+        const hasStoppingMicros = this.angularMicros.some(m => m.status === 'stopping') || 
+                                 this.springMicros.some(m => m.status === 'stopping');
+        
+        if (!hasStartingMicros && !hasStoppingMicros) {
+          this.loading = false;
+        }
       }
 
       if (!msg.status) {
@@ -410,6 +426,9 @@ export class Launcher implements OnDestroy {
 
   stopSelected() {
     this.pushLog('Parando micros seleccionados...');
+    this.loading = true; // Activar spinner cuando se comienza a parar microservicios
+
+    let anyMicroStopped = false;
 
     this.angularMicros
       .filter((micro) => micro.selected && micro.status === 'running')
@@ -418,6 +437,7 @@ export class Launcher implements OnDestroy {
           (window as any).electronAPI.stopProcess(`angular-${micro.key}`);
           this.pushLog(`→ Parando Angular ${micro.label}...`);
           micro.status = 'stopping';
+          anyMicroStopped = true;
         } else if (micro.selected && micro.status === 'stopped') {
           this.pushLog(`→ Angular ${micro.label} ya está detenido.`);
         }
@@ -430,10 +450,17 @@ export class Launcher implements OnDestroy {
           (window as any).electronAPI.stopProcess(`spring-${micro.key}`);
           this.pushLog(`→ Parando Spring ${micro.label}...`);
           micro.status = 'stopping';
+          anyMicroStopped = true;
         } else if (micro.selected && micro.status === 'stopped') {
           this.pushLog(`→ Spring ${micro.label} ya está detenido.`);
         }
       });
+
+    // Si no se paró ningún microservicio, desactivar el spinner
+    if (!anyMicroStopped) {
+      this.loading = false;
+      this.pushLog('✅ Todos los microservicios seleccionados ya estaban detenidos.');
+    }
 
     this.scrollToBottom();
   }

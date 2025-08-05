@@ -1,7 +1,7 @@
 {
   "name": "launcher",
   "main": "main.js",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "type": "commonjs",
   "scripts": {
     "ng": "ng serve",
@@ -66,7 +66,16 @@
       "output": "dist-electron"
     },
     "win": {
-      "target": "dir",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        },
+        {
+          "target": "portable",
+          "arch": ["x64"]
+        }
+      ],
       "icon": "icons/win/icon.ico"
     },
     "extraMetadata": {
