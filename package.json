@@ -21,6 +21,7 @@
     "@angular/forms": "^20.0.0",
     "@angular/platform-browser": "^20.0.0",
     "@angular/router": "^20.0.0",
+    "chrome-remote-interface": "^0.33.3",
     "electron-store": "^8.1.0",
     "gsap": "^3.13.0",
     "rxjs": "~7.8.0",
@@ -69,11 +70,15 @@
       "target": [
         {
           "target": "nsis",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         },
         {
           "target": "portable",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ],
       "icon": "icons/win/icon.ico"

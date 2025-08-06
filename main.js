@@ -5,6 +5,8 @@ const kill = require("tree-kill");
 const path = require("path");
 const fs = require("fs");
 const os = require("os");
+// Biblioteca para controlar Chrome a través del protocolo DevTools
+const CDP = require('chrome-remote-interface');
 
 // ----------------------------------------------
 // DETECCIÓN DEV vs PROD
@@ -384,12 +386,21 @@ ipcMain.handle('save-users', (event, users) => {
 });
 
 // Abrir portal con navegador
-ipcMain.handle('open-portal-with-autologin', async (event, userData) => {
-  console.log('🌐 Abriendo portal para:', userData.name);
+ipcMain.handle('open-portal-with-autologin', async (event, loginData) => {
+  // Extraer datos del usuario de la estructura anidada
+  const userData = loginData.user || {};
+  console.log('🌐 Abriendo portal para:', userData.name || 'Usuario desconocido');
   
   try {
     // URL correcta del portal
-    const portalUrl = 'http://localhost:8080/GBMSGF_ESCE/BtoChannelDriver.ssobto?dse_parentContextName=&dse_processorState=initial&dse_nextEventName=start&dse_operationName=inicio';
+    const portalUrl = loginData.url || 'http://localhost:8080/GBMSGF_ESCE/BtoChannelDriver.ssobto?dse_parentContextName=&dse_processorState=initial&dse_nextEventName=start&dse_operationName=inicio';
+    
+    console.log('📊 Datos extraídos:', {
+      name: userData.name,
+      companyID: userData.companyID,
+      username: userData.username,
+      password: userData.password ? '[PRESENTE]' : '[AUSENTE]'
+    });
     
     // Detectar Chrome específicamente
     const platform = os.platform();
@@ -419,35 +430,55 @@ ipcMain.handle('open-portal-with-autologin', async (event, userData) => {
     }
 
     if (chromePath && fs.existsSync(chromePath)) {
-      // Usar exactamente tus argumentos que funcionan
+      // Para que --disable-web-security funcione se requiere --user-data-dir
+      // También habilitamos el puerto de depuración remota para poder inyectar el script de autologin.
+      const userDataDir = path.join(os.tmpdir(), 'chrome-autologin');
       const chromeArgs = [
-        '--disable-web-security',
         '--incognito',
+        `--user-data-dir=${userDataDir}`,
+        '--remote-debugging-port=9222',
         portalUrl
       ];
-      
-      console.log('� Abriendo Chrome con tus argumentos:', chromePath);
+
+      console.log('� Abriendo Chrome con autologin:', chromePath);
       console.log('📋 Argumentos:', chromeArgs.join(' '));
-      
+
       const chromeProcess = spawn(chromePath, chromeArgs, {
         detached: true,
         stdio: 'ignore'
       });
-      
-      chromeProcess.unref();
-      
-      console.log('✅ Chrome abierto correctamente');
-      return { 
-        success: true, 
-        message: `Chrome abierto para ${userData.name}.
 
-Para auto-login manual, ejecuta en la consola de Chrome (F12):
-document.getElementsByName('companyID')[0].value='${userData.companyID}';
-document.getElementsByName('usuario')[0].value='${userData.username}';
-document.getElementsByName('password')[0].value='${userData.password}';
-document.querySelector('.opLogonStandardButton').click();` 
-      };
-      
+      chromeProcess.unref();
+
+      try {
+        // Esperar a que el puerto de depuración esté disponible
+        await new Promise((resolve) => setTimeout(resolve, 3000));
+        const client = await CDP({ port: 9222 });
+        const { Runtime, Page } = client;
+        await Page.enable();
+        await Page.navigate({ url: portalUrl });
+        await Page.loadEventFired();
+        const script = `
+          document.getElementsByName('companyID')[0].value='${userData.companyID || ''}';
+          document.getElementsByName('usuario')[0].value='${userData.username || ''}';
+          document.getElementsByName('password')[0].value='${userData.password || ''}';
+          const btn = document.querySelector('.opLogonStandardButton');
+          if (btn) { btn.click(); }
+        `;
+        await Runtime.evaluate({ expression: script });
+        await client.close();
+        console.log('✅ Autologin ejecutado correctamente');
+        return {
+          success: true,
+          message: `Chrome abierto y autologin ejecutado para ${userData.name || 'usuario'}.`
+        };
+      } catch (automationError) {
+        console.error('❌ Error durante autologin:', automationError);
+        return {
+          success: false,
+          message: 'Error durante el autologin: ' + automationError.message
+        };
+      }
     } else {
       // Fallback: usar navegador por defecto si Chrome no se encuentra
       console.log('⚠️ Chrome no encontrado, usando navegador por defecto');
@@ -455,12 +486,12 @@ document.querySelector('.opLogonStandardButton').click();`
       
       return { 
         success: true, 
-        message: `Portal abierto en navegador por defecto para ${userData.name}.
+        message: `Portal abierto en navegador por defecto para ${userData.name || 'usuario'}.
 
 Datos para login manual:
-Company: ${userData.companyID}
-Usuario: ${userData.username}
-Contraseña: ${userData.password}` 
+Company: ${userData.companyID || 'N/A'}
+Usuario: ${userData.username || 'N/A'}
+Contraseña: ${userData.password || 'N/A'}` 
       };
     }
     
