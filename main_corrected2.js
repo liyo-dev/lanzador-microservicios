@@ -450,13 +450,28 @@ ipcMain.handle('open-portal-with-autologin', async (event, userData) => {
         await Page.enable();
         await Page.navigate({ url: portalUrl });
         await Page.loadEventFired();
+        // Elegir la mejor propiedad disponible por si algunas son undefined.
+        // Por ejemplo, si el objeto userData no define companyID, intentar companyId o empresaId.
+        const companyId = userData.companyID || userData.companyId || userData.empresaId || '';
+        const username = userData.username || userData.usuario || userData.user || '';
+        // "contrasena" admite variantes sin tilde, por compatibilidad.
+        const password = userData.password || userData.contrasena || userData.clave || '';
+
         const script = `
-          document.getElementsByName('companyID')[0].value='${userData.companyID}';
-          document.getElementsByName('usuario')[0].value='${userData.username}';
-          document.getElementsByName('password')[0].value='${userData.password}';
-          const btn = document.querySelector('.opLogonStandardButton');
-          if (btn) { btn.click(); }
+          // Rellenar campos de login con los valores proporcionados
+          (function() {
+            var companyInput = document.getElementsByName('companyID')[0];
+            if (companyInput) companyInput.value = '${companyId}';
+            var userInput = document.getElementsByName('usuario')[0] || document.getElementsByName('username')[0];
+            if (userInput) userInput.value = '${username}';
+            var passInput = document.getElementsByName('password')[0] || document.getElementsByName('clave')[0] || document.getElementsByName('contrasena')[0];
+            if (passInput) passInput.value = '${password}';
+            var btn = document.querySelector('.opLogonStandardButton');
+            if (btn) btn.click();
+          })();
         `;
+
+        // Ejecutar el script en el contexto de la página
         await Runtime.evaluate({ expression: script });
         await client.close();
         console.log('✅ Autologin ejecutado correctamente');
