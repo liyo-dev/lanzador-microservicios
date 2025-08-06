@@ -46,31 +46,38 @@
 }
 
 .go-btn {
-  background: #3a59ff;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
-  padding: 8px 16px;
+  padding: 10px 20px;
   border: none;
-  border-radius: 20px;
+  border-radius: 25px;
   cursor: pointer;
   font-size: 14px;
-  font-weight: 500;
-  transition: all 0.2s;
+  font-weight: 600;
+  transition: all 0.3s ease;
   width: 200px;
   margin-left: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-shadow: 0 2px 10px rgba(102, 126, 234, 0.2);
+
+  &:hover {
+    background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+  }
 
   &.users-btn {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     
     &:hover {
       background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
-      transform: translateY(-1px);
-      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
     }
   }
-}
-
-.go-btn:hover {
-  background: #2d45cc;
 }
 
 .micro-selection {
@@ -177,26 +184,39 @@
 
 button.start-btn,
 button.stop-btn {
-  padding: 12px 24px;
-  border-radius: 30px;
+  padding: 12px 28px;
+  border-radius: 25px;
   font-size: 14px;
   font-weight: 600;
   border: none;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.3s ease;
   color: white;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 .start-btn {
-  background: #2ecc71;
-}
+  background: linear-gradient(135deg, #28a745, #20c997);
 
-.start-btn:hover {
-  background: #27ae60;
+  &:hover {
+    background: linear-gradient(135deg, #218838, #1e9a7a);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(40, 167, 69, 0.4);
+  }
 }
 
 .stop-btn {
-  background: #e74c3c;
+  background: linear-gradient(135deg, #ff416c, #ff4b2b);
+
+  &:hover {
+    background: linear-gradient(135deg, #e8395f, #e8422a);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(255, 65, 108, 0.4);
+  }
 }
 
 .stop-btn:hover {
@@ -205,30 +225,35 @@ button.stop-btn {
 
 .success-message {
   text-align: center;
-  background-color: #e8fce8;
-  color: #2ecc71;
-  padding: 12px;
-  border-radius: 8px;
+  background: linear-gradient(135deg, #56ab2f, #a8e6cf);
+  color: white;
+  padding: 15px 20px;
+  border-radius: 12px;
   font-weight: 600;
   margin-top: 20px;
+  box-shadow: 0 4px 12px rgba(86, 171, 47, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .console-toggle {
   margin: 0 auto;
   display: block;
   margin-top: 20px;
-  padding: 10px 18px;
-  background-color: #444;
+  padding: 12px 24px;
+  background: linear-gradient(135deg, #6c7b7f, #9ba0a3);
   color: white;
   border: none;
-  border-radius: 20px;
-  font-weight: 500;
+  border-radius: 25px;
+  font-weight: 600;
   cursor: pointer;
-  transition: background-color 0.2s;
-}
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 
-.console-toggle:hover {
-  background-color: #2e2e2e;
+  &:hover {
+    background: linear-gradient(135deg, #5a6568, #858a8d);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(108, 123, 127, 0.4);
+  }
 }
 
 .log-box {
@@ -255,23 +280,31 @@ button.stop-btn {
   margin-bottom: 20px;
 
   button {
-    background-color: #eee;
-    border: none;
-    padding: 10px 20px;
-    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.9);
+    border: 2px solid rgba(102, 126, 234, 0.2);
+    padding: 12px 24px;
+    border-radius: 25px;
     margin: 0 8px;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: all 0.3s ease;
+    color: #667eea;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+
+    &:hover:not(.active) {
+      background: rgba(255, 255, 255, 1);
+      border-color: rgba(102, 126, 234, 0.4);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+    }
   }
 
   button.active {
-    background-color: #3a59ff;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
-  }
-
-  button:not(.active):hover {
-    background-color: #dcdcdc;
+    border-color: transparent;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
   }
 }
 

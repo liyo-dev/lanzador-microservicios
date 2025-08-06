@@ -1,4 +1,4 @@
-import { Component, ViewChild, ElementRef, NgZone, OnDestroy } from '@angular/core';
+import { Component, ViewChild, ElementRef, NgZone, OnDestroy, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { SpinnerComponent } from '../../Components/spinner/spinner';
@@ -22,7 +22,7 @@ interface MicroService {
   templateUrl: './launcher.html',
   styleUrls: ['./launcher.scss'],
 })
-export class Launcher implements OnDestroy {
+export class Launcher implements OnInit, OnDestroy {
   config: any = {};
   selectedTab: 'angular' | 'spring' = 'angular';
   angularMicros: MicroService[] = [];
@@ -45,6 +45,12 @@ export class Launcher implements OnDestroy {
     this.loadConfiguration();
     this.setupElectronListeners();
     this.setupLogCleanup();
+  }
+
+  ngOnInit() {
+    // Resetear estado al entrar/regresar a la página
+    this.loading = false;
+    this.showSuccessMessage = false;
   }
 
   private loadConfiguration() {
