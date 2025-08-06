@@ -48,9 +48,8 @@ export class Launcher implements OnInit, OnDestroy {
   }
 
   ngOnInit() {
-    // Resetear estado al entrar/regresar a la página
-    this.loading = false;
     this.showSuccessMessage = false;
+    this.loading = false;
   }
 
   private loadConfiguration() {
@@ -64,14 +63,17 @@ export class Launcher implements OnInit, OnDestroy {
 
   private loadLastStatus() {
     (window as any).electronAPI.getLastStatus().then((statuses: any) => {
-      let anyStarting = false;
+      let anyActiveAngular = false;
+      let anyActiveSpring = false;
 
       this.angularMicros.forEach((micro) => {
         const lastStatus = statuses.angular?.[micro.key];
         if (lastStatus) {
           micro.status = lastStatus;
-          if (lastStatus === 'starting' || lastStatus === 'running')
-            anyStarting = true;
+          if (lastStatus === 'starting' || lastStatus === 'running' || lastStatus === 'stopping') {
+            anyActiveAngular = true;
+            console.log(`🔵 Angular ${micro.label}: ${lastStatus}`);
+          }
         }
       });
 
@@ -79,15 +81,30 @@ export class Launcher implements OnInit, OnDestroy {
         const lastStatus = statuses.spring?.[micro.key];
         if (lastStatus) {
           micro.status = lastStatus;
-          if (lastStatus === 'starting' || lastStatus === 'running')
-            anyStarting = true;
+          if (lastStatus === 'starting' || lastStatus === 'running' || lastStatus === 'stopping') {
+            anyActiveSpring = true;
+            console.log(`🟢 Spring ${micro.label}: ${lastStatus}`);
+          }
         }
       });
 
-      this.loading = anyStarting;
+      const shouldBeLoading = anyActiveAngular || anyActiveSpring;
+      this.loading = shouldBeLoading;
       
-      if (anyStarting) {
+      console.log(`📊 Estado final del spinner: ${shouldBeLoading} (Angular activos: ${anyActiveAngular}, Spring activos: ${anyActiveSpring})`);
+      
+      if (shouldBeLoading) {
         this.pushLog('🔄 Restaurando estado de microservicios desde sesión anterior');
+        
+        // Mostrar específicamente qué microservicios están activos
+        const activeMicros = [
+          ...this.angularMicros.filter(m => m.status !== 'stopped'),
+          ...this.springMicros.filter(m => m.status !== 'stopped')
+        ];
+        
+        if (activeMicros.length > 0) {
+          this.pushLog(`🔄 Microservicios activos: ${activeMicros.map(m => `${m.label}(${m.status})`).join(', ')}`);
+        }
       } else {
         this.pushLog('💤 Todos los microservicios están detenidos');
       }
@@ -253,7 +270,6 @@ export class Launcher implements OnInit, OnDestroy {
       }
 
       if (msg.status === 'starting' && !this.loading) {
-        this.loading = true;
         this.pushLog(`[${type} ${msg.micro}] 🚀 Lanzando...`);
       }
 
