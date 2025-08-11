@@ -66,28 +66,35 @@ export class Launcher implements OnInit, OnDestroy {
       let anyActiveAngular = false;
       let anyActiveSpring = false;
 
+      // Verificar microservicios Angular
       this.angularMicros.forEach((micro) => {
         const lastStatus = statuses.angular?.[micro.key];
         if (lastStatus) {
           micro.status = lastStatus;
-          if (lastStatus === 'starting' || lastStatus === 'running' || lastStatus === 'stopping') {
+          // Solo considerar como "activo" los estados transitorios (starting/stopping)
+          // Los microservicios en "running" no necesitan spinner
+          if (lastStatus === 'starting' || lastStatus === 'stopping') {
             anyActiveAngular = true;
             console.log(`🔵 Angular ${micro.label}: ${lastStatus}`);
           }
         }
       });
 
+      // Verificar microservicios Spring
       this.springMicros.forEach((micro) => {
         const lastStatus = statuses.spring?.[micro.key];
         if (lastStatus) {
           micro.status = lastStatus;
-          if (lastStatus === 'starting' || lastStatus === 'running' || lastStatus === 'stopping') {
+          // Solo considerar como "activo" los estados transitorios (starting/stopping)
+          // Los microservicios en "running" no necesitan spinner
+          if (lastStatus === 'starting' || lastStatus === 'stopping') {
             anyActiveSpring = true;
             console.log(`🟢 Spring ${micro.label}: ${lastStatus}`);
           }
         }
       });
 
+      // Solo mostrar spinner si hay microservicios en estados transitorios
       const shouldBeLoading = anyActiveAngular || anyActiveSpring;
       this.loading = shouldBeLoading;
       
@@ -96,17 +103,27 @@ export class Launcher implements OnInit, OnDestroy {
       if (shouldBeLoading) {
         this.pushLog('🔄 Restaurando estado de microservicios desde sesión anterior');
         
-        // Mostrar específicamente qué microservicios están activos
+        // Mostrar específicamente qué microservicios están en estados transitorios
         const activeMicros = [
-          ...this.angularMicros.filter(m => m.status !== 'stopped'),
-          ...this.springMicros.filter(m => m.status !== 'stopped')
+          ...this.angularMicros.filter(m => m.status === 'starting' || m.status === 'stopping'),
+          ...this.springMicros.filter(m => m.status === 'starting' || m.status === 'stopping')
         ];
         
         if (activeMicros.length > 0) {
-          this.pushLog(`🔄 Microservicios activos: ${activeMicros.map(m => `${m.label}(${m.status})`).join(', ')}`);
+          this.pushLog(`🔄 Microservicios en proceso: ${activeMicros.map(m => `${m.label}(${m.status})`).join(', ')}`);
         }
       } else {
-        this.pushLog('💤 Todos los microservicios están detenidos');
+        // Mostrar mensaje final del estado
+        const runningMicros = [
+          ...this.angularMicros.filter(m => m.status === 'running'),
+          ...this.springMicros.filter(m => m.status === 'running')
+        ];
+        
+        if (runningMicros.length > 0) {
+          this.pushLog(`✅ Microservicios corriendo: ${runningMicros.map(m => m.label).join(', ')}`);
+        } else {
+          this.pushLog('💤 Todos los microservicios están detenidos');
+        }
       }
     });
   }
