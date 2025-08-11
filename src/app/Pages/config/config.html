@@ -1,14 +1,18 @@
 <h1>Configuración de Microservicios</h1>
 
 <div class="tab-selector">
-  <button [class.active]="selectedTab === 'angular'" (click)="changeTab('angular')">Angular</button>
-  <button [class.active]="selectedTab === 'spring'" (click)="changeTab('spring')">Spring</button>
+  <button [class.active]="selectedTab === 'angular'" (click)="changeTab('angular')" class="tab-btn angular-tab" title="Angular">
+    <img src="assets/logoAngular.png" alt="Angular" class="tab-logo">
+  </button>
+  <button [class.active]="selectedTab === 'spring'" (click)="changeTab('spring')" class="tab-btn spring-tab" title="Spring">
+    <img src="assets/logoSpring.png" alt="Spring" class="tab-logo">
+  </button>
 </div>
 
 <!-- Botón para agregar microservicio -->
 <div class="add-micro-section" *ngIf="!loading">
-  <button class="add-micro-btn" (click)="toggleAddMicroForm()" *ngIf="!showAddMicroForm">
-    ➕ Agregar Microservicio {{ selectedTab === 'angular' ? 'Angular' : 'Spring' }}
+  <button class="nav-btn add-btn" (click)="toggleAddMicroForm()" *ngIf="!showAddMicroForm" title="Agregar Microservicio">
+    ➕
   </button>
   
   <!-- Formulario para agregar microservicio -->
@@ -28,8 +32,8 @@
       </select>
     </div>
     <div class="form-buttons">
-      <button class="confirm-btn" (click)="addCustomMicroservice()">✅ Agregar</button>
-      <button class="cancel-btn" (click)="toggleAddMicroForm()">❌ Cancelar</button>
+      <button class="nav-btn confirm-btn" (click)="addCustomMicroservice()" title="Confirmar">✅</button>
+      <button class="nav-btn cancel-btn" (click)="toggleAddMicroForm()" title="Cancelar">❌</button>
     </div>
   </div>
 </div>
@@ -41,7 +45,7 @@
         <h3>{{ micro.label }}</h3>
         <button 
           *ngIf="micro.isCustom" 
-          class="remove-btn" 
+          class="nav-btn remove-btn" 
           (click)="removeCustomMicroservice(micro.key, 'angular')"
           title="Eliminar microservicio personalizado"
         >
@@ -92,7 +96,7 @@
         <h3>{{ micro.label }}</h3>
         <button 
           *ngIf="micro.isCustom" 
-          class="remove-btn" 
+          class="nav-btn remove-btn" 
           (click)="removeCustomMicroservice(micro.key, 'spring')"
           title="Eliminar microservicio personalizado"
         >
@@ -105,10 +109,10 @@
 </div>
 
 <div class="button-bar" [ngClass]="{ invisible: loading }">
-  <button class="save-btn" (click)="goToHome()">🏠 Home</button>
-  <button class="save-btn" (click)="save()">💾 Guardar</button>
-  <button class="clear-btn" (click)="clear()">🗑 Borrar</button>
-  <button class="go-btn" (click)="goToLauncher()">🚀 Ir al launcher</button>
+  <button class="nav-btn home-btn" (click)="goToHome()" title="Home">🏠</button>
+  <button class="nav-btn save-btn" (click)="save()" title="Guardar">💾</button>
+  <button class="nav-btn clear-btn" (click)="clear()" title="Borrar">🗑</button>
+  <button class="nav-btn launcher-btn" (click)="goToLauncher()" title="Ir al launcher">🚀</button>
 </div>
 
 <div class="feedback-zone">

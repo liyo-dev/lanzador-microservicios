@@ -2,22 +2,26 @@
 
 <div class="launcher-container">
   <div class="top-bar">
-    <button class="go-btn" (click)="goToHome()">
-      🏠 Home
+    <button class="nav-btn home-btn" (click)="goToHome()" title="Home">
+      🏠
     </button>
     <div class="top-bar-end">
-      <button class="go-btn users-btn" (click)="goToUsers()">
-        👥 Usuarios Portal
+      <button class="nav-btn users-btn" (click)="goToUsers()" title="Usuarios Portal">
+        👥
       </button>
-      <button class="go-btn" (click)="goToConfig()">
-        ⚙️ Configuración
+      <button class="nav-btn config-btn" (click)="goToConfig()" title="Configuración">
+        ⚙️
       </button>
     </div>
   </div>
 
   <div class="tab-selector">
-    <button [class.active]="selectedTab === 'angular'" (click)="selectedTab = 'angular'">Angular</button>
-    <button [class.active]="selectedTab === 'spring'" (click)="selectedTab = 'spring'">Spring</button>
+    <button [class.active]="selectedTab === 'angular'" (click)="selectedTab = 'angular'" class="tab-btn angular-tab" title="Angular">
+      <img src="assets/logoAngular.png" alt="Angular" class="tab-logo">
+    </button>
+    <button [class.active]="selectedTab === 'spring'" (click)="selectedTab = 'spring'" class="tab-btn spring-tab" title="Spring">
+      <img src="assets/logoSpring.png" alt="Spring" class="tab-logo">
+    </button>
   </div>
 
   <!-- Estado vacío cuando no hay microservicios configurados -->

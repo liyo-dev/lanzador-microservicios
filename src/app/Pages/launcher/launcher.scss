@@ -2,25 +2,9 @@
   font-family: "Inter", sans-serif;
   display: block;
   min-height: 100vh;
-  background: linear-gradient(-45deg, #e3f2fd, #fce4ec, #f3e5f5, #e1f5fe);
-  background-size: 400% 400%;
-  animation: bgMove 15s ease infinite;
+  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 25%, #f1f5f9 50%, #e9d5ff 75%, #fce7f3 100%);
   padding: 2rem;
   box-sizing: border-box;
-}
-
-@keyframes bgMove {
-  0% {
-    background-position: 0% 50%;
-  }
-
-  50% {
-    background-position: 100% 50%;
-  }
-
-  100% {
-    background-position: 0% 50%;
-  }
 }
 
 .invisible {
@@ -43,8 +27,66 @@
   width: 100%;
   display: flex;
   justify-content: flex-end;
+  gap: 12px;
 }
 
+.nav-btn {
+  background: white;
+  border: 2px solid rgba(102, 126, 234, 0.2);
+  padding: 12px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 18px;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  width: 50px;
+  height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+
+  &:hover {
+    background: white;
+    transform: translateY(-2px) scale(1.05);
+    box-shadow: 0 6px 16px rgba(102, 126, 234, 0.2);
+  }
+
+  &.home-btn {
+    border-color: rgba(59, 130, 246, 0.3);
+    
+    &:hover {
+      border-color: rgba(59, 130, 246, 0.5);
+      box-shadow: 
+        0 0 15px rgba(59, 130, 246, 0.4),
+        0 0 30px rgba(59, 130, 246, 0.2);
+    }
+  }
+
+  &.users-btn {
+    border-color: rgba(168, 85, 247, 0.3);
+    
+    &:hover {
+      border-color: rgba(168, 85, 247, 0.5);
+      box-shadow: 
+        0 0 15px rgba(168, 85, 247, 0.4),
+        0 0 30px rgba(168, 85, 247, 0.2);
+    }
+  }
+
+  &.config-btn {
+    border-color: rgba(107, 114, 128, 0.3);
+    
+    &:hover {
+      border-color: rgba(107, 114, 128, 0.5);
+      box-shadow: 
+        0 0 15px rgba(107, 114, 128, 0.4),
+        0 0 30px rgba(107, 114, 128, 0.2);
+    }
+  }
+}
+
+// Mantener estilos antiguos para compatibilidad
 .go-btn {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
@@ -278,8 +320,94 @@ button.stop-btn {
   display: flex;
   justify-content: center;
   margin-bottom: 20px;
+  gap: 16px;
 
-  button {
+  .tab-btn {
+    background: white; // Fondo blanco siempre
+    border: 2px solid rgba(102, 126, 234, 0.2);
+    padding: 16px;
+    border-radius: 50%; // Círculo perfecto
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 60px;
+    height: 60px;
+
+    .tab-logo {
+      width: 32px;
+      height: 32px;
+      object-fit: contain;
+      transition: all 0.3s ease;
+    }
+
+    &:hover:not(.active) {
+      background: white; // Mantener fondo blanco
+      border-color: rgba(102, 126, 234, 0.4);
+      transform: translateY(-2px) scale(1.05);
+      box-shadow: 0 6px 16px rgba(102, 126, 234, 0.2);
+      
+      .tab-logo {
+        transform: scale(1.1);
+      }
+    }
+
+    &.active {
+      background: white; // Fondo blanco también cuando está activo
+      border-color: transparent;
+      transform: translateY(-2px) scale(1.05);
+      // Efecto de iluminación por fuera - glow effect
+      box-shadow: 
+        0 0 20px rgba(102, 126, 234, 0.6),
+        0 0 40px rgba(102, 126, 234, 0.4),
+        0 0 60px rgba(102, 126, 234, 0.2);
+      
+      .tab-logo {
+        transform: scale(1.15);
+        // Los logos mantienen sus colores originales
+      }
+    }
+
+    // Estilos específicos por tecnología para el glow
+    &.angular-tab.active {
+      box-shadow: 
+        0 0 20px rgba(221, 68, 68, 0.6),
+        0 0 40px rgba(221, 68, 68, 0.4),
+        0 0 60px rgba(221, 68, 68, 0.2);
+    }
+
+    &.spring-tab.active {
+      box-shadow: 
+        0 0 20px rgba(34, 197, 94, 0.6),
+        0 0 40px rgba(34, 197, 94, 0.4),
+        0 0 60px rgba(34, 197, 94, 0.2);
+    }
+
+    // Bordes temáticos cuando no están activos
+    &.angular-tab:not(.active) {
+      border-color: rgba(221, 68, 68, 0.3);
+      
+      &:hover {
+        border-color: rgba(221, 68, 68, 0.5);
+        box-shadow: 0 6px 16px rgba(221, 68, 68, 0.3);
+      }
+    }
+
+    &.spring-tab:not(.active) {
+      border-color: rgba(34, 197, 94, 0.3);
+      
+      &:hover {
+        border-color: rgba(34, 197, 94, 0.5);
+        box-shadow: 0 6px 16px rgba(34, 197, 94, 0.3);
+      }
+    }
+  }
+
+  // Mantener compatibilidad con botones sin clase específica
+  button:not(.tab-btn) {
     background: rgba(255, 255, 255, 0.9);
     border: 2px solid rgba(102, 126, 234, 0.2);
     padding: 12px 24px;
@@ -297,14 +425,14 @@ button.stop-btn {
       transform: translateY(-1px);
       box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
     }
-  }
 
-  button.active {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    border-color: transparent;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    &.active {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border-color: transparent;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    }
   }
 }
 
