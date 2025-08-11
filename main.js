@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell } = require("electron");
+const { app, BrowserWindow, ipcMain, shell, dialog } = require("electron");
 const { spawn } = require("child_process");
 const stripAnsi = require("strip-ansi");
 const kill = require("tree-kill");
@@ -46,6 +46,33 @@ function createWindow() {
     console.log(`Loading index from: ${indexPath}`);
     mainWindow.loadFile(indexPath);
   }
+
+  // Manejar intento de cierre de la ventana principal
+  mainWindow.on("close", (event) => {
+    const hasActiveProcesses = checkForActiveProcesses();
+    
+    if (hasActiveProcesses) {
+      event.preventDefault();
+      
+      // Mostrar diálogo de confirmación
+      const response = dialog.showMessageBoxSync(mainWindow, {
+        type: "warning",
+        buttons: ["Cancelar", "Forzar cierre"],
+        defaultId: 0,
+        title: "Microservicios activos",
+        message: "⚠️ Hay microservicios ejecutándose",
+        detail: "Tienes microservicios Angular o Spring corriendo. Se recomienda pararlos antes de cerrar la aplicación.\n\n¿Qué deseas hacer?",
+        icon: path.join(__dirname, "icon.ico")
+      });
+      
+      if (response === 1) {
+        // Usuario eligió "Forzar cierre" - matar todos los procesos y cerrar
+        forceKillAllProcesses();
+        mainWindow.destroy();
+      }
+      // Si response === 0 (Cancelar), no hacemos nada y la ventana sigue abierta
+    }
+  });
 }
 
 app.whenReady().then(() => {
@@ -55,6 +82,62 @@ app.whenReady().then(() => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
 });
+
+// Manejar intento de cierre de la aplicación
+app.on("before-quit", (event) => {
+  const hasActiveProcesses = checkForActiveProcesses();
+  
+  if (hasActiveProcesses) {
+    event.preventDefault();
+    
+    // Mostrar diálogo de confirmación
+    const response = dialog.showMessageBoxSync(mainWindow, {
+      type: "warning",
+      buttons: ["Cancelar", "Forzar cierre"],
+      defaultId: 0,
+      title: "Microservicios activos",
+      message: "⚠️ Hay microservicios ejecutándose",
+      detail: "Tienes microservicios Angular o Spring corriendo. Se recomienda pararlos antes de cerrar la aplicación.\n\n¿Qué deseas hacer?",
+      icon: path.join(__dirname, "icon.ico")
+    });
+    
+    if (response === 1) {
+      // Usuario eligió "Forzar cierre" - matar todos los procesos y cerrar
+      forceKillAllProcesses();
+      app.quit();
+    }
+    // Si response === 0 (Cancelar), no hacemos nada y la app sigue abierta
+  }
+});
+
+// Función para verificar si hay procesos activos
+function checkForActiveProcesses() {
+  const activeAngular = Object.values(angularStatus).some(status => status === "running");
+  const activeSpring = Object.values(springStatus).some(status => status === "running");
+  return activeAngular || activeSpring;
+}
+
+// Función para matar todos los procesos de forma forzada
+function forceKillAllProcesses() {
+  console.log("Forzando cierre de todos los procesos...");
+  
+  Object.keys(processes).forEach((key) => {
+    const process = processes[key];
+    if (process && !process.killed) {
+      console.log(`Matando proceso: ${key}`);
+      kill(process.pid, "SIGTERM", (err) => {
+        if (err) {
+          console.error(`Error matando proceso ${key}:`, err);
+        }
+      });
+    }
+  });
+  
+  // Limpiar estados
+  processes = {};
+  angularStatus = {};
+  springStatus = {};
+}
 
 app.on("window-all-closed", function () {
   if (process.platform !== "darwin") {
