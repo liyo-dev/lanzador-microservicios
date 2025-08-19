@@ -26,20 +26,6 @@
       </div>
     </div>
     
-    <!-- Pestañas de entorno -->
-    <div class="environment-tabs">
-      <button 
-        *ngFor="let env of environments"
-        class="env-tab"
-        [class.active]="selectedEnvironment === env.key"
-        (click)="switchEnvironment(env.key)"
-      >
-        <span class="env-icon">{{ env.icon }}</span>
-        <span class="env-name">{{ env.name }}</span>
-        <span class="env-count">({{ getUserCountByEnvironment(env.key) }})</span>
-      </button>
-    </div>
-
     <!-- Sub-entorno switcher para Local/Dev cuando esté en local-dev -->
     <div class="sub-environment-switcher" *ngIf="selectedEnvironment === 'local-dev'">
       <div class="switcher-label">Vista:</div>
