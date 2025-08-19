@@ -11,6 +11,14 @@ interface User {
   username: string;
   password: string;
   description?: string;
+  environment: 'local-dev' | 'pre'; // Unificado: local-dev y pre separado
+}
+
+interface Environment {
+  key: 'local-dev' | 'pre';
+  name: string;
+  urls: { local: string; dev: string } | { pre: string }; // URLs múltiples para local-dev
+  icon: string;
 }
 
 @Component({
@@ -24,6 +32,28 @@ export class UsersComponent implements OnInit {
   users: User[] = [];
   showAddForm = false;
   editingUser: User | null = null;
+  selectedEnvironment: 'local-dev' | 'pre' = 'local-dev';
+  selectedSubEnvironment: 'local' | 'dev' = 'local'; // Para saber si mostrar local o dev cuando esté en local-dev
+  
+  environments: Environment[] = [
+    {
+      key: 'local-dev',
+      name: 'Local / Desarrollo',
+      urls: {
+        local: 'http://localhost:8080/GBMSGF_ESCE/BtoChannelDriver.ssobto?dse_parentContextName=&dse_processorState=initial&dse_nextEventName=start&dse_operationName=inicio',
+        dev: 'https://scnp-fo-gateway-api.isban.dev.corp/scnp-fo-gateway-api/login2f/login/s'
+      },
+      icon: '🏠🔧'
+    },
+    {
+      key: 'pre',
+      name: 'Preproducción',
+      urls: {
+        pre: 'https://scnp-fo-gateway-api.cashnexus.gcb.pre.corp/scnp-fo-gateway-api/login2f/login/s'
+      },
+      icon: '🧪'
+    }
+  ];
   
   newUser: User = {
     id: '',
@@ -31,12 +61,54 @@ export class UsersComponent implements OnInit {
     companyID: '',
     username: '',
     password: '',
-    description: ''
+    description: '',
+    environment: 'local-dev'
   };
 
   portalUrl = 'http://localhost:8080/GBMSGF_ESCE/BtoChannelDriver.ssobto?dse_parentContextName=&dse_processorState=initial&dse_nextEventName=start&dse_operationName=inicio';
 
   constructor(private router: Router) {}
+
+  // Métodos auxiliares para manejar entornos
+  getCurrentEnvironment(): Environment {
+    return this.environments.find(env => env.key === this.selectedEnvironment) || this.environments[0];
+  }
+
+  getEnvironmentUrl(user: User, subEnv?: 'local' | 'dev'): string {
+    const env = this.environments.find(e => e.key === user.environment);
+    if (!env) return '';
+    
+    if (user.environment === 'local-dev') {
+      const urls = env.urls as { local: string; dev: string };
+      if (subEnv) {
+        return subEnv === 'local' ? urls.local : urls.dev;
+      }
+      // Por defecto usar local, pero permitir cambiar
+      return this.selectedSubEnvironment === 'local' ? urls.local : urls.dev;
+    } else {
+      const urls = env.urls as { pre: string };
+      return urls.pre;
+    }
+  }
+
+  getUsersByEnvironment(): User[] {
+    return this.users.filter(user => user.environment === this.selectedEnvironment);
+  }
+
+  getUserCountByEnvironment(env: 'local-dev' | 'pre'): number {
+    return this.users.filter(user => user.environment === env).length;
+  }
+
+  switchEnvironment(envKey: 'local-dev' | 'pre') {
+    this.selectedEnvironment = envKey;
+  }
+  
+  // Método para cambiar entre local y dev cuando estamos en local-dev
+  switchSubEnvironment(subEnv: 'local' | 'dev') {
+    if (this.selectedEnvironment === 'local-dev') {
+      this.selectedSubEnvironment = subEnv;
+    }
+  }
 
   ngOnInit() {
     this.loadUsers();
@@ -107,11 +179,9 @@ export class UsersComponent implements OnInit {
     }, 4000);
   }
 
-  private showEmergencyScript(user: any) {
-    const script = `document.getElementsByName('companyID')[0].value='${user.companyID}';
-document.getElementsByName('usuario')[0].value='${user.username}';
-document.getElementsByName('password')[0].value='${user.password}';
-document.querySelector('.opLogonStandardButton').click();`;
+  private showEmergencyScript(user: User) {
+    const script = this.generateLoginScript(user);
+    const portalUrl = this.getEnvironmentUrl(user);
 
     // Crear ventana de emergencia
     const emergencyWindow = window.open('', '_blank', 'width=600,height=400');
@@ -168,14 +238,16 @@ document.querySelector('.opLogonStandardButton').click();`;
           <body>
             <div class="error-container">
               <h2>⚠️ No se pudo abrir automáticamente</h2>
-              <p><strong>Usuario:</strong> ${user.name}</p>
+              <p><strong>Usuario:</strong> ${user.name}
+                <span style="background: #4CAF50; color: white; padding: 2px 8px; border-radius: 4px; font-size: 12px; margin-left: 8px;">${user.environment.toUpperCase()}</span>
+              </p>
               
               <h3>🔗 Opción 1: Abrir manualmente</h3>
               <div class="manual-url">
                 <strong>URL:</strong><br>
-                ${this.portalUrl}
+                ${portalUrl}
               </div>
-              <button class="btn" onclick="window.open('${this.portalUrl}', '_blank')">🌐 Abrir Portal</button>
+              <button class="btn" onclick="window.open('${portalUrl}', '_blank')">🌐 Abrir Portal</button>
               
               <h3>📋 Opción 2: Script de login</h3>
               <p>Abre la consola del navegador (F12) y pega:</p>
@@ -208,6 +280,12 @@ document.querySelector('.opLogonStandardButton').click();`;
     const savedUsers = localStorage.getItem('portal-users');
     if (savedUsers) {
       this.users = JSON.parse(savedUsers);
+      // Migrar usuarios existentes que no tengan environment
+      this.users = this.users.map(user => ({
+        ...user,
+        environment: user.environment || 'local-dev'
+      }));
+      this.saveUsers(); // Guardar la migración
     } else {
       // Usuarios por defecto
       this.users = [
@@ -217,7 +295,8 @@ document.querySelector('.opLogonStandardButton').click();`;
           companyID: 'TESTPORTAL',
           username: 'Testraul',
           password: '85BUui!:',
-          description: 'Usuario de prueba principal'
+          description: 'Usuario de prueba principal',
+          environment: 'local-dev'
         }
       ];
       this.saveUsers();
@@ -330,14 +409,17 @@ document.querySelector('.opLogonStandardButton').click();`;
       companyID: '',
       username: '',
       password: '',
-      description: ''
+      description: '',
+      environment: this.selectedEnvironment
     };
   }
 
   async loginWithUser(user: User) {
     try {
+      const portalUrl = this.getEnvironmentUrl(user);
       console.log('🚀 Intentando abrir portal para usuario:', user.name);
-      console.log('📍 URL del portal:', this.portalUrl);
+      console.log('📍 URL del portal:', portalUrl);
+      console.log('🏷️ Entorno:', user.environment);
       
       // Verificar si estamos en Electron
       const isElectron = (window as any).electronAPI;
@@ -353,7 +435,8 @@ document.querySelector('.opLogonStandardButton').click();`;
     } catch (error) {
       console.error('❌ Error general al abrir portal:', error);
       const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
-      alert(`❌ Error al abrir el portal: ${errorMessage}\n\nURL: ${this.portalUrl}\n\nVerifica que la URL sea correcta y que el servidor esté funcionando.`);
+      const portalUrl = this.getEnvironmentUrl(user);
+      alert(`❌ Error al abrir el portal: ${errorMessage}\n\nURL: ${portalUrl}\n\nVerifica que la URL sea correcta y que el servidor esté funcionando.`);
     }
   }
 
@@ -371,14 +454,17 @@ document.querySelector('.opLogonStandardButton').click();`;
 
       console.log('🌐 Abriendo portal con Chrome directamente');
       
+      const portalUrl = this.getEnvironmentUrl(user);
+      
       // Crear datos para el main process de Electron
       const loginData = {
-        url: this.portalUrl,
+        url: portalUrl,
         user: {
           name: user.name,
           companyID: user.companyID,
           username: user.username,
-          password: user.password
+          password: user.password,
+          environment: user.environment
         }
       };
 
@@ -392,16 +478,63 @@ document.querySelector('.opLogonStandardButton').click();`;
 
     } catch (error) {
       console.error('❌ Error al ejecutar login:', error);
-      alert(`❌ Error: ${error}\n\nURL del portal: ${this.portalUrl}`);
+      const portalUrl = this.getEnvironmentUrl(user);
+      alert(`❌ Error: ${error}\n\nURL del portal: ${portalUrl}`);
+    }
+  }
+
+  private generateLoginScript(user: User): string {
+    // Generar script según el entorno del usuario
+    switch (user.environment) {
+      case 'local-dev':
+        // Para local-dev, necesitamos saber si es local o dev
+        const isLocalMode = this.selectedSubEnvironment === 'local';
+        
+        if (isLocalMode) {
+          // Script para LOCAL
+          return `document.getElementsByName('companyID')[0].value='${user.companyID}';
+document.getElementsByName('usuario')[0].value='${user.username}';
+document.getElementsByName('password')[0].value='${user.password}';
+document.querySelector('.opLogonStandardButton').click();`;
+        } else {
+          // Script para DEV
+          const grupoEmpresarial = user.companyID || 'SCNP';
+          return `// Rellenar campos para DEV
+document.querySelector('#txt_group input').value='${grupoEmpresarial}';
+document.querySelector('#txt_usuario input').value='${user.username}';
+document.querySelector('#txt_pass input').value='${user.password}';
+
+// Hacer clic en el botón de login
+document.querySelector('#btn_entrar').click();
+
+console.log('✅ Datos introducidos en DEV');
+console.log('Grupo empresarial: ${grupoEmpresarial}');
+console.log('Usuario: ${user.username}');`;
+        }
+      
+      case 'pre':
+        // Script para pre
+        const grupoEmpresarial = user.companyID || 'SCNP';
+        return `// Rellenar campos para PRE
+document.querySelector('#txt_group input').value='${grupoEmpresarial}';
+document.querySelector('#txt_usuario input').value='${user.username}';
+document.querySelector('#txt_pass input').value='${user.password}';
+
+// Hacer clic en el botón de login
+document.querySelector('#btn_entrar').click();
+
+console.log('✅ Datos introducidos en PRE');
+console.log('Grupo empresarial: ${grupoEmpresarial}');
+console.log('Usuario: ${user.username}');`;
+      
+      default:
+        return `console.log('Entorno no reconocido: ${user.environment}');`;
     }
   }
 
   private showScriptInstructions(user: User) {
-    // Crear el script simple para backup
-    const simpleScript = `document.getElementsByName('companyID')[0].value='${user.companyID}';
-document.getElementsByName('usuario')[0].value='${user.username}';
-document.getElementsByName('password')[0].value='${user.password}';
-document.querySelector('.opLogonStandardButton').click();`;
+    // Usar el nuevo método para generar el script según el entorno
+    const script = this.generateLoginScript(user);
 
     // Crear una ventana con instrucciones alternativas
     setTimeout(() => {
@@ -466,6 +599,7 @@ document.querySelector('.opLogonStandardButton').click();`;
             <body>
               <div class="container">
                 <h2>🚀 Login Automático - ${user.name}</h2>
+                <p><strong>Entorno:</strong> <span style="background: #4CAF50; color: white; padding: 2px 8px; border-radius: 4px; font-size: 12px;">${user.environment.toUpperCase()}</span></p>
                 
                 <div class="status">
                   ⚡ Chrome se ha abierto con auto-login activado<br>
@@ -475,7 +609,7 @@ document.querySelector('.opLogonStandardButton').click();`;
                 
                 <h3>🎯 Script de Emergencia</h3>
                 <p>Si el auto-login no funciona, abre la consola (F12) y pega:</p>
-                <div class="simple-script">${simpleScript}</div>
+                <div class="simple-script">${script}</div>
                 
                 <button class="btn" onclick="copyScript()">📋 Copiar Script</button>
                 
@@ -497,7 +631,7 @@ document.querySelector('.opLogonStandardButton').click();`;
               
               <script>
                 function copyScript() {
-                  const script = \`${simpleScript}\`;
+                  const script = \`${script}\`;
                   
                   navigator.clipboard.writeText(script).then(() => {
                     alert('✅ Script copiado! Pégalo en la consola del portal (F12)');

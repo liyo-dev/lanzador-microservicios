@@ -30,7 +30,7 @@ export class Launcher implements OnInit, OnDestroy {
 
   logs: string[] = [];
   loading = false;
-  showLogs = false;
+  showLogs = true;
   showSuccessMessage = false;
 
   // Configuración para gestión de logs - hacemos públicas las constantes que necesita el template

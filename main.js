@@ -10,9 +10,9 @@ const CDP = require('chrome-remote-interface');
 
 // ----------------------------------------------
 // DETECCIÓN DEV vs PROD
-// ----------------------------------------------
+// -----------------------------------------      const chromeProcess = spawn(chromePath, chromeArgs, {-
 const isDev = !app.isPackaged;
-console.log(`Running in ${isDev ? "development" : "production"} mode.`);
+console.log("Running in " + (isDev ? "development" : "production") + " mode");
 
 // ----------------------------------------------
 
@@ -43,7 +43,7 @@ function createWindow() {
       "browser",
       "index.html"
     );
-    console.log(`Loading index from: ${indexPath}`);
+    console.log('Loading index from: ' + indexPath);
     mainWindow.loadFile(indexPath);
   }
 
@@ -124,10 +124,10 @@ function forceKillAllProcesses() {
   Object.keys(processes).forEach((key) => {
     const process = processes[key];
     if (process && !process.killed) {
-      console.log(`Matando proceso: ${key}`);
+      console.log('Matando proceso: ' + key);
       kill(process.pid, "SIGTERM", (err) => {
         if (err) {
-          console.error(`Error matando proceso ${key}:`, err);
+          console.error('Error matando proceso ' + key + ':', err);
         }
       });
     }
@@ -180,19 +180,19 @@ ipcMain.handle("clear-config", () => {
 
 // Lanzar Angular
 ipcMain.on("start-angular", (event, data) => {
-  const processKey = `angular-${data.micro}`;
+  const processKey = 'angular-' + data.micro;
 
   if (processes[processKey]) {
     mainWindow.webContents.send("log-angular", {
       micro: data.micro,
-      log: `Micro ${data.micro} ya está en ejecución.`,
+      log: 'Micro ' + data.micro + ' ya está en ejecución.',
     });
     return;
   }
 
   mainWindow.webContents.send("log-angular", {
     micro: data.micro,
-    log: `Lanzando Angular [${data.micro}] en puerto ${data.port}...`,
+    log: 'Lanzando Angular [' + data.micro + '] en puerto ' + data.port + '...',
     status: "starting",
   });
 
@@ -215,7 +215,7 @@ ipcMain.on("start-angular", (event, data) => {
 
   angularProcess.stdout.on("data", (dataLog) => {
     const logClean = stripAnsi(dataLog.toString());
-    console.log(`Angular Log: ${logClean}`);
+    console.log('Angular Log: ' + logClean);
 
     const isRunning =
       logClean.toLowerCase().includes("compiled successfully") ||
@@ -230,7 +230,7 @@ ipcMain.on("start-angular", (event, data) => {
       console.log("FIRST time running detected → sending running");
       mainWindow.webContents.send("log-angular", {
         micro: data.micro,
-        log: `Angular ${data.micro} arrancado correctamente.`,
+        log: 'Angular ' + data.micro + ' arrancado correctamente.',
         status: "running",
       });
       angularStatus[data.micro] = "running";
@@ -254,7 +254,7 @@ ipcMain.on("start-angular", (event, data) => {
   angularProcess.on("close", (code) => {
     mainWindow.webContents.send("log-angular", {
       micro: data.micro,
-      log: `Angular process exited with code ${code}`,
+      log: 'Angular process exited with code ' + code,
       status: "stopped",
     });
     angularStatus[data.micro] = "stopped";
@@ -270,8 +270,8 @@ function validateJavaAndMavenForSpring(micro, microPath) {
     mainWindow.webContents.send("log-spring", {
       micro,
       log:
-        `❌ No se ha encontrado JAVA_HOME configurado correctamente.\n` +
-        `Por favor, añade una variable de entorno de usuario llamada JAVA_HOME apuntando a tu instalación de Java (por ejemplo: C:\\DevTools\\Java\\jdk1.8.0_211) y reinicia el launcher.`,
+        '❌ No se ha encontrado JAVA_HOME configurado correctamente.\n' +
+        'Por favor, añade una variable de entorno de usuario llamada JAVA_HOME apuntando a tu instalación de Java (por ejemplo: C:\\DevTools\\Java\\jdk1.8.0_211) y reinicia el launcher.',
       status: "stopped",
     });
     return false;
@@ -286,8 +286,8 @@ function validateJavaAndMavenForSpring(micro, microPath) {
     mainWindow.webContents.send("log-spring", {
       micro,
       log:
-        `❌ No se encontró Maven ni mvnw.cmd en el microservicio.\n` +
-        `Instala Maven desde https://maven.apache.org/download.cgi o asegúrate de que mvnw.cmd existe en la carpeta del micro.`,
+        '❌ No se encontró Maven ni mvnw.cmd en el microservicio.\n' +
+        'Instala Maven desde https://maven.apache.org/download.cgi o asegúrate de que mvnw.cmd existe en la carpeta del micro.',
       status: "stopped",
     });
     return false;
@@ -298,13 +298,13 @@ function validateJavaAndMavenForSpring(micro, microPath) {
 
 // Lanzar Spring
 ipcMain.on("start-spring", (event, data) => {
-  const processKey = `spring-${data.micro || "default"}`;
+  const processKey = 'spring-' + (data.micro || "default");
   const micro = data.micro || "default";
 
   if (processes[processKey]) {
     mainWindow.webContents.send("log-spring", {
       micro,
-      log: `Micro Spring ya está en ejecución.`,
+      log: 'Micro Spring ya está en ejecución.',
     });
     return;
   }
@@ -318,12 +318,12 @@ ipcMain.on("start-spring", (event, data) => {
 
   const args = ["spring-boot:run"];
   if (data.settingsXml) args.push("-s", data.settingsXml);
-  if (data.m2RepoPath) args.push(`-Dmaven.repo.local=${data.m2RepoPath}`);
+  if (data.m2RepoPath) args.push('-Dmaven.repo.local=' + data.m2RepoPath);
 
   // Comillas solo si hay espacios
   const finalArgs = [
     "/c",
-    [mvnCmd, ...args.map((arg) => (arg.includes(" ") ? `"${arg}"` : arg))].join(
+    [mvnCmd, ...args.map((arg) => (arg.includes(" ") ? '"' + arg + '"' : arg))].join(
       " "
     ),
   ];
@@ -332,7 +332,7 @@ ipcMain.on("start-spring", (event, data) => {
 
   mainWindow.webContents.send("log-spring", {
     micro,
-    log: `Lanzando Spring con configuración personalizada...`,
+    log: 'Lanzando Spring con configuración personalizada...',
     status: "starting",
   });
 
@@ -345,9 +345,7 @@ ipcMain.on("start-spring", (event, data) => {
   console.log("MAVEN_HOME:", mavenHome);
   console.log("ENV:", {
     JAVA_HOME: javaHome,
-    PATH: `${path.join(javaHome, "bin")};${path.join(mavenHome, "bin")};${
-      process.env.PATH
-    }`,
+    PATH: path.join(javaHome, "bin") + ";" + path.join(mavenHome, "bin") + ";" + process.env.PATH,
   });
 
   const springProcess = spawn("cmd.exe", finalArgs, {
@@ -356,16 +354,14 @@ ipcMain.on("start-spring", (event, data) => {
     env: {
       ...process.env,
       JAVA_HOME: javaHome,
-      PATH: `${path.join(javaHome, "bin")};${path.join(mavenHome, "bin")};${
-        process.env.PATH
-      }`,
+      PATH: path.join(javaHome, "bin") + ";" + path.join(mavenHome, "bin") + ";" + process.env.PATH,
     },
   });
 
   springProcess.on("error", (err) => {
     mainWindow.webContents.send("log-spring", {
       micro,
-      log: `❌ Error en spawn: ${err.message}`,
+      log: '❌ Error en spawn: ' + err.message,
       status: "stopped",
     });
     console.error("Error en spawn:", err);
@@ -392,14 +388,14 @@ ipcMain.on("start-spring", (event, data) => {
     const logClean = stripAnsi(dataLog.toString());
     mainWindow.webContents.send("log-spring", {
       micro,
-      log: `❗ Error: ${logClean}`,
+      log: '❗ Error: ' + logClean,
     });
   });
 
   springProcess.on("close", (code, signal) => {
     mainWindow.webContents.send("log-spring", {
       micro,
-      log: `❌ Spring se cerró inesperadamente (code: ${code}, signal: ${signal})`,
+      log: '❌ Spring se cerró inesperadamente (code: ' + code + ', signal: ' + signal + ')',
       status: "stopped",
     });
     springStatus[micro] = "stopped";
@@ -414,7 +410,7 @@ ipcMain.on("stop-process", (event, processKey) => {
       processKey.startsWith("angular-") ? "log-angular" : "log-spring",
       {
         micro: processKey.replace(/^angular-|^spring-/, ""),
-        log: `🛑 Parando proceso ${processKey}...`,
+        log: '🛑 Parando proceso ' + processKey + '...',
       }
     );
 
@@ -423,7 +419,7 @@ ipcMain.on("stop-process", (event, processKey) => {
         processKey.startsWith("angular-") ? "log-angular" : "log-spring",
         {
           micro: processKey.replace(/^angular-|^spring-/, ""),
-          log: `${processKey} process killed.`,
+          log: processKey + ' process killed.',
           status: "stopped",
         }
       );
@@ -441,7 +437,7 @@ ipcMain.on("stop-process", (event, processKey) => {
       processKey.startsWith("angular-") ? "log-angular" : "log-spring",
       {
         micro: processKey.replace(/^angular-|^spring-/, ""),
-        log: `⚠️ No hay proceso activo para ${processKey}.`,
+        log: '⚠️ No hay proceso activo para ' + processKey + '.',
       }
     );
   }
@@ -482,7 +478,8 @@ ipcMain.handle('open-portal-with-autologin', async (event, loginData) => {
       name: userData.name,
       companyID: userData.companyID,
       username: userData.username,
-      password: userData.password ? '[PRESENTE]' : '[AUSENTE]'
+      password: userData.password ? '[PRESENTE]' : '[AUSENTE]',
+      environment: userData.environment || 'local'
     });
     
     // Detectar Chrome específicamente
@@ -518,7 +515,7 @@ ipcMain.handle('open-portal-with-autologin', async (event, loginData) => {
       const userDataDir = path.join(os.tmpdir(), 'chrome-autologin');
       const chromeArgs = [
         '--incognito',
-        `--user-data-dir=${userDataDir}`,
+        '--user-data-dir=' + userDataDir,
         '--remote-debugging-port=9222',
         portalUrl
       ];
@@ -541,19 +538,275 @@ ipcMain.handle('open-portal-with-autologin', async (event, loginData) => {
         await Page.enable();
         await Page.navigate({ url: portalUrl });
         await Page.loadEventFired();
-        const script = `
-          document.getElementsByName('companyID')[0].value='${userData.companyID || ''}';
-          document.getElementsByName('usuario')[0].value='${userData.username || ''}';
-          document.getElementsByName('password')[0].value='${userData.password || ''}';
-          const btn = document.querySelector('.opLogonStandardButton');
-          if (btn) { btn.click(); }
-        `;
-        await Runtime.evaluate({ expression: script });
+        // Generar script específico según el entorno
+        let script;
+        const environment = userData.environment || 'local-dev';
+        
+        console.log('🎯 Entorno detectado:', environment);
+        
+        if (environment === 'local-dev') {
+          // Para local-dev, determinar si usar script de local o dev basado en la URL
+          const isLocalUrl = portalUrl.includes('localhost:8080');
+          
+          if (isLocalUrl) {
+            console.log('🏠 Usando script para LOCAL (localhost)');
+            script = 
+              "console.log('🏠 Ejecutando autologin para LOCAL');" +
+              "try {" +
+              "  const companyField = document.getElementsByName('companyID')[0];" +
+              "  const userField = document.getElementsByName('usuario')[0];" +
+              "  const passwordField = document.getElementsByName('password')[0];" +
+              "  const loginButton = document.querySelector('.opLogonStandardButton');" +
+              "  " +
+              "  if (companyField) companyField.value = '" + (userData.companyID || '') + "';" +
+              "  if (userField) userField.value = '" + (userData.username || '') + "';" +
+              "  if (passwordField) passwordField.value = '" + (userData.password || '') + "';" +
+              "  " +
+              "  if (loginButton) {" +
+              "    loginButton.click();" +
+              "    console.log('✅ Click en botón LOCAL ejecutado');" +
+              "  } else {" +
+              "    console.log('❌ Botón de login LOCAL no encontrado');" +
+              "  }" +
+              "} catch (error) {" +
+              "  console.error('❌ Error en autologin LOCAL:', error);" +
+              "}";
+          } else {
+            console.log('🔧 Usando script para DEV (isban.dev.corp)');
+            const grupoEmpresarial = userData.companyID || 'SCNP';
+            script = 
+              "console.log('🔧 Ejecutando autologin para DEV');" +
+              "function fillLoginFields() {" +
+              "  try {" +
+              "    let groupField = document.querySelector('#txt_group input');" +
+              "    let userField = document.querySelector('#txt_usuario input');" +
+              "    let passwordField = document.querySelector('#txt_pass input');" +
+              "    let loginButton = document.querySelector('#btn_entrar');" +
+              "    " +
+              "    console.log('🔍 Campos encontrados:', {" +
+              "      groupField: !!groupField," +
+              "      userField: !!userField," +
+              "      passwordField: !!passwordField," +
+              "      loginButton: !!loginButton" +
+              "    });" +
+              "    " +
+              "    if (!groupField) {" +
+              "      const groupContainer = document.querySelector('#txt_group');" +
+              "      if (groupContainer) groupField = groupContainer.querySelector('input');" +
+              "    }" +
+              "    " +
+              "    if (!userField) {" +
+              "      const userContainer = document.querySelector('#txt_usuario');" +
+              "      if (userContainer) userField = userContainer.querySelector('input');" +
+              "    }" +
+              "    " +
+              "    if (!passwordField) {" +
+              "      const passContainer = document.querySelector('#txt_pass');" +
+              "      if (passContainer) passwordField = passContainer.querySelector('input');" +
+              "    }" +
+              "    " +
+              "    if (!groupField || !userField || !passwordField) {" +
+              "      console.log('🔄 Buscando campos por posición...');" +
+              "      const allInputs = Array.from(document.querySelectorAll('input'));" +
+              "      const textInputs = allInputs.filter(input => " +
+              "        input.type === 'text' || input.type === '' || !input.type" +
+              "      );" +
+              "      const passwordInputs = allInputs.filter(input => input.type === 'password');" +
+              "      " +
+              "      if (!groupField && textInputs.length >= 1) groupField = textInputs[0];" +
+              "      if (!userField && textInputs.length >= 2) userField = textInputs[1];" +
+              "      if (!passwordField && passwordInputs.length >= 1) passwordField = passwordInputs[0];" +
+              "    }" +
+              "    " +
+              "    if (!loginButton) {" +
+              "      console.log('🔄 Buscando botón de login...');" +
+              "      const allButtons = Array.from(document.querySelectorAll('button, input[type=\"submit\"]'));" +
+              "      for (const btn of allButtons) {" +
+              "        const text = btn.textContent?.toLowerCase() || '';" +
+              "        const id = btn.id?.toLowerCase() || '';" +
+              "        if (text.includes('entrar') || text.includes('login') || id.includes('entrar')) {" +
+              "          loginButton = btn;" +
+              "          break;" +
+              "        }" +
+              "      }" +
+              "      " +
+              "      if (!loginButton && allButtons.length > 0) {" +
+              "        loginButton = allButtons[0];" +
+              "      }" +
+              "    }" +
+              "    " +
+              "    if (groupField) {" +
+              "      groupField.value = '" + grupoEmpresarial + "';" +
+              "      groupField.dispatchEvent(new Event('input', { bubbles: true }));" +
+              "      groupField.dispatchEvent(new Event('change', { bubbles: true }));" +
+              "      console.log('✅ Grupo llenado:', '" + grupoEmpresarial + "');" +
+              "    }" +
+              "    " +
+              "    if (userField) {" +
+              "      userField.value = '" + (userData.username || '') + "';" +
+              "      userField.dispatchEvent(new Event('input', { bubbles: true }));" +
+              "      userField.dispatchEvent(new Event('change', { bubbles: true }));" +
+              "      console.log('✅ Usuario llenado:', '" + (userData.username || '') + "');" +
+              "    }" +
+              "    " +
+              "    if (passwordField) {" +
+              "      passwordField.value = '" + (userData.password || '') + "';" +
+              "      passwordField.dispatchEvent(new Event('input', { bubbles: true }));" +
+              "      passwordField.dispatchEvent(new Event('change', { bubbles: true }));" +
+              "      console.log('✅ Password llenado');" +
+              "    }" +
+              "    " +
+              "    if (loginButton && groupField && userField && passwordField) {" +
+              "      setTimeout(() => {" +
+              "        loginButton.click();" +
+              "        console.log('✅ Click en botón DEV ejecutado');" +
+              "      }, 1000);" +
+              "    } else {" +
+              "      console.log('❌ No se pueden llenar todos los campos DEV');" +
+              "    }" +
+              "  } catch (error) {" +
+              "    console.error('❌ Error en autologin DEV:', error);" +
+              "  }" +
+              "}" +
+              "" +
+              "fillLoginFields();" +
+              "setTimeout(fillLoginFields, 2000);" +
+              "setTimeout(fillLoginFields, 5000);" +
+              "" +
+              "if (document.readyState !== 'complete') {" +
+              "  window.addEventListener('load', fillLoginFields);" +
+              "}";
+          }
+        } else if (environment === 'pre') {
+          console.log('🧪 Usando script para PRE');
+          const grupoEmpresarial = userData.companyID || 'SCNP';
+          script = 
+            "console.log('🧪 Ejecutando autologin para PRE');" +
+            "function fillLoginFields() {" +
+            "  try {" +
+            "    let groupField = document.querySelector('#txt_group input');" +
+            "    let userField = document.querySelector('#txt_usuario input');" +
+            "    let passwordField = document.querySelector('#txt_pass input');" +
+            "    let loginButton = document.querySelector('#btn_entrar');" +
+            "    " +
+            "    console.log('🔍 Campos encontrados:', {" +
+            "      groupField: !!groupField," +
+            "      userField: !!userField," +
+            "      passwordField: !!passwordField," +
+            "      loginButton: !!loginButton" +
+            "    });" +
+            "    " +
+            "    if (!groupField) {" +
+            "      const groupContainer = document.querySelector('#txt_group');" +
+            "      if (groupContainer) groupField = groupContainer.querySelector('input');" +
+            "    }" +
+            "    " +
+            "    if (!userField) {" +
+            "      const userContainer = document.querySelector('#txt_usuario');" +
+            "      if (userContainer) userField = userContainer.querySelector('input');" +
+            "    }" +
+            "    " +
+            "    if (!passwordField) {" +
+            "      const passContainer = document.querySelector('#txt_pass');" +
+            "      if (passContainer) passwordField = passContainer.querySelector('input');" +
+            "    }" +
+            "    " +
+            "    if (!groupField || !userField || !passwordField) {" +
+            "      console.log('🔄 Buscando campos por posición...');" +
+            "      const allInputs = Array.from(document.querySelectorAll('input'));" +
+            "      const textInputs = allInputs.filter(input => " +
+            "        input.type === 'text' || input.type === '' || !input.type" +
+            "      );" +
+            "      const passwordInputs = allInputs.filter(input => input.type === 'password');" +
+            "      " +
+            "      if (!groupField && textInputs.length >= 1) groupField = textInputs[0];" +
+            "      if (!userField && textInputs.length >= 2) userField = textInputs[1];" +
+            "      if (!passwordField && passwordInputs.length >= 1) passwordField = passwordInputs[0];" +
+            "    }" +
+            "    " +
+            "    if (!loginButton) {" +
+            "      console.log('🔄 Buscando botón de login...');" +
+            "      const allButtons = Array.from(document.querySelectorAll('button, input[type=\"submit\"]'));" +
+            "      for (const btn of allButtons) {" +
+            "        const text = btn.textContent?.toLowerCase() || '';" +
+            "        const id = btn.id?.toLowerCase() || '';" +
+            "        if (text.includes('entrar') || text.includes('login') || id.includes('entrar')) {" +
+            "          loginButton = btn;" +
+            "          break;" +
+            "        }" +
+            "      }" +
+            "      " +
+            "      if (!loginButton && allButtons.length > 0) {" +
+            "        loginButton = allButtons[0];" +
+            "      }" +
+            "    }" +
+            "    " +
+            "    if (groupField) {" +
+            "      groupField.value = '" + grupoEmpresarial + "';" +
+            "      groupField.dispatchEvent(new Event('input', { bubbles: true }));" +
+            "      groupField.dispatchEvent(new Event('change', { bubbles: true }));" +
+            "      console.log('✅ Grupo llenado:', '" + grupoEmpresarial + "');" +
+            "    }" +
+            "    " +
+            "    if (userField) {" +
+            "      userField.value = '" + (userData.username || '') + "';" +
+            "      userField.dispatchEvent(new Event('input', { bubbles: true }));" +
+            "      userField.dispatchEvent(new Event('change', { bubbles: true }));" +
+            "      console.log('✅ Usuario llenado:', '" + (userData.username || '') + "');" +
+            "    }" +
+            "    " +
+            "    if (passwordField) {" +
+            "      passwordField.value = '" + (userData.password || '') + "';" +
+            "      passwordField.dispatchEvent(new Event('input', { bubbles: true }));" +
+            "      passwordField.dispatchEvent(new Event('change', { bubbles: true }));" +
+            "      console.log('✅ Password llenado');" +
+            "    }" +
+            "    " +
+            "    if (loginButton && groupField && userField && passwordField) {" +
+            "      setTimeout(() => {" +
+            "        loginButton.click();" +
+            "        console.log('✅ Click en botón PRE ejecutado');" +
+            "      }, 1000);" +
+            "    } else {" +
+            "      console.log('❌ No se pueden llenar todos los campos PRE');" +
+            "    }" +
+            "  } catch (error) {" +
+            "    console.error('❌ Error en autologin PRE:', error);" +
+            "  }" +
+            "}" +
+            "" +
+            "fillLoginFields();" +
+            "setTimeout(fillLoginFields, 2000);" +
+            "setTimeout(fillLoginFields, 5000);" +
+            "" +
+            "if (document.readyState !== 'complete') {" +
+            "  window.addEventListener('load', fillLoginFields);" +
+            "}";
+        } else {
+          console.log('❌ Entorno no reconocido:', environment);
+          script = "console.log('❌ Entorno no reconocido: " + environment + "');";
+        }
+        
+        try {
+          
+          // Intentar diagnóstico simple primero
+          const simpleTest = await Runtime.evaluate({ 
+            expression: 'document.title' 
+          });
+          
+          // Ejecutar el script de autologin
+          const loginResult = await Runtime.evaluate({ expression: script });
+          console.log('� Resultado del script de login:', loginResult);
+          
+        } catch (evaluationError) {
+          console.error('❌ Error durante evaluación del script:', evaluationError);
+        }
+        
         await client.close();
         console.log('✅ Autologin ejecutado correctamente');
         return {
           success: true,
-          message: `Chrome abierto y autologin ejecutado para ${userData.name || 'usuario'}.`
+          message: 'Chrome abierto y autologin ejecutado para ' + (userData.name || 'usuario') + '.'
         };
       } catch (automationError) {
         console.error('❌ Error durante autologin:', automationError);
@@ -564,17 +817,11 @@ ipcMain.handle('open-portal-with-autologin', async (event, loginData) => {
       }
     } else {
       // Fallback: usar navegador por defecto si Chrome no se encuentra
-      console.log('⚠️ Chrome no encontrado, usando navegador por defecto');
       await shell.openExternal(portalUrl);
       
       return { 
         success: true, 
-        message: `Portal abierto en navegador por defecto para ${userData.name || 'usuario'}.
-
-Datos para login manual:
-Company: ${userData.companyID || 'N/A'}
-Usuario: ${userData.username || 'N/A'}
-Contraseña: ${userData.password || 'N/A'}` 
+        message: "Portal abierto en navegador por defecto para " + (userData.name || 'usuario') + ".\n\nDatos para login manual:\nCompany: " + (userData.companyID || 'N/A') + "\nUsuario: " + (userData.username || 'N/A') + "\nContraseña: " + (userData.password || 'N/A')
       };
     }
     
