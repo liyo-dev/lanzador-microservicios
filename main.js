@@ -516,6 +516,9 @@ ipcMain.handle('open-portal-with-autologin', async (event, loginData) => {
       const chromeArgs = [
         '--user-data-dir=' + userDataDir,
         '--remote-debugging-port=9222',
+        '--no-first-run',
+        '--no-default-browser-check',
+        '--disable-extensions',
         portalUrl
       ];
 
@@ -529,10 +532,40 @@ ipcMain.handle('open-portal-with-autologin', async (event, loginData) => {
 
       chromeProcess.unref();
 
+      const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+      const connectToChrome = async () => {
+        const maxAttempts = 20;
+        let lastError = null;
+
+        for (let attempt = 0; attempt < maxAttempts; attempt++) {
+          try {
+            const targets = await CDP.List({ port: 9222 });
+            const candidateTarget =
+              targets.find((t) => t.type === 'page' && t.url && !t.url.startsWith('chrome://')) ||
+              targets.find((t) => t.type === 'page');
+
+            if (candidateTarget) {
+              return await CDP({ port: 9222, target: candidateTarget.targetId });
+            }
+          } catch (error) {
+            lastError = error;
+          }
+
+          await wait(500);
+        }
+
+        if (lastError) {
+          throw lastError;
+        }
+
+        throw new Error('No se pudo conectar a Chrome para ejecutar el autologin.');
+      };
+
       try {
         // Esperar a que el puerto de depuración esté disponible
-        await new Promise((resolve) => setTimeout(resolve, 3000));
-        const client = await CDP({ port: 9222 });
+        await wait(3000);
+        const client = await connectToChrome();
         const { Runtime, Page } = client;
         await Page.enable();
         await Page.navigate({ url: portalUrl });
