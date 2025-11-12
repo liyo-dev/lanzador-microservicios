@@ -1,0 +1,90 @@
+<div class="office-page">
+  <section class="avatar-panel app-surface">
+    <header class="panel-header">
+      <h1 class="page-title">Oficina Virtual</h1>
+      <p class="page-subtitle">
+        Elige un avatar, personaliza tu nombre y comparte actualizaciones con el equipo.
+      </p>
+    </header>
+
+    <div class="display-name">
+      <label for="displayName">Nombre visible</label>
+      <input
+        id="displayName"
+        type="text"
+        maxlength="24"
+        placeholder="Ej. Sara preparando releases"
+        [(ngModel)]="displayName"
+      />
+    </div>
+
+    <div class="avatar-preview">
+      <div class="avatar-badge" [class]="'tone-' + selectedAvatar.tone">
+        <span class="emoji">{{ selectedAvatar.emoji }}</span>
+      </div>
+      <div>
+        <h2>{{ previewName }}</h2>
+        <p>{{ selectedAvatar.description }}</p>
+      </div>
+    </div>
+
+    <div class="avatar-selector">
+      <h3>Selecciona tu rol</h3>
+      <div class="avatar-grid">
+        <button
+          type="button"
+          class="avatar-option"
+          *ngFor="let avatar of avatars"
+          (click)="selectAvatar(avatar)"
+          [class.active]="avatar.id === selectedAvatar.id"
+        >
+          <span class="avatar-emoji">{{ avatar.emoji }}</span>
+          <span class="avatar-label">{{ avatar.label }}</span>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <section class="chat-panel app-surface">
+    <header class="chat-header">
+      <div class="header-avatar" [class]="'tone-' + selectedAvatar.tone">
+        <span>{{ selectedAvatar.emoji }}</span>
+      </div>
+      <div>
+        <h2>Canal general</h2>
+        <p>Coordina al equipo desde tu puesto virtual.</p>
+      </div>
+    </header>
+
+    <div class="chat-messages" #messageList>
+      <article
+        class="chat-message"
+        *ngFor="let message of messages; trackBy: trackByMessageId"
+        [class.system]="message.isSystem"
+        [class.self]="!message.isSystem && message.author === previewName"
+      >
+        <div class="message-avatar" [class]="'tone-' + message.avatar.tone">
+          <span>{{ message.avatar.emoji }}</span>
+        </div>
+        <div class="message-content">
+          <header>
+            <span class="author">{{ message.author }}</span>
+            <time>{{ message.createdAt | date: 'HH:mm' }}</time>
+          </header>
+          <p>{{ message.content }}</p>
+        </div>
+      </article>
+    </div>
+
+    <form class="chat-input" (ngSubmit)="sendMessage()">
+      <input
+        type="text"
+        name="message"
+        autocomplete="off"
+        placeholder="Escribe un mensaje para el equipo..."
+        [(ngModel)]="messageText"
+      />
+      <button type="submit" [disabled]="!messageText.trim()">Enviar</button>
+    </form>
+  </section>
+</div>
