@@ -608,9 +608,13 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
-    if (this.miniGameState.status !== 'idle') {
+    if (this.miniGameState.status && !['idle', 'finished'].includes(this.miniGameState.status)) {
       this.officeService.sendMiniGameResponse(challenge.id, challenge.fromId, false);
       return;
+    }
+
+    if (this.miniGameState.status === 'finished') {
+      this.stopMiniGame();
     }
 
     this.interactionTargetId = challenge.fromId;
@@ -963,7 +967,7 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
       authorId: message.fromId,
     };
 
-  this.setSpeechBubble(message.fromId, bubble);
+    this.setSpeechBubble(message.fromId, bubble);
 
     if (message.fromId === this.selfId) {
       this.chatInput = '';
