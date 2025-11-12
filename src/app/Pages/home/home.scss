@@ -1,77 +1,177 @@
-.home-container {
+.home-page {
+  min-height: 100vh;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: 100vh;
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  overflow: hidden;
   position: relative;
-
-  background: linear-gradient(-45deg, #6dd5ed, #2193b0, #f7971e, #ff6a00);
-  background-size: 400% 400%;
-  animation: gradientAnimation 15s ease infinite;
+  padding: 4rem 1.5rem;
+  overflow: hidden;
+  background: transparent;
 }
 
-@keyframes gradientAnimation {
-  0% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-  100% {
-    background-position: 0% 50%;
-  }
-}
+.orbit {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(60px);
+  opacity: 0.6;
+  pointer-events: none;
 
-.icon-float {
-  font-size: 4rem;
-  animation: floatRocket 3s ease-in-out infinite;
-}
-
-@keyframes floatRocket {
-  0%, 100% {
-    transform: translateY(0);
+  &.orbit-1 {
+    width: 420px;
+    height: 420px;
+    background: linear-gradient(135deg, rgba(63, 114, 255, 0.28), rgba(14, 165, 233, 0.24));
+    top: -120px;
+    left: 10%;
   }
-  50% {
-    transform: translateY(-15px);
+
+  &.orbit-2 {
+    width: 520px;
+    height: 520px;
+    background: linear-gradient(135deg, rgba(94, 234, 212, 0.28), rgba(59, 130, 246, 0.18));
+    bottom: -160px;
+    right: -100px;
   }
 }
 
-.title {
-  text-align: center;
+.welcome-panel {
+  width: min(1080px, 100%);
+  backdrop-filter: blur(12px);
+  position: relative;
+  overflow: hidden;
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    background: linear-gradient(135deg, rgba(63, 114, 255, 0.08), rgba(20, 184, 166, 0.08));
+    z-index: 0;
+  }
+}
+
+.welcome-header {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  margin-bottom: 2.5rem;
+  position: relative;
+  z-index: 1;
+}
+
+.welcome-icon {
+  width: 70px;
+  height: 70px;
+  display: grid;
+  place-items: center;
+  font-size: 2.4rem;
+  border-radius: 24px;
+  background: linear-gradient(135deg, rgba(63, 114, 255, 0.18), rgba(59, 130, 246, 0.18));
+  box-shadow: var(--shadow-sm);
+}
+
+.welcome-body {
+  display: grid;
+  grid-template-columns: 1.05fr 1fr;
+  gap: 2rem;
+  position: relative;
+  z-index: 1;
+
+  @media (max-width: 940px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.intro {
   h2 {
-    font-size: 4rem;
-    margin: 0;
-    color: #fff;
+    font-size: 1.65rem;
+    margin-bottom: 0.75rem;
   }
 
   p {
-    margin: 10px 0 30px;
-    font-size: 1.2rem;
-    color: #e0e0e0;
+    margin: 0;
+    color: var(--color-muted);
+    line-height: 1.6;
   }
 }
 
-.buttons {
+.features {
+  list-style: none;
+  padding: 0;
+  margin: 1.75rem 0 0;
+  display: grid;
+  gap: 1.2rem;
+
+  li {
+    display: flex;
+    gap: 0.85rem;
+    align-items: flex-start;
+    padding: 0.9rem 1rem;
+    border-radius: var(--radius-md);
+    background: var(--color-surface-alt);
+    border: 1px solid rgba(148, 163, 184, 0.18);
+    color: var(--color-text);
+    line-height: 1.5;
+  }
+}
+
+.feature-icon {
+  font-size: 1.35rem;
+}
+
+.quick-actions {
+  display: grid;
+  gap: 1.25rem;
+  align-content: start;
+
+  @media (min-width: 520px) {
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  }
+}
+
+.action-card {
+  background: var(--color-surface-alt);
+  border-radius: var(--radius-md);
+  padding: 1.75rem 1.6rem;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  box-shadow: var(--shadow-sm);
   display: flex;
   flex-direction: column;
-  gap: 15px;
+  gap: 0.9rem;
 
-  button {
-    padding: 15px 30px;
-    font-size: 1.1rem;
+  h3 {
+    margin: 0;
+    font-size: 1.2rem;
+  }
+
+  p {
+    margin: 0;
+    color: var(--color-muted);
+    line-height: 1.5;
+  }
+
+  .btn {
+    align-self: flex-start;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    border-radius: 999px;
     border: none;
-    border-radius: 8px;
-    background-color: rgba(255, 255, 255, 0.9);
-    color: #333;
+    padding: 0.65rem 1.2rem;
+    font-weight: 600;
+    background: linear-gradient(135deg, var(--color-primary), #60a5fa);
+    color: white;
     cursor: pointer;
-    transition: background-color 0.3s ease, transform 0.2s;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    box-shadow: var(--shadow-sm);
 
     &:hover {
-      background-color: #fff;
-      transform: scale(1.05);
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-md);
     }
+  }
+
+  .emoji {
+    font-size: 1.2rem;
   }
 }

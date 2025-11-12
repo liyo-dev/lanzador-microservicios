@@ -1,246 +1,167 @@
-<div class="users-container">
-  <header class="page-header">
-    <div class="header-top">
-      <div class="header-content">
-        <h1>
-          <span class="icon">👥</span>
+<div class="users-page">
+  <section class="users-shell app-surface" [class.overlay-active]="showAddForm">
+    <header class="users-header">
+      <div class="title-block">
+        <h1 class="page-title">
+          <span class="emoji">👥</span>
           Gestión de Usuarios Portal
         </h1>
-        <p class="subtitle">Administra los usuarios para acceso automático al portal - {{ getCurrentEnvironment().name }}</p>
+        <p class="page-subtitle">
+          Administra accesos rápidos por entorno y ahorra tiempo al validar en el portal - {{ getCurrentEnvironment().name }}
+        </p>
       </div>
-      
+
       <div class="header-actions">
-        <button class="nav-btn home-btn" (click)="goToHome()" title="Ir al inicio">
-          🏠
-        </button>
-        <button class="nav-btn launcher-btn" (click)="goBack()" title="Volver al launcher">
-          🚀
-        </button>
-        <button class="nav-btn config-btn" (click)="goToConfig()" title="Ir a configuración">
-          ⚙️
-        </button>
-        <button class="btn btn-primary" (click)="showAddUserForm()">
-          <span class="icon">➕</span>
-          Añadir Usuario
+        <button class="ghost-btn" (click)="goToHome()" title="Ir al inicio">🏠</button>
+        <button class="ghost-btn" (click)="goBack()" title="Volver al launcher">🚀</button>
+        <button class="ghost-btn" (click)="goToConfig()" title="Ir a configuración">⚙️</button>
+        <button class="primary-btn" (click)="showAddUserForm()">
+          <span class="emoji">➕</span>
+          Añadir usuario
         </button>
       </div>
+    </header>
+
+    <div class="environment-tabs">
+      <button
+        *ngFor="let env of environments"
+        class="env-tab"
+        [class.active]="selectedEnvironment === env.key"
+        (click)="switchEnvironment(env.key)"
+        [attr.data-env]="env.key"
+      >
+        <span class="icon">{{ env.icon }}</span>
+        <span class="name">{{ env.name }}</span>
+        <span class="count">{{ getUserCountByEnvironment(env.key) }}</span>
+      </button>
     </div>
-    
-    <!-- Sub-entorno switcher para Local/Dev cuando esté en local-dev -->
+
     <div class="sub-environment-switcher" *ngIf="selectedEnvironment === 'local-dev'">
-      <div class="switcher-label">Vista:</div>
-      <button 
-        class="sub-env-btn"
+      <span class="label">Vista del portal:</span>
+      <button
+        class="sub-env"
         [class.active]="selectedSubEnvironment === 'local'"
         (click)="switchSubEnvironment('local')"
       >
         🏠 Local
       </button>
-      <button 
-        class="sub-env-btn"
+      <button
+        class="sub-env"
         [class.active]="selectedSubEnvironment === 'dev'"
         (click)="switchSubEnvironment('dev')"
       >
         🔧 Desarrollo
       </button>
     </div>
-  </header>
 
-  <!-- Lista de usuarios filtrados por entorno -->
-  <div class="users-grid" *ngIf="getUsersByEnvironment().length > 0">
-    <div 
-      class="user-card" 
-      *ngFor="let user of getUsersByEnvironment()" 
-      [attr.data-user-id]="user.id"
-      [attr.data-env]="user.environment"
-    >
-      <div class="user-info">
-        <h3 class="user-name">
-          {{ user.name }}
-          <span class="env-badge" [attr.data-env]="user.environment">
-            <ng-container *ngIf="user.environment === 'local-dev'">
-              🏠🔧 LOCAL/DEV
-            </ng-container>
-            <ng-container *ngIf="user.environment === 'pre'">
-              🧪 PRE
-            </ng-container>
-          </span>
-        </h3>
-        <div class="user-details">
-          <div class="detail-item">
-            <span class="label">Grupo Emp:</span>
-            <span class="value">{{ user.companyID || 'SCNP' }}</span>
-          </div>
-          <div class="detail-item">
-            <span class="label">Usuario:</span>
-            <span class="value">{{ user.username }}</span>
-          </div>
-          <div class="detail-item" *ngIf="user.description">
-            <span class="label">Descripción:</span>
-            <span class="value">{{ user.description }}</span>
-          </div>
-          <!-- Mostrar URL activa según el subentorno cuando esté en local-dev -->
-          <div class="detail-item" *ngIf="user.environment === 'local-dev'">
-            <span class="label">URL Activa:</span>
-            <span class="value url-indicator">
-              <ng-container *ngIf="selectedSubEnvironment === 'local'">
-                🏠 Local (localhost:8080)
-              </ng-container>
-              <ng-container *ngIf="selectedSubEnvironment === 'dev'">
-                🔧 Dev (isban.dev.corp)
-              </ng-container>
+    <section class="users-content" *ngIf="getUsersByEnvironment().length > 0">
+      <article class="user-card" *ngFor="let user of getUsersByEnvironment()" [attr.data-user-id]="user.id" [attr.data-env]="user.environment">
+        <header>
+          <div>
+            <h3>{{ user.name }}</h3>
+            <span class="env-badge" [attr.data-env]="user.environment">
+              <ng-container *ngIf="user.environment === 'local-dev'">🏠🔧 LOCAL/DEV</ng-container>
+              <ng-container *ngIf="user.environment === 'pre'">🧪 PRE</ng-container>
             </span>
           </div>
-        </div>
-      </div>
-      
-      <div class="user-actions">
-        <button 
-          class="btn btn-success btn-login" 
-          (click)="loginWithUser(user)"
-          title="Abrir portal con este usuario"
-        >
-          <span class="icon">🚀</span>
+          <div class="card-actions">
+            <button class="ghost-btn" (click)="editUser(user)" title="Editar usuario">✏️</button>
+            <button class="ghost-btn danger" (click)="deleteUser(user.id)" title="Eliminar usuario">🗑️</button>
+          </div>
+        </header>
+
+        <dl>
+          <div>
+            <dt>Grupo Emp</dt>
+            <dd>{{ user.companyID || 'SCNP' }}</dd>
+          </div>
+          <div>
+            <dt>Usuario</dt>
+            <dd>{{ user.username }}</dd>
+          </div>
+          <div *ngIf="user.description">
+            <dt>Descripción</dt>
+            <dd>{{ user.description }}</dd>
+          </div>
+          <div *ngIf="user.environment === 'local-dev'" class="url-indicator">
+            <dt>URL Activa</dt>
+            <dd>
+              <ng-container *ngIf="selectedSubEnvironment === 'local'">🏠 Local (localhost:8080)</ng-container>
+              <ng-container *ngIf="selectedSubEnvironment === 'dev'">🔧 Dev (isban.dev.corp)</ng-container>
+            </dd>
+          </div>
+        </dl>
+
+        <button class="primary-btn full-width" (click)="loginWithUser(user)" title="Abrir portal con este usuario">
+          <span class="emoji">🚀</span>
           Acceder al Portal
         </button>
-        
-        <div class="action-buttons">
-          <button 
-            class="btn btn-outline btn-small" 
-            (click)="editUser(user)"
-            title="Editar usuario"
-          >
-            <span class="icon">✏️</span>
-          </button>
-          <button 
-            class="btn btn-danger btn-small" 
-            (click)="deleteUser(user.id)"
-            title="Eliminar usuario"
-          >
-            <span class="icon">🗑️</span>
-          </button>
-        </div>
+      </article>
+    </section>
+
+    <div class="empty-state" *ngIf="getUsersByEnvironment().length === 0">
+      <div class="empty-card">
+        <div class="icon">👤</div>
+        <h3>No hay usuarios configurados para {{ getCurrentEnvironment().name }}</h3>
+        <p>Añade usuarios para acceder rápidamente al portal en el entorno {{ getCurrentEnvironment().name }}</p>
+        <button class="primary-btn" (click)="showAddUserForm()">
+          <span class="emoji">➕</span>
+          Añadir usuario
+        </button>
       </div>
     </div>
-  </div>
+  </section>
 
-  <!-- Estado vacío -->
-  <div class="empty-state" *ngIf="getUsersByEnvironment().length === 0">
-    <div class="empty-icon">👤</div>
-    <h3>No hay usuarios configurados para {{ getCurrentEnvironment().name }}</h3>
-    <p>Añade usuarios para acceder rápidamente al portal en el entorno {{ getCurrentEnvironment().name }}</p>
-    <button class="btn btn-primary" (click)="showAddUserForm()">
-      <span class="icon">➕</span>
-      Añadir Usuario {{ getCurrentEnvironment().name }}
-    </button>
-  </div>
-
-  <!-- Formulario de añadir/editar usuario -->
   <div class="form-overlay" *ngIf="showAddForm" (click)="cancelForm()">
     <div class="user-form" (click)="$event.stopPropagation()">
-      <h2>
-        <span class="icon">{{ editingUser ? '✏️' : '➕' }}</span>
-        {{ editingUser ? 'Editar Usuario' : 'Nuevo Usuario' }}
-      </h2>
-      
-      <div class="form-group">
-        <label for="environment">Entorno</label>
-        <select 
-          id="environment"
-          [(ngModel)]="newUser.environment" 
-          class="form-control"
-          [disabled]="!!editingUser"
-        >
-          <option *ngFor="let env of environments" [value]="env.key">
-            {{ env.icon }} {{ env.name }}
-          </option>
-        </select>
-        <small *ngIf="!!editingUser" class="form-help">
-          No se puede cambiar el entorno de un usuario existente
-        </small>
+      <header>
+        <h2>{{ editingUser ? 'Editar Usuario' : 'Nuevo Usuario' }}</h2>
+        <button class="ghost-btn" type="button" (click)="cancelForm()">✖️</button>
+      </header>
+
+      <div class="form-grid">
+        <label>
+          <span>Entorno</span>
+          <select [(ngModel)]="newUser.environment" [disabled]="!!editingUser">
+            <option *ngFor="let env of environments" [value]="env.key">{{ env.icon }} {{ env.name }}</option>
+          </select>
+          <small *ngIf="!!editingUser">No se puede cambiar el entorno de un usuario existente.</small>
+        </label>
+
+        <label>
+          <span>Nombre del Usuario</span>
+          <input type="text" [(ngModel)]="newUser.name" placeholder="Ej: Test Raul" />
+        </label>
+
+        <label>
+          <span>Grupo Empresarial</span>
+          <input type="text" [(ngModel)]="newUser.companyID" placeholder="Ej: SCNP, TESTPORTAL" />
+          <small>Requerido para todos los entornos.</small>
+        </label>
+
+        <label>
+          <span>Usuario</span>
+          <input type="text" [(ngModel)]="newUser.username" placeholder="Ej: Testraul" />
+        </label>
+
+        <label>
+          <span>Contraseña</span>
+          <input type="password" [(ngModel)]="newUser.password" placeholder="Contraseña del usuario" />
+        </label>
+
+        <label>
+          <span>Descripción (opcional)</span>
+          <input type="text" [(ngModel)]="newUser.description" placeholder="Descripción del usuario" />
+        </label>
       </div>
-      
-      <div class="form-group">
-        <label for="userName">Nombre del Usuario</label>
-        <input 
-          id="userName"
-          type="text" 
-          [(ngModel)]="newUser.name" 
-          placeholder="Ej: Test Raul"
-          class="form-control"
-        >
-      </div>
-      
-      <div class="form-group">
-        <label for="companyID">Grupo Empresarial</label>
-        <input 
-          id="companyID"
-          type="text" 
-          [(ngModel)]="newUser.companyID" 
-          placeholder="Ej: SCNP, TESTPORTAL"
-          class="form-control"
-        >
-        <small class="form-help">Requerido para todos los entornos</small>
-      </div>
-      
-      <div class="form-group">
-        <label for="username">Usuario</label>
-        <input 
-          id="username"
-          type="text" 
-          [(ngModel)]="newUser.username" 
-          placeholder="Ej: Testraul"
-          class="form-control"
-        >
-      </div>
-      
-      <div class="form-group">
-        <label for="password">Contraseña</label>
-        <input 
-          id="password"
-          type="password" 
-          [(ngModel)]="newUser.password" 
-          placeholder="Contraseña del usuario"
-          class="form-control"
-        >
-      </div>
-      
-      <div class="form-group">
-        <label for="description">Descripción (opcional)</label>
-        <input 
-          id="description"
-          type="text" 
-          [(ngModel)]="newUser.description" 
-          placeholder="Descripción del usuario"
-          class="form-control"
-        >
-      </div>
-      
-      <div class="form-actions">
-        <button class="btn btn-outline" (click)="cancelForm()">
-          Cancelar
-        </button>
-        <button class="btn btn-primary" (click)="saveUser()">
-          <span class="icon">💾</span>
+
+      <footer class="form-actions">
+        <button class="ghost-btn" type="button" (click)="cancelForm()">Cancelar</button>
+        <button class="primary-btn" type="button" (click)="saveUser()">
+          <span class="emoji">💾</span>
           {{ editingUser ? 'Actualizar' : 'Guardar' }}
         </button>
-      </div>
+      </footer>
     </div>
   </div>
-
-  <!-- Navegación de entornos al pie de página -->
-  <nav class="bottom-nav">
-    <button 
-      *ngFor="let env of environments" 
-      [class.active]="selectedEnvironment === env.key"
-      (click)="switchEnvironment(env.key)"
-      class="env-btn"
-      [attr.data-env]="env.key"
-      [title]="'Cambiar a entorno ' + env.name"
-    >
-      <span class="icon">{{ env.icon }}</span>
-      <span class="env-name">{{ env.name }}</span>
-      <span class="user-count">({{ getUserCountByEnvironment(env.key) }})</span>
-    </button>
-  </nav>
 </div>
