@@ -130,28 +130,58 @@
 
         <label>
           <span>Nombre del Usuario</span>
-          <input type="text" [(ngModel)]="newUser.name" placeholder="Ej: Test Raul" />
+          <input 
+            type="text" 
+            [(ngModel)]="newUser.name" 
+            placeholder="Ej: Test Raul"
+            autocomplete="name"
+            name="userDisplayName"
+          />
         </label>
 
         <label>
           <span>Grupo Empresarial</span>
-          <input type="text" [(ngModel)]="newUser.companyID" placeholder="Ej: SCNP, TESTPORTAL" />
+          <input 
+            type="text" 
+            [(ngModel)]="newUser.companyID" 
+            placeholder="Ej: SCNP, TESTPORTAL"
+            autocomplete="organization"
+            name="companyID"
+          />
           <small>Requerido para todos los entornos.</small>
         </label>
 
         <label>
           <span>Usuario</span>
-          <input type="text" [(ngModel)]="newUser.username" placeholder="Ej: Testraul" />
+          <input 
+            type="text" 
+            [(ngModel)]="newUser.username" 
+            placeholder="Ej: Testraul"
+            autocomplete="username"
+            name="username"
+          />
         </label>
 
         <label>
           <span>Contraseña</span>
-          <input type="password" [(ngModel)]="newUser.password" placeholder="Contraseña del usuario" />
+          <input 
+            type="password" 
+            [(ngModel)]="newUser.password" 
+            placeholder="Contraseña del usuario"
+            autocomplete="current-password"
+            name="password"
+          />
         </label>
 
         <label>
           <span>Descripción (opcional)</span>
-          <input type="text" [(ngModel)]="newUser.description" placeholder="Descripción del usuario" />
+          <input 
+            type="text" 
+            [(ngModel)]="newUser.description" 
+            placeholder="Descripción del usuario"
+            autocomplete="off"
+            name="description"
+          />
         </label>
       </div>
 
