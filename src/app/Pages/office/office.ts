@@ -990,6 +990,14 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
     this.speechBubbles = next;
   }
 
+  dismissSpeechBubble(playerId: string, event?: Event): void {
+    event?.stopPropagation();
+    if (playerId !== this.selfId) {
+      return;
+    }
+    this.clearSpeechBubble(playerId);
+  }
+
   private handleDisconnected(): void {
     this.selfId = null;
     this.players = [];

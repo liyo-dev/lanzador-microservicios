@@ -89,7 +89,16 @@
             *ngIf="speechBubbles[player.id]"
             [class.broadcast]="speechBubbles[player.id]?.kind === 'broadcast'"
           >
-            {{ speechBubbles[player.id]?.content }}
+            <span class="bubble-content">{{ speechBubbles[player.id]?.content }}</span>
+            <button
+              *ngIf="player.id === selfId"
+              type="button"
+              class="bubble-close"
+              (click)="dismissSpeechBubble(player.id, $event)"
+              aria-label="Ocultar mensaje"
+            >
+              ✕
+            </button>
           </div>
 
           <div class="mini-game-score" *ngIf="isMiniGameParticipant(player)">
