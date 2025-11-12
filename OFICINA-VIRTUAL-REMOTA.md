@@ -1,91 +1,60 @@
-# 🏢 Guía para usar la Oficina Virtual entre ciudades
+# 🏢 Oficina Virtual - Colaboración Remota
 
-## 🚀 ¿Qué necesitas?
+## 🚀 ¿Qué es esto?
 
-Para que tú y tu compañero en otra ciudad puedan usar la oficina virtual juntos, necesitan:
+Un espacio virtual donde equipos pueden trabajar juntos desde cualquier lugar del mundo.
 
-1. **Un servidor WebSocket accesible desde internet**
-2. **La misma URL de conexión configurada en ambas aplicaciones**
+## 📋 Configuración Automática
 
-## 📋 Pasos para configurar
+### Para usuarios regulares (Recomendado)
 
-### 1. Iniciar el servidor (Solo UNA persona)
+La aplicación **ya está configurada** para conectarse automáticamente al servidor en la nube:
 
-Uno de ustedes debe ejecutar el servidor. Puede ser cualquiera:
+1. **Abre la aplicación**
+2. **Ve a "Oficina Virtual"**
+3. **Elige tu avatar**
+4. **¡Entra a la oficina!**
+
+**No necesitas configurar nada más.** El servidor ya está desplegado en Render.
+
+### Para desarrolladores (Desarrollo local)
+
+Si quieres ejecutar el servidor localmente:
 
 ```bash
 # En el directorio del proyecto
 npm run office:server
 ```
 
-Verás algo como:
-```
-🚀 Servidor de oficina virtual escuchando en el puerto 8974
-```
-
-### 2. Obtener tu IP pública
-
-La persona que ejecuta el servidor necesita obtener su IP pública:
-
-1. **Visita**: https://whatismyipaddress.com/
-2. **Copia** la dirección IP que aparece (ej: 123.456.789.012)
-
-### 3. Configurar router/firewall (Importante)
-
-La persona con el servidor debe:
-
-1. **Abrir el puerto 8974** en su router/firewall
-2. **Crear regla de port forwarding** del puerto 8974 a su PC
-3. **Desactivar temporalmente el firewall** de Windows (solo para pruebas)
-
-### 4. Configurar la URL en ambas aplicaciones
-
-**Ambos** deben cambiar la URL del servidor:
-
-1. Abrir la aplicación Electron
-2. Ir a **"Oficina Virtual"**
-3. En el campo **"Servidor de la oficina"** poner:
-   ```
-   ws://IP_PUBLICA_DEL_SERVIDOR:8974
-   ```
-   
-   Ejemplo: `ws://123.456.789.012:8974`
-
-### 5. ¡Conectarse!
-
-1. **Elegir nombres y avatares** diferentes
-2. **Hacer click en "Entrar a la oficina"**
-3. **¡Disfrutar la oficina virtual!**
-
 ---
 
-## 🔧 Alternativas si no funciona
+## 🔧 Alternativas si necesitas servidor propio
 
-### Opción A: Usar ngrok (Más fácil)
+### Opción A: Usar ngrok (Temporal)
 
-Si tienes problemas con el router, usa ngrok:
+Para pruebas locales con acceso externo:
 
 1. **Instalar ngrok**: https://ngrok.com/
 2. **Ejecutar**:
    ```bash
    ngrok http 8974
    ```
-3. **Copiar la URL** que aparece (ej: `wss://abc123.ngrok.io`)
-4. **Usar esa URL** en ambas aplicaciones
+3. **Usar la URL generada** en la configuración
 
-### Opción B: Usar un servidor en la nube
+### Opción B: Desplegar en Render (Recomendado)
 
-Puedes subir el servidor a:
-- **Heroku** (gratis)
-- **Railway** (gratis)
-- **Render** (gratis)
+El servidor actual está en Render. Para tu propio deploy:
+
+1. **Fork este repositorio**
+2. **Conectar con Render**
+3. **Deploy automático**
 
 ---
 
-## 💬 ¿Cómo funciona?
+## 💬 ¿Cómo usar la oficina?
 
 - **Movimiento**: WASD o flechas para mover tu avatar
-- **Chat general**: Todos ven los mensajes
+- **Chat general**: Todos ven los mensajes  
 - **Chat privado**: Acércate a alguien para chatear en privado
 - **Avatares**: 6 personajes diferentes disponibles
 
@@ -94,20 +63,20 @@ Puedes subir el servidor a:
 ## 🐛 Resolución de problemas
 
 ### "No se pudo conectar al servidor"
-- ✅ Verificar que el servidor esté ejecutándose
-- ✅ Comprobar que la IP/URL sea correcta
-- ✅ Verificar que el puerto 8974 esté abierto
+- ✅ Verificar conexión a internet
+- ✅ Comprobar que el servidor de Render esté activo
+- ✅ Reiniciar la aplicación
 
 ### "Se desconecta constantemente"
-- ✅ Verificar la conexión a internet
+- ✅ Verificar la conexión a internet estable
 - ✅ Comprobar firewall/antivirus
-- ✅ Intentar con ngrok si persiste
+- ✅ El servidor en Render puede tardar en activarse
 
 ### "No veo a mi compañero"
-- ✅ Ambos deben usar la MISMA URL
-- ✅ Verificar que ambos estén conectados
-- ✅ Refrescar la página si es necesario
+- ✅ Ambos deben estar conectados al mismo servidor
+- ✅ Verificar que ambos estén en la oficina
+- ✅ Refrescar si es necesario
 
 ---
 
-¡Listo! Ahora pueden coordinar proyectos desde sus oficinas virtuales 🚀
+¡Listo para colaborar remotamente! 🚀

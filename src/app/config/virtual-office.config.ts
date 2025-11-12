@@ -2,19 +2,14 @@
 export const virtualOfficeConfig = {
   // URLs de servidores por entorno
   production: {
-    // Railway (recomendado)
-    railway: 'wss://TU_PROYECTO.up.railway.app',
-    // Render (alternativa)
-    render: 'wss://tu-proyecto.onrender.com',
-    // Cyclic (otra alternativa)
-    cyclic: 'wss://tu-proyecto.cyclic.app'
+    render: 'wss://lanzador-microservicios.onrender.com'
   },
   development: {
     local: 'ws://localhost:8974'
   },
   
   // URL por defecto - Servidor en Render
-  defaultUrl: 'wss://lanzador-microservicios.onrender.com', // ✅ Servidor cloud configurado
+  defaultUrl: 'wss://lanzador-microservicios.onrender.com'
   
   // Configuración de reconexión
   reconnect: {

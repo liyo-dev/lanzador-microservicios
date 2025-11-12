@@ -10,4 +10,4 @@ services:
       - key: NODE_ENV
         value: production
       - key: PORT
-        sync: false  # Railway will set this automatically
+        sync: false  # Render will set this automatically
