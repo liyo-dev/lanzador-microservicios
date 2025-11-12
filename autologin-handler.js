@@ -4,6 +4,166 @@ const path = require("path");
 const fs = require("fs");
 const os = require("os");
 const { shell } = require("electron");
+const CDP = require('chrome-remote-interface');
+const net = require('net');
+
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+async function findAvailablePort(startPort = 9222, maxPort = 9322) {
+  return new Promise((resolve, reject) => {
+    const tryPort = (port) => {
+      if (port > maxPort) {
+        reject(new Error(`No hay puertos disponibles entre ${startPort} y ${maxPort}`));
+        return;
+      }
+
+      const server = net.createServer();
+      server.unref();
+
+      server.once('error', (error) => {
+        if (error.code === 'EADDRINUSE' || error.code === 'EACCES') {
+          setImmediate(() => tryPort(port + 1));
+        } else {
+          reject(error);
+        }
+      });
+
+      server.once('listening', () => {
+        server.close(() => resolve(port));
+      });
+
+      server.listen(port, '127.0.0.1');
+    };
+
+    tryPort(startPort);
+  });
+}
+
+async function connectToChrome(port, maxAttempts = 40) {
+  let lastError = null;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      const targets = await CDP.List({ port });
+      const candidate = targets.find((t) => t.type === 'page' && t.url && !t.url.startsWith('chrome://'));
+
+      if (candidate) {
+        return await CDP({ port, target: candidate.targetId });
+      }
+    } catch (error) {
+      lastError = error;
+    }
+
+    await wait(500);
+  }
+
+  throw new Error(
+    lastError
+      ? `No se pudo conectar a Chrome en el puerto ${port}: ${lastError.message}`
+      : `No se pudo conectar a Chrome en el puerto ${port}`
+  );
+}
+
+async function launchChromeWithCDP({ chromePath, portalUrl, autoLoginScript, userData, environment }) {
+  const debugPort = await findAvailablePort();
+  const profileDir = path.join(os.tmpdir(), `chrome-autologin-profile-${Date.now()}`);
+
+  fs.mkdirSync(profileDir, { recursive: true });
+
+  const chromeArgs = [
+    `--remote-debugging-port=${debugPort}`,
+    `--user-data-dir=${profileDir}`,
+    '--no-first-run',
+    '--no-default-browser-check',
+    '--disable-popup-blocking',
+    '--disable-background-networking',
+    '--disable-sync',
+    '--disable-extensions',
+    '--new-window',
+    portalUrl,
+  ];
+
+  console.log('🚀 Iniciando Chrome con CDP para autologin...');
+  console.log('🐞 Puerto DevTools:', debugPort);
+  console.log('📂 Perfil temporal:', profileDir);
+
+  const chromeProcess = spawn(chromePath, chromeArgs, {
+    detached: true,
+    stdio: 'ignore',
+  });
+
+  chromeProcess.unref();
+
+  await wait(2500);
+
+  const cleanupProfileDir = () => {
+    try {
+      if (fs.existsSync(profileDir)) {
+        fs.rmSync(profileDir, { recursive: true, force: true });
+        console.log('🧹 Perfil temporal de Chrome eliminado');
+      }
+    } catch (cleanupError) {
+      console.log('⚠️ No se pudo eliminar el perfil temporal:', cleanupError.message);
+    }
+  };
+
+  let client = null;
+
+  try {
+    client = await connectToChrome(debugPort);
+    console.log('✅ Conectado a Chrome. Navegando al portal real...');
+
+    const { Runtime, Page } = client;
+    await Page.enable();
+    if (Runtime && Runtime.enable) {
+      await Runtime.enable();
+    }
+
+    await Page.navigate({ url: portalUrl });
+    await Page.loadEventFired();
+    await wait(1500);
+
+    if (!autoLoginScript) {
+      throw new Error('Script de autologin vacío, no se puede inyectar.');
+    }
+
+    await Runtime.evaluate({
+      expression: `(function(){\n${autoLoginScript}\n})();`,
+      includeCommandLineAPI: true,
+    });
+
+    console.log('✅ Script de autologin ejecutado en el portal.');
+
+    return {
+      success: true,
+      message: `Chrome abierto con autologin automático para ${(userData && userData.name) || 'usuario'} (${environment.toUpperCase()}).`,
+    };
+  } catch (error) {
+    cleanupProfileDir();
+
+    if (client) {
+      try {
+        client.close();
+      } catch (closeError) {
+        console.log('⚠️ No se pudo cerrar la sesión de CDP:', closeError.message);
+      }
+      client = null;
+    }
+
+    throw error;
+  } finally {
+    if (client) {
+      try {
+        client.close();
+      } catch (closeError) {
+        console.log('⚠️ No se pudo cerrar la sesión de CDP:', closeError.message);
+      }
+    }
+
+    setTimeout(cleanupProfileDir, 120000);
+  }
+}
+
 
 // Función mejorada de autologin que no depende de CDP
 async function handlePortalAutoLogin(loginData) {
@@ -50,7 +210,10 @@ async function handlePortalAutoLogin(loginData) {
       chromePath = 'google-chrome';
     }
 
-    if (chromePath && fs.existsSync(chromePath)) {
+    const chromeExecutableAvailable =
+      chromePath && ((platform === 'win32' || platform === 'darwin') ? fs.existsSync(chromePath) : true);
+
+    if (chromeExecutableAvailable) {
       console.log('🚀 Iniciando Chrome con estrategia mejorada...');
       
       // NUEVA ESTRATEGIA: Crear archivo HTML temporal con autologin
@@ -450,7 +613,38 @@ async function handlePortalAutoLogin(loginData) {
           }, 1000);
         `;
       }
-      
+
+      const normalizedUrl = portalUrl.toLowerCase();
+      const isLocalPortal = normalizedUrl.includes('localhost') || normalizedUrl.includes('127.0.0.1');
+      const shouldUseCDP = !isLocalPortal;
+
+      if (shouldUseCDP) {
+        console.log('🛰️ Entorno externo detectado, usando CDP para autologin directo...');
+
+        try {
+          return await launchChromeWithCDP({
+            chromePath,
+            portalUrl,
+            autoLoginScript,
+            userData,
+            environment,
+          });
+        } catch (cdpError) {
+          console.error('❌ Error ejecutando autologin con CDP:', cdpError);
+
+          return {
+            success: false,
+            message:
+              'No se pudo completar el autologin automático en el portal corporativo.\n' +
+              'Se abrió Chrome (o está en proceso de abrirse) con la URL solicitada.\n\n' +
+              'Introduce las credenciales manualmente si el formulario no se rellenó automáticamente.\n\n' +
+              `Grupo/Company: ${userData.companyID || 'N/A'}\n` +
+              `Usuario: ${userData.username || 'N/A'}\n` +
+              `Contraseña: ${userData.password || 'N/A'}`,
+          };
+        }
+      }
+
       // NUEVA ESTRATEGIA: Redirección directa con script en localStorage
       const scriptData = {
         environment: environment,
