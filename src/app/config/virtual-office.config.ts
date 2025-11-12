@@ -9,8 +9,8 @@ export const virtualOfficeConfig = {
   },
   
   // URL por defecto - Servidor en Render
-  defaultUrl: 'wss://lanzador-microservicios.onrender.com'
-  
+  defaultUrl: 'wss://lanzador-microservicios.onrender.com',
+
   // Configuración de reconexión
   reconnect: {
     attempts: 5,

@@ -1,8 +1,8 @@
-<div class="office-page">
+<div class="office-page" [class.connected]="isConnected">
   <header class="office-header">
     <div class="header-main">
       <h1>Oficina Virtual</h1>
-      <p>Mueve tu avatar con las flechas o WASD y conéctate con el resto del equipo.</p>
+      <p>Mueve tu avatar con las flechas o WASD. Pulsa E cerca de alguien para interactuar.</p>
     </div>
 
     <div class="connection-status" [class]="connectionState">
@@ -10,81 +10,73 @@
       <span>{{ connectionLabel }}</span>
     </div>
 
+    <button
+      type="button"
+      class="broadcast-button"
+      *ngIf="isConnected"
+      (click)="openBroadcast()"
+    >
+      Mensaje global
+    </button>
+
     <button type="button" class="exit-button" (click)="exitOffice()">Salir a la home</button>
   </header>
 
-  <div class="office-layout" [class.connected]="isConnected">
-    <section class="join-panel app-surface" *ngIf="!isConnected">
-      <h2>Personaliza tu llegada</h2>
-      <p class="panel-description">
-        Elige avatar, escribe tu nombre y comparte la URL del servidor con tu equipo para estar en la misma sala.
-      </p>
+  <section class="join-panel app-surface" *ngIf="!isConnected">
+    <h2>Personaliza tu llegada</h2>
+    <p class="panel-description">
+      Elige avatar, escribe tu nombre y entra a la oficina virtual del equipo.
+    </p>
 
-      <label class="form-field">
-        <span>Nombre visible</span>
-        <input
-          type="text"
-          maxlength="24"
-          autocomplete="off"
-          placeholder="Ej. Sara preparando releases"
-          [(ngModel)]="displayName"
-        />
-      </label>
+    <label class="form-field">
+      <span>Nombre visible</span>
+      <input
+        type="text"
+        maxlength="24"
+        autocomplete="off"
+        placeholder="Ej. Sara preparando releases"
+        [(ngModel)]="displayName"
+      />
+    </label>
 
-      <label class="form-field">
-        <span>Servidor de la oficina</span>
-        <input
-          type="text"
-          autocomplete="off"
-          placeholder="ws://mi-servidor:8974"
-          [(ngModel)]="serverUrl"
-        />
-      </label>
+    <p class="server-hint">Te conectaremos automáticamente a {{ serverUrl }}.</p>
 
-      <div class="avatar-selection">
-        <h3>Selecciona tu avatar</h3>
-        <div class="avatar-grid">
-          <button
-            type="button"
-            class="avatar-option"
-            *ngFor="let avatar of avatars"
-            (click)="selectAvatar(avatar)"
-            [class.active]="avatar.id === selectedAvatar.id"
-          >
-            <span class="avatar-emoji">{{ avatar.emoji }}</span>
-            <span class="avatar-label">{{ avatar.label }}</span>
-          </button>
-        </div>
+    <div class="avatar-selection">
+      <h3>Selecciona tu avatar</h3>
+      <div class="avatar-grid">
+        <button
+          type="button"
+          class="avatar-option"
+          *ngFor="let avatar of avatars"
+          (click)="selectAvatar(avatar)"
+          [class.active]="avatar.id === selectedAvatar.id"
+          [attr.aria-label]="avatar.label"
+          [attr.title]="avatar.label"
+        >
+          <span class="avatar-emoji">{{ avatar.emoji }}</span>
+        </button>
       </div>
+    </div>
 
-      <div class="avatar-preview">
-        <div class="avatar-badge" [class]="'tone-' + selectedAvatar.tone">
-          <span>{{ selectedAvatar.emoji }}</span>
-        </div>
-        <div>
-          <h3>{{ previewName }}</h3>
-          <p>{{ selectedAvatar.description }}</p>
-        </div>
+    <div class="avatar-preview">
+      <div class="avatar-badge" [class]="'tone-' + selectedAvatar.tone">
+        <span>{{ selectedAvatar.emoji }}</span>
       </div>
+      <div>
+        <h3>{{ previewName }}</h3>
+        <p>Así te verá el resto en la oficina virtual.</p>
+      </div>
+    </div>
 
-      <button type="button" class="join-button" (click)="joinOffice()" [disabled]="connectionState === 'connecting'">
-        {{ connectionState === 'connecting' ? 'Conectando…' : 'Entrar a la oficina' }}
-      </button>
+    <button type="button" class="join-button" (click)="joinOffice()" [disabled]="connectionState === 'connecting'">
+      {{ connectionState === 'connecting' ? 'Conectando…' : 'Entrar a la oficina' }}
+    </button>
 
-      <p class="error" *ngIf="connectionError">{{ connectionError }}</p>
-    </section>
+    <p class="error" *ngIf="connectionError">{{ connectionError }}</p>
+  </section>
 
-    <section class="workspace-panel app-surface" *ngIf="isConnected">
-      <header class="workspace-header">
-        <div class="avatar-badge" [class]="'tone-' + selectedAvatar.tone">
-          <span>{{ selectedAvatar.emoji }}</span>
-        </div>
-        <div>
-          <h2>{{ previewName }}</h2>
-          <p>Coordinando desde la estación virtual.</p>
-        </div>
-      </header>
-
+  <section class="office-stage" *ngIf="isConnected">
+    <div class="workspace-wrapper">
       <div
         class="workspace"
         tabindex="0"
@@ -92,119 +84,133 @@
         [style.height.px]="space.height"
       >
         <div class="workspace-grid"></div>
-        <div class="player"
+
+        <div
+          class="player"
           *ngFor="let player of players; trackBy: trackByPlayerId"
-          [style.transform]="'translate(' + player.x + 'px,' + player.y + 'px)'"
+          [style.left.px]="player.x"
+          [style.top.px]="player.y"
           [class.self]="player.id === selfId"
+          [class.active]="isActiveTarget(player)"
         >
+          <div
+            class="speech-bubble"
+            *ngIf="speechBubbles[player.id]"
+            [class.broadcast]="speechBubbles[player.id]?.kind === 'broadcast'"
+          >
+            {{ speechBubbles[player.id]?.content }}
+          </div>
+
+          <div class="interact-hint" *ngIf="shouldShowInteractHint(player)">Pulsa E</div>
+
           <div class="player-avatar" [class]="'tone-' + player.avatar.tone">
             <span>{{ player.avatar.emoji }}</span>
           </div>
           <span class="player-name">{{ player.name }}</span>
         </div>
       </div>
+    </div>
 
-      <aside class="nearby-panel" *ngIf="nearbyPlayers.length">
-        <h3>Personas cerca</h3>
-        <ul>
-          <li *ngFor="let player of nearbyPlayers" [class.active]="player.id === activeConversationId">
-            <button type="button" (click)="setActiveConversation(player.id)">
-              <span class="badge" [class]="'tone-' + player.avatar.tone">{{ player.avatar.emoji }}</span>
-              <span>{{ player.name }}</span>
-            </button>
-          </li>
-        </ul>
-      </aside>
-    </section>
+    <aside class="nearby-radar" *ngIf="nearbyPlayers.length">
+      <h3>Personas cerca</h3>
+      <ul>
+        <li *ngFor="let player of nearbyPlayers; trackBy: trackByPlayerId" [class.active]="isActiveTarget(player)">
+          <button type="button" (click)="openInteraction(player.id)">
+            <span class="badge" [class]="'tone-' + player.avatar.tone">{{ player.avatar.emoji }}</span>
+            <span>{{ player.name }}</span>
+          </button>
+        </li>
+      </ul>
+    </aside>
 
-    <section class="chat-panel app-surface">
-      <header class="chat-header">
-        <div class="header-avatar" [class]="'tone-' + selectedAvatar.tone">
-          <span>{{ selectedAvatar.emoji }}</span>
-        </div>
-        <div>
-          <h2>Chat general</h2>
-          <p>Comparte novedades con toda la oficina virtual.</p>
-        </div>
-      </header>
-
-      <div class="chat-messages" #generalMessageList>
-        <article
-          class="chat-message"
-          *ngFor="let message of generalMessages; trackBy: trackByMessageId"
-          [class.system]="message.system"
-          [class.self]="message.authorId === selfId"
-        >
-          <div class="message-avatar" [class]="'tone-' + message.avatar.tone">
-            <span>{{ message.avatar.emoji }}</span>
-          </div>
-          <div class="message-content">
-            <header>
-              <span class="author">{{ message.authorName }}</span>
-              <time>{{ message.createdAt | date: 'HH:mm' }}</time>
-            </header>
-            <p>{{ message.content }}</p>
-          </div>
-        </article>
+    <div class="room-announcements" *ngIf="roomMessages.length">
+      <div class="room-announcement" *ngFor="let message of roomMessages; trackBy: trackByRoomMessage">
+        <strong>{{ message.authorName }}:</strong>
+        <span>{{ message.content }}</span>
       </div>
+    </div>
+  </section>
 
-      <form class="chat-input" (ngSubmit)="sendGeneralMessage()">
+  <div class="interaction-overlay" *ngIf="interactionView">
+    <div class="interaction-card" [ngSwitch]="interactionView">
+      <ng-container *ngSwitchCase="'menu'">
+        <header class="interaction-header" *ngIf="interactionTarget">
+          <div class="avatar-badge" [class]="'tone-' + interactionTarget.avatar.tone">
+            <span>{{ interactionTarget.avatar.emoji }}</span>
+          </div>
+          <div>
+            <h2>{{ interactionTarget.name }}</h2>
+            <p>Elige cómo quieres interactuar.</p>
+          </div>
+        </header>
+
+        <div class="interaction-options">
+          <button type="button" (click)="chooseInteraction('chat')">💬 Charlar</button>
+          <button type="button" (click)="chooseInteraction('game')">🎮 Jugar</button>
+          <button type="button" (click)="chooseInteraction('broadcast')">📢 Mensaje global</button>
+          <button type="button" class="secondary" (click)="closeInteraction()">Cancelar</button>
+        </div>
+      </ng-container>
+
+      <form *ngSwitchCase="'chat'" class="interaction-chat" (ngSubmit)="sendChatMessage()">
+        <header>
+          <h2>Chat privado con {{ interactionTarget?.name }}</h2>
+          <button type="button" (click)="closeInteraction()">✕</button>
+        </header>
         <input
           type="text"
-          name="message"
+          name="interactionChat"
           autocomplete="off"
-          placeholder="Escribe un mensaje para el equipo..."
-          [(ngModel)]="messageText"
-          [disabled]="!isConnected"
+          placeholder="Escribe un mensaje y pulsa Enter"
+          [(ngModel)]="chatInput"
         />
-        <button type="submit" [disabled]="!messageText.trim() || !isConnected">Enviar</button>
-      </form>
-    </section>
-
-    <section class="private-panel app-surface" *ngIf="isConnected">
-      <header class="private-header">
-        <h2>Chat cercano</h2>
-        <p *ngIf="!activeConversation">Acércate a alguien para conversar en privado.</p>
-        <div *ngIf="activeConversation" class="active-person">
-          <span class="badge" [class]="'tone-' + activeConversation.avatar.tone">{{ activeConversation.avatar.emoji }}</span>
-          <strong>{{ activeConversation.name }}</strong>
-          <button type="button" (click)="clearConversation()">Cerrar</button>
+        <div class="actions">
+          <button type="submit" [disabled]="!chatInput.trim()">Enviar</button>
+          <button type="button" class="secondary" (click)="interactionView = 'menu'">Volver</button>
         </div>
-      </header>
+      </form>
 
-      <div class="private-messages" #privateMessageList>
-        <p class="empty" *ngIf="activeConversation && !(privateMessages[activeConversation.id]?.length)">
-          Inicia la conversación con {{ activeConversation.name }}.
+      <form *ngSwitchCase="'broadcast'" class="interaction-broadcast" (ngSubmit)="sendBroadcastMessage()">
+        <header>
+          <h2>Mensaje para toda la sala</h2>
+          <button type="button" (click)="closeInteraction()">✕</button>
+        </header>
+        <input
+          type="text"
+          name="interactionBroadcast"
+          autocomplete="off"
+          placeholder="Comparte una actualización con todo el equipo"
+          [(ngModel)]="broadcastInput"
+        />
+        <div class="actions">
+          <button type="submit" [disabled]="!broadcastInput.trim()">Compartir</button>
+          <button type="button" class="secondary" (click)="interactionView = 'menu'">Volver</button>
+        </div>
+      </form>
+
+      <div *ngSwitchCase="'game'" class="interaction-game">
+        <header>
+          <h2>Mini juego con {{ interactionTarget?.name }}</h2>
+          <button type="button" (click)="closeInteraction()">✕</button>
+        </header>
+
+        <p *ngIf="miniGameState.status === 'playing'">
+          Adivina el número (1-5). Intentos usados: {{ miniGameState.attempts }} / {{ miniGameMaxAttempts }}.
         </p>
-        <article
-          class="chat-message"
-          *ngFor="let message of activeConversation ? privateMessages[activeConversation.id] : []; trackBy: trackByPrivateMessageId"
-          [class.self]="message.fromId === selfId"
-        >
-          <div class="message-avatar" [class]="'tone-' + message.avatar.tone">
-            <span>{{ message.avatar.emoji }}</span>
-          </div>
-          <div class="message-content">
-            <header>
-              <span class="author">{{ message.fromName }}</span>
-              <time>{{ message.createdAt | date: 'HH:mm' }}</time>
-            </header>
-            <p>{{ message.content }}</p>
-          </div>
-        </article>
-      </div>
+        <p *ngIf="miniGameState.status === 'won'">🎉 ¡Acertaste! Era el {{ miniGameState.target }}.</p>
+        <p *ngIf="miniGameState.status === 'lost'">😅 Era el {{ miniGameState.target }}. ¡Otra ronda!</p>
 
-      <form class="chat-input" (ngSubmit)="sendPrivateMessage()">
-        <input
-          type="text"
-          autocomplete="off"
-          placeholder="Envía un mensaje cercano"
-          [(ngModel)]="privateMessageText"
-          name="privateMessage"
-          [disabled]="!activeConversation"
-        />
-        <button type="submit" [disabled]="!privateMessageText.trim() || !activeConversation">Enviar</button>
-      </form>
-    </section>
+        <div class="number-grid" *ngIf="miniGameState.status === 'playing'">
+          <button type="button" *ngFor="let option of [1, 2, 3, 4, 5]" (click)="guessMiniGame(option)">
+            {{ option }}
+          </button>
+        </div>
+
+        <div class="actions">
+          <button type="button" (click)="replayMiniGame()">Reintentar</button>
+          <button type="button" class="secondary" (click)="interactionView = 'menu'">Volver</button>
+        </div>
+      </div>
+    </div>
   </div>
 </div>

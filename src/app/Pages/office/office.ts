@@ -2,11 +2,9 @@ import {
   AfterViewInit,
   ChangeDetectorRef,
   Component,
-  ElementRef,
   HostListener,
   OnDestroy,
   OnInit,
-  ViewChild,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -28,29 +26,28 @@ export type AvatarTone = 'sky' | 'sunset' | 'forest' | 'amethyst' | 'ocean' | 'e
 
 export interface AvatarOption extends AvatarDescriptor {
   label: string;
-  description: string;
   tone: AvatarTone;
 }
 
-interface GeneralMessage {
+interface SpeechBubble {
+  content: string;
+  kind: 'private' | 'broadcast';
+  authorId: string;
+}
+
+interface RoomMessage {
   id: string;
   authorId: string;
   authorName: string;
-  avatar: AvatarOption;
   content: string;
   createdAt: Date;
-  system?: boolean;
 }
 
-interface PrivateMessage {
-  id: string;
-  fromId: string;
-  toId: string;
-  fromName: string;
-  toName: string;
-  avatar: AvatarOption;
-  content: string;
-  createdAt: Date;
+interface MiniGameState {
+  status: 'idle' | 'playing' | 'won' | 'lost';
+  target: number;
+  attempts: number;
+  lastGuess: number | null;
 }
 
 interface PlayerState extends PlayerPayload {
@@ -59,12 +56,13 @@ interface PlayerState extends PlayerPayload {
 }
 
 const DEFAULT_SPACE: SpaceDescriptor = { width: 960, height: 560 };
-const STORAGE_KEY_SERVER_URL = 'virtualOffice.serverUrl';
 const STORAGE_KEY_NAME = 'virtualOffice.displayName';
 const STORAGE_KEY_AVATAR = 'virtualOffice.avatar';
 const NEARBY_DISTANCE = 140;
 const MOVEMENT_STEP = 32;
 const EDGE_PADDING = 48;
+const MAX_ROOM_MESSAGES = 4;
+const MINI_GAME_MAX_ATTEMPTS = 3;
 
 @Component({
   selector: 'app-office',
@@ -74,66 +72,37 @@ const EDGE_PADDING = 48;
   styleUrls: ['./office.scss'],
 })
 export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
-  @ViewChild('generalMessageList') private generalMessageList?: ElementRef<HTMLDivElement>;
-  @ViewChild('privateMessageList') private privateMessageList?: ElementRef<HTMLDivElement>;
-
   readonly avatars: AvatarOption[] = [
-    {
-      id: 'pilot',
-      label: 'Piloto Espacial',
-      emoji: '🧑‍🚀',
-      description: 'Explorador intergaláctico listo para despegar.',
-      tone: 'sky',
-    },
-    {
-      id: 'engineer',
-      label: 'Ingeniera DevOps',
-      emoji: '🧑‍💻',
-      description: 'Mantiene los microservicios en órbita estable.',
-      tone: 'amethyst',
-    },
-    {
-      id: 'botanist',
-      label: 'Botánica de Terraformación',
-      emoji: '🧑‍🔬',
-      description: 'Hace florecer los entornos más hostiles.',
-      tone: 'forest',
-    },
-    {
-      id: 'captain',
-      label: 'Capitana de la Flota',
-      emoji: '🧑‍✈️',
-      description: 'Coordina a la tripulación con precisión milimétrica.',
-      tone: 'sunset',
-    },
-    {
-      id: 'navigator',
-      label: 'Navegante Galáctico',
-      emoji: '🧭',
-      description: 'Encuentra rutas óptimas entre servicios.',
-      tone: 'ocean',
-    },
-    {
-      id: 'guardian',
-      label: 'Guardián de Seguridad',
-      emoji: '🛡️',
-      description: 'Asegura que todo el equipo esté protegido.',
-      tone: 'ember',
-    },
+    { id: 'pilot', label: 'Piloto espacial', emoji: '🧑‍🚀', tone: 'sky' },
+    { id: 'engineer', label: 'Ingeniera DevOps', emoji: '🧑‍💻', tone: 'amethyst' },
+    { id: 'botanist', label: 'Botánica de terraformación', emoji: '🧑‍🔬', tone: 'forest' },
+    { id: 'captain', label: 'Capitana de la flota', emoji: '🧑‍✈️', tone: 'sunset' },
+    { id: 'navigator', label: 'Navegante galáctico', emoji: '🧭', tone: 'ocean' },
+    { id: 'guardian', label: 'Guardián de seguridad', emoji: '🛡️', tone: 'ember' },
+    { id: 'robot', label: 'Compañero robótico', emoji: '🤖', tone: 'amethyst' },
+    { id: 'unicorn', label: 'Unicornio entusiasta', emoji: '🦄', tone: 'sunset' },
+    { id: 'fox', label: 'Zorro ágil', emoji: '🦊', tone: 'forest' },
+    { id: 'cat', label: 'Gato curioso', emoji: '🐱', tone: 'sky' },
+    { id: 'panda', label: 'Panda tranquilo', emoji: '🐼', tone: 'ocean' },
+    { id: 'ember-spirit', label: 'Espíritu ardiente', emoji: '🔥', tone: 'ember' },
+    { id: 'wizard', label: 'Hechicero digital', emoji: '🧙‍♂️', tone: 'amethyst' },
+    { id: 'artist', label: 'Artista cósmico', emoji: '🎨', tone: 'sunset' },
+    { id: 'gamer', label: 'Gamer intergaláctico', emoji: '🎮', tone: 'sky' },
+    { id: 'rocket', label: 'Tripulación rocket', emoji: '🚀', tone: 'ocean' },
+    { id: 'dino', label: 'Dino dev', emoji: '🦕', tone: 'forest' },
+    { id: 'lightbulb', label: 'Idea brillante', emoji: '💡', tone: 'sky' },
   ];
 
   displayName = '';
-  messageText = '';
-  privateMessageText = '';
-  
-  // URL del servidor cloud automática
-  serverUrl = getVirtualOfficeUrl();
+  chatInput = '';
+  broadcastInput = '';
+
+  readonly serverUrl = getVirtualOfficeUrl();
 
   selectedAvatar: AvatarOption = this.avatars[0];
   readonly systemAvatar: AvatarOption = {
     id: 'system',
     label: 'Sistema',
-    description: 'Notificaciones de la oficina virtual.',
     emoji: '✨',
     tone: 'amethyst',
   };
@@ -148,12 +117,17 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
   };
 
   players: PlayerState[] = [];
-  generalMessages: GeneralMessage[] = [];
-  privateMessages: Record<string, PrivateMessage[]> = {};
+  speechBubbles: Record<string, SpeechBubble | undefined> = {};
+  roomMessages: RoomMessage[] = [];
   nearbyPlayerIds = new Set<string>();
-  activeConversationId: string | null = null;
+  closestNearbyPlayerId: string | null = null;
+  interactionTargetId: string | null = null;
+  interactionView: 'menu' | 'chat' | 'broadcast' | 'game' | null = null;
 
   space: SpaceDescriptor = DEFAULT_SPACE;
+
+  readonly miniGameMaxAttempts = MINI_GAME_MAX_ATTEMPTS;
+  miniGameState: MiniGameState = this.createMiniGameState('idle');
 
   selfId: string | null = null;
   private subscriptions: Subscription[] = [];
@@ -232,19 +206,34 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
     return this.connectionLabels[this.connectionState];
   }
 
-  get sortedPlayers(): PlayerState[] {
-    return [...this.players].sort((a, b) => (a.id === this.selfId ? 1 : 0) - (b.id === this.selfId ? 1 : 0));
+  get interactionTarget(): PlayerState | null {
+    if (!this.interactionTargetId) {
+      return null;
+    }
+    return this.players.find((player) => player.id === this.interactionTargetId) ?? null;
   }
 
   get nearbyPlayers(): PlayerState[] {
-    return this.sortedPlayers.filter((player) => this.nearbyPlayerIds.has(player.id) && player.id !== this.selfId);
-  }
-
-  get activeConversation(): PlayerState | null {
-    if (!this.activeConversationId) {
-      return null;
+    const self = this.players.find((player) => player.id === this.selfId);
+    if (!self) {
+      return [];
     }
-    return this.players.find((player) => player.id === this.activeConversationId) ?? null;
+
+    const result: Array<{ player: PlayerState; distance: number }> = [];
+    this.players.forEach((player) => {
+      if (player.id === self.id) {
+        return;
+      }
+      if (!this.nearbyPlayerIds.has(player.id)) {
+        return;
+      }
+      const distance = this.distanceBetween(self, player);
+      result.push({ player, distance });
+    });
+
+    return result
+      .sort((a, b) => a.distance - b.distance)
+      .map((entry) => entry.player);
   }
 
   selectAvatar(avatar: AvatarOption): void {
@@ -253,13 +242,8 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   async joinOffice(): Promise<void> {
-    if (!this.serverUrl.trim()) {
-      this.connectionError = 'Debes indicar la URL del servidor.';
-      return;
-    }
-
     try {
-      await this.officeService.connect(this.serverUrl.trim());
+      await this.officeService.connect(this.serverUrl);
       this.persistPreferences();
       this.sendHello();
       this.focusWorkspace();
@@ -273,46 +257,138 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
     this.router.navigateByUrl('/');
   }
 
-  sendGeneralMessage(): void {
-    const content = this.messageText.trim();
+  openInteraction(playerId: string): void {
+    this.interactionTargetId = playerId;
+    this.interactionView = 'menu';
+  }
+
+  closeInteraction(): void {
+    this.interactionTargetId = null;
+    this.interactionView = null;
+    this.chatInput = '';
+    this.broadcastInput = '';
+    this.miniGameState = this.createMiniGameState('idle');
+  }
+
+  openBroadcast(): void {
+    this.interactionTargetId = null;
+    this.chooseInteraction('broadcast');
+  }
+
+  chooseInteraction(view: 'chat' | 'broadcast' | 'game'): void {
+    if (!this.interactionTargetId && view !== 'broadcast') {
+      return;
+    }
+
+    if (view === 'game') {
+      this.miniGameState = this.createMiniGameState('playing');
+    }
+
+    this.interactionView = view;
+
+    setTimeout(() => {
+      if (view === 'chat') {
+        document.querySelector<HTMLInputElement>('input[name="interactionChat"]')?.focus();
+      }
+      if (view === 'broadcast') {
+        document.querySelector<HTMLInputElement>('input[name="interactionBroadcast"]')?.focus();
+      }
+    });
+  }
+
+  sendChatMessage(): void {
+    const content = this.chatInput.trim();
+    const target = this.interactionTarget;
+    if (!content || !target) {
+      return;
+    }
+
+    this.officeService.sendPrivateMessage(target.id, content);
+    this.chatInput = '';
+  }
+
+  sendBroadcastMessage(): void {
+    const content = this.broadcastInput.trim();
     if (!content) {
       return;
     }
 
     this.officeService.sendGeneralMessage(content);
-    this.messageText = '';
+    this.broadcastInput = '';
+    this.interactionView = 'menu';
   }
 
-  sendPrivateMessage(): void {
-    const content = this.privateMessageText.trim();
-    if (!content || !this.activeConversationId) {
+  guessMiniGame(value: number): void {
+    if (this.miniGameState.status !== 'playing') {
       return;
     }
 
-    this.officeService.sendPrivateMessage(this.activeConversationId, content);
-    this.privateMessageText = '';
+    const attempts = this.miniGameState.attempts + 1;
+    const isCorrect = value === this.miniGameState.target;
+    const reachedLimit = attempts >= MINI_GAME_MAX_ATTEMPTS;
+
+    this.miniGameState = {
+      ...this.miniGameState,
+      attempts,
+      lastGuess: value,
+      status: isCorrect ? 'won' : reachedLimit ? 'lost' : 'playing',
+    };
+  }
+
+  replayMiniGame(): void {
+    this.miniGameState = this.createMiniGameState('playing');
   }
 
   trackByPlayerId(_: number, player: PlayerState): string {
     return player.id;
   }
 
-  trackByMessageId(_: number, message: GeneralMessage): string {
+  trackByRoomMessage(_: number, message: RoomMessage): string {
     return message.id;
   }
 
-  trackByPrivateMessageId(_: number, message: PrivateMessage): string {
-    return message.id;
+  shouldShowInteractHint(player: PlayerState): boolean {
+    if (player.id === this.selfId) {
+      return false;
+    }
+    if (!this.nearbyPlayerIds.has(player.id)) {
+      return false;
+    }
+    if (this.interactionTargetId && this.interactionTargetId !== player.id) {
+      return false;
+    }
+    return true;
+  }
+
+  isActiveTarget(player: PlayerState): boolean {
+    return this.interactionTargetId === player.id;
   }
 
   @HostListener('window:keydown', ['$event'])
   handleKeydown(event: KeyboardEvent): void {
-    if (!this.isConnected || !this.selfId) {
+    if (!this.isConnected) {
       return;
     }
 
     const target = event.target as HTMLElement | null;
     if (target && ['INPUT', 'TEXTAREA'].includes(target.tagName)) {
+      return;
+    }
+
+    if (event.key === 'e' || event.key === 'E') {
+      const chosenTarget = this.interactionTargetId ?? this.closestNearbyPlayerId ?? this.nearbyPlayers[0]?.id;
+      if (chosenTarget) {
+        event.preventDefault();
+        this.openInteraction(chosenTarget);
+      }
+      return;
+    }
+
+    if (event.key === 'Escape') {
+      if (this.interactionView) {
+        event.preventDefault();
+        this.closeInteraction();
+      }
       return;
     }
 
@@ -323,16 +399,6 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
 
     event.preventDefault();
     this.moveSelf(direction);
-  }
-
-  setActiveConversation(playerId: string): void {
-    this.activeConversationId = playerId;
-    this.scrollToBottom(this.privateMessageList);
-  }
-
-  clearConversation(): void {
-    this.activeConversationId = null;
-    this.privateMessageText = '';
   }
 
   private sendHello(): void {
@@ -358,14 +424,22 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
-  private handleWelcome(event: { type: 'welcome'; id: string; players: PlayerPayload[]; generalMessages: GeneralMessagePayload[]; space: SpaceDescriptor }): void {
+  private handleWelcome(event: {
+    type: 'welcome';
+    id: string;
+    players: PlayerPayload[];
+    generalMessages: GeneralMessagePayload[];
+    space: SpaceDescriptor;
+  }): void {
     this.selfId = event.id;
     this.space = event.space || DEFAULT_SPACE;
     this.players = event.players.map((player) => this.mapPlayer(player, player.id === this.selfId));
-    this.generalMessages = event.generalMessages.map((message) => this.mapGeneralMessage(message));
-    this.sortMessages();
+    this.roomMessages = event.generalMessages
+      .map((message) => this.mapRoomMessage(message))
+      .slice(-MAX_ROOM_MESSAGES);
+    this.speechBubbles = {};
     this.refreshNearbyPlayers();
-    this.scrollToBottom(this.generalMessageList);
+    this.focusWorkspace();
   }
 
   private upsertPlayer(payload: PlayerPayload): void {
@@ -387,49 +461,71 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private removePlayer(id: string): void {
     this.players = this.players.filter((item) => item.id !== id);
+    this.clearSpeechBubble(id);
 
-    if (this.activeConversationId === id) {
-      this.activeConversationId = null;
+    if (this.interactionTargetId === id) {
+      this.closeInteraction();
     }
 
     this.refreshNearbyPlayers();
   }
 
   private addGeneralMessage(message: GeneralMessagePayload): void {
-    this.generalMessages = [...this.generalMessages, this.mapGeneralMessage(message)];
-    this.sortMessages();
-    this.scrollToBottom(this.generalMessageList);
+    const mapped = this.mapRoomMessage(message);
+    this.roomMessages = [...this.roomMessages, mapped].slice(-MAX_ROOM_MESSAGES);
+    this.setSpeechBubble(message.authorId, {
+      content: message.content,
+      kind: 'broadcast',
+      authorId: message.authorId,
+    });
   }
 
   private addPrivateMessage(message: PrivateMessagePayload): void {
-    const mapped: PrivateMessage = {
-      ...message,
-      avatar: this.normalizeAvatar(message.avatar),
-      createdAt: new Date(message.createdAt),
+    const bubble: SpeechBubble = {
+      content: message.content,
+      kind: 'private',
+      authorId: message.fromId,
     };
 
-    const conversationId = message.fromId === this.selfId ? message.toId : message.fromId;
-    const current = this.privateMessages[conversationId] ?? [];
-    this.privateMessages = {
-      ...this.privateMessages,
-      [conversationId]: [...current, mapped],
-    };
+    this.setSpeechBubble(message.fromId, bubble);
+    this.setSpeechBubble(message.toId, bubble);
 
-    if (!this.activeConversationId || this.activeConversationId === conversationId) {
-      this.activeConversationId = conversationId;
-      this.scrollToBottom(this.privateMessageList);
+    if (message.fromId === this.selfId) {
+      this.chatInput = '';
     }
+
+    if (message.toId === this.selfId) {
+      this.interactionTargetId = message.fromId;
+      if (this.interactionView !== 'chat') {
+        this.interactionView = 'chat';
+      }
+    }
+  }
+
+  private setSpeechBubble(playerId: string, bubble: SpeechBubble): void {
+    this.speechBubbles = {
+      ...this.speechBubbles,
+      [playerId]: bubble,
+    };
+  }
+
+  private clearSpeechBubble(playerId: string): void {
+    if (!(playerId in this.speechBubbles)) {
+      return;
+    }
+    const next = { ...this.speechBubbles };
+    delete next[playerId];
+    this.speechBubbles = next;
   }
 
   private handleDisconnected(): void {
     this.selfId = null;
     this.players = [];
-    this.generalMessages = [];
+    this.speechBubbles = {};
+    this.roomMessages = [];
     this.nearbyPlayerIds.clear();
-    this.activeConversationId = null;
-    this.privateMessages = {};
-    this.messageText = '';
-    this.privateMessageText = '';
+    this.closestNearbyPlayerId = null;
+    this.closeInteraction();
   }
 
   private mapPlayer(payload: PlayerPayload, isSelf: boolean): PlayerState {
@@ -440,29 +536,14 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
     };
   }
 
-  private mapGeneralMessage(message: GeneralMessagePayload): GeneralMessage {
+  private mapRoomMessage(message: GeneralMessagePayload): RoomMessage {
     return {
-      ...message,
-      avatar: this.normalizeAvatar(message.avatar),
+      id: message.id,
+      authorId: message.authorId,
+      authorName: message.authorName,
+      content: message.content,
       createdAt: new Date(message.createdAt),
     };
-  }
-
-  private resolveAvatar(id?: string): AvatarOption | null {
-    if (!id) {
-      return null;
-    }
-    return this.avatars.find((avatar) => avatar.id === id) ?? null;
-  }
-
-  private clampCoordinate(value: number, size: number): number {
-    const padding = Math.min(EDGE_PADDING, size / 2);
-    const min = padding;
-    const max = size - padding;
-    if (max <= min) {
-      return size / 2;
-    }
-    return Math.max(min, Math.min(max, value));
   }
 
   private normalizeAvatar(descriptor?: AvatarDescriptor | null): AvatarOption {
@@ -471,7 +552,7 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     if (descriptor?.id) {
-      const local = this.resolveAvatar(descriptor.id);
+      const local = this.avatars.find((avatar) => avatar.id === descriptor.id);
       if (local) {
         return local;
       }
@@ -481,7 +562,6 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
       return {
         id: descriptor.id ?? 'companion',
         label: descriptor.label ?? 'Compañero virtual',
-        description: descriptor.label ?? 'Miembro de la oficina virtual.',
         emoji: descriptor.emoji ?? '🙂',
         tone: this.normalizeTone(descriptor.tone),
       };
@@ -558,47 +638,67 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
     const self = this.players.find((player) => player.id === this.selfId);
     if (!self) {
       this.nearbyPlayerIds.clear();
+      this.closestNearbyPlayerId = null;
       return;
     }
 
     const ids = new Set<string>();
+    let closestId: string | null = null;
+    let closestDistance = Infinity;
+
     this.players.forEach((player) => {
       if (player.id === self.id) {
         return;
       }
-      const distance = Math.hypot(player.x - self.x, player.y - self.y);
+      const distance = this.distanceBetween(self, player);
       if (distance <= NEARBY_DISTANCE) {
         ids.add(player.id);
+        if (distance < closestDistance) {
+          closestDistance = distance;
+          closestId = player.id;
+        }
       }
     });
-    this.nearbyPlayerIds = ids;
 
-    if (this.activeConversationId && !ids.has(this.activeConversationId)) {
-      this.activeConversationId = null;
+    this.nearbyPlayerIds = ids;
+    this.closestNearbyPlayerId = closestId;
+
+    if (this.interactionTargetId && !this.nearbyPlayerIds.has(this.interactionTargetId)) {
+      this.closeInteraction();
     }
   }
 
   private focusWorkspace(): void {
     setTimeout(() => {
-      const workspace = document.querySelector<HTMLElement>('.workspace');
-      workspace?.focus();
+      document.querySelector<HTMLElement>('.workspace')?.focus();
     }, 150);
   }
 
-  private sortMessages(): void {
-    this.generalMessages = [...this.generalMessages].sort(
-      (a, b) => a.createdAt.getTime() - b.createdAt.getTime(),
-    );
+  private clampCoordinate(value: number, size: number): number {
+    const padding = Math.min(EDGE_PADDING, size / 2);
+    const min = padding;
+    const max = size - padding;
+    if (max <= min) {
+      return size / 2;
+    }
+    return Math.max(min, Math.min(max, value));
   }
 
-  private scrollToBottom(ref?: ElementRef<HTMLDivElement>): void {
-    if (!ref) {
-      return;
-    }
-    requestAnimationFrame(() => {
-      const el = ref.nativeElement;
-      el.scrollTop = el.scrollHeight;
-    });
+  private distanceBetween(a: PlayerState, b: PlayerState): number {
+    return Math.hypot(a.x - b.x, a.y - b.y);
+  }
+
+  private createMiniGameState(status: 'idle' | 'playing'): MiniGameState {
+    return {
+      status,
+      target: this.randomInt(1, 5),
+      attempts: 0,
+      lastGuess: null,
+    };
+  }
+
+  private randomInt(min: number, max: number): number {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
   }
 
   private restorePreferences(): void {
@@ -607,20 +707,16 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
       this.displayName = storedName;
     }
 
-    const storedServer = localStorage.getItem(STORAGE_KEY_SERVER_URL);
-    if (storedServer) {
-      this.serverUrl = storedServer;
-    }
-
     const avatarId = localStorage.getItem(STORAGE_KEY_AVATAR);
-    const foundAvatar = this.resolveAvatar(avatarId ?? undefined);
-    if (foundAvatar) {
-      this.selectedAvatar = foundAvatar;
+    if (avatarId) {
+      const found = this.avatars.find((avatar) => avatar.id === avatarId);
+      if (found) {
+        this.selectedAvatar = found;
+      }
     }
   }
 
   private persistPreferences(): void {
     localStorage.setItem(STORAGE_KEY_NAME, this.previewName);
-    localStorage.setItem(STORAGE_KEY_SERVER_URL, this.serverUrl.trim());
   }
 }
