@@ -13,8 +13,8 @@ export const virtualOfficeConfig = {
     local: 'ws://localhost:8974'
   },
   
-  // URL por defecto (cambiar después del deploy)
-  defaultUrl: 'ws://localhost:8974', // Cambiar a URL de producción
+  // URL por defecto - Servidor en Render
+  defaultUrl: 'wss://lanzador-microservicios.onrender.com', // ✅ Servidor cloud configurado
   
   // Configuración de reconexión
   reconnect: {
