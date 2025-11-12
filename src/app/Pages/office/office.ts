@@ -35,19 +35,22 @@ interface SpeechBubble {
   authorId: string;
 }
 
-interface RoomMessage {
-  id: string;
-  authorId: string;
-  authorName: string;
-  content: string;
-  createdAt: Date;
+type RpsMove = 'rock' | 'paper' | 'scissors';
+type RpsOutcome = 'win' | 'lose' | 'draw';
+
+interface MiniGameRound {
+  round: number;
+  playerMove: RpsMove;
+  opponentMove: RpsMove;
+  outcome: RpsOutcome;
 }
 
 interface MiniGameState {
   status: 'idle' | 'playing' | 'won' | 'lost';
-  target: number;
-  attempts: number;
-  lastGuess: number | null;
+  round: number;
+  playerScore: number;
+  opponentScore: number;
+  history: MiniGameRound[];
 }
 
 interface PlayerState extends PlayerPayload {
@@ -61,8 +64,6 @@ const STORAGE_KEY_AVATAR = 'virtualOffice.avatar';
 const NEARBY_DISTANCE = 140;
 const MOVEMENT_STEP = 32;
 const EDGE_PADDING = 48;
-const MAX_ROOM_MESSAGES = 4;
-const MINI_GAME_MAX_ATTEMPTS = 3;
 
 @Component({
   selector: 'app-office',
@@ -118,7 +119,6 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
 
   players: PlayerState[] = [];
   speechBubbles: Record<string, SpeechBubble | undefined> = {};
-  roomMessages: RoomMessage[] = [];
   nearbyPlayerIds = new Set<string>();
   closestNearbyPlayerId: string | null = null;
   interactionTargetId: string | null = null;
@@ -126,7 +126,11 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
 
   space: SpaceDescriptor = DEFAULT_SPACE;
 
-  readonly miniGameMaxAttempts = MINI_GAME_MAX_ATTEMPTS;
+  readonly miniGameMoves: Array<{ id: RpsMove; label: string; emoji: string }> = [
+    { id: 'rock', label: 'Piedra', emoji: '🪨' },
+    { id: 'paper', label: 'Papel', emoji: '📄' },
+    { id: 'scissors', label: 'Tijeras', emoji: '✂️' },
+  ];
   miniGameState: MiniGameState = this.createMiniGameState('idle');
 
   selfId: string | null = null;
@@ -204,6 +208,26 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
 
   get connectionLabel(): string {
     return this.connectionLabels[this.connectionState];
+  }
+
+  get miniGameLastRound(): MiniGameRound | null {
+    const { history } = this.miniGameState;
+    return history.length ? history[history.length - 1] : null;
+  }
+
+  formatRpsMove(move: RpsMove): string {
+    return this.miniGameMoves.find((item) => item.id === move)?.label ?? move;
+  }
+
+  formatRpsOutcome(outcome: RpsOutcome): string {
+    switch (outcome) {
+      case 'win':
+        return 'Ganaste la ronda';
+      case 'lose':
+        return 'Perdiste la ronda';
+      default:
+        return 'Empate';
+    }
   }
 
   get interactionTarget(): PlayerState | null {
@@ -315,23 +339,45 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
 
     this.officeService.sendGeneralMessage(content);
     this.broadcastInput = '';
-    this.interactionView = 'menu';
+    this.closeInteraction();
   }
 
-  guessMiniGame(value: number): void {
+  playMiniGame(move: RpsMove): void {
     if (this.miniGameState.status !== 'playing') {
       return;
     }
 
-    const attempts = this.miniGameState.attempts + 1;
-    const isCorrect = value === this.miniGameState.target;
-    const reachedLimit = attempts >= MINI_GAME_MAX_ATTEMPTS;
+    const opponentMove = this.randomRpsMove();
+    const outcome = this.resolveRpsOutcome(move, opponentMove);
+
+    const playerScore = this.miniGameState.playerScore + (outcome === 'win' ? 1 : 0);
+    const opponentScore = this.miniGameState.opponentScore + (outcome === 'lose' ? 1 : 0);
+
+    const history = [
+      ...this.miniGameState.history,
+      {
+        round: this.miniGameState.history.length + 1,
+        playerMove: move,
+        opponentMove,
+        outcome,
+      },
+    ];
+
+    const hasWinner = playerScore >= 2 || opponentScore >= 2;
+    const status: MiniGameState['status'] = hasWinner
+      ? playerScore >= 2
+        ? 'won'
+        : 'lost'
+      : 'playing';
+
+    const round = hasWinner ? history.length : history.length + 1;
 
     this.miniGameState = {
-      ...this.miniGameState,
-      attempts,
-      lastGuess: value,
-      status: isCorrect ? 'won' : reachedLimit ? 'lost' : 'playing',
+      status,
+      round,
+      playerScore,
+      opponentScore,
+      history,
     };
   }
 
@@ -341,10 +387,6 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
 
   trackByPlayerId(_: number, player: PlayerState): string {
     return player.id;
-  }
-
-  trackByRoomMessage(_: number, message: RoomMessage): string {
-    return message.id;
   }
 
   shouldShowInteractHint(player: PlayerState): boolean {
@@ -392,6 +434,12 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
+    if (event.code === 'Space' || event.key === ' ') {
+      event.preventDefault();
+      this.openBroadcast();
+      return;
+    }
+
     const direction = this.resolveDirection(event.key);
     if (!direction) {
       return;
@@ -434,9 +482,6 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
     this.selfId = event.id;
     this.space = event.space || DEFAULT_SPACE;
     this.players = event.players.map((player) => this.mapPlayer(player, player.id === this.selfId));
-    this.roomMessages = event.generalMessages
-      .map((message) => this.mapRoomMessage(message))
-      .slice(-MAX_ROOM_MESSAGES);
     this.speechBubbles = {};
     this.refreshNearbyPlayers();
     this.focusWorkspace();
@@ -471,8 +516,6 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private addGeneralMessage(message: GeneralMessagePayload): void {
-    const mapped = this.mapRoomMessage(message);
-    this.roomMessages = [...this.roomMessages, mapped].slice(-MAX_ROOM_MESSAGES);
     this.setSpeechBubble(message.authorId, {
       content: message.content,
       kind: 'broadcast',
@@ -522,7 +565,6 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
     this.selfId = null;
     this.players = [];
     this.speechBubbles = {};
-    this.roomMessages = [];
     this.nearbyPlayerIds.clear();
     this.closestNearbyPlayerId = null;
     this.closeInteraction();
@@ -533,16 +575,6 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
       ...payload,
       avatar: this.normalizeAvatar(payload.avatar),
       isSelf,
-    };
-  }
-
-  private mapRoomMessage(message: GeneralMessagePayload): RoomMessage {
-    return {
-      id: message.id,
-      authorId: message.authorId,
-      authorName: message.authorName,
-      content: message.content,
-      createdAt: new Date(message.createdAt),
     };
   }
 
@@ -691,14 +723,31 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
   private createMiniGameState(status: 'idle' | 'playing'): MiniGameState {
     return {
       status,
-      target: this.randomInt(1, 5),
-      attempts: 0,
-      lastGuess: null,
+      round: status === 'playing' ? 1 : 0,
+      playerScore: 0,
+      opponentScore: 0,
+      history: [],
     };
   }
 
-  private randomInt(min: number, max: number): number {
-    return Math.floor(Math.random() * (max - min + 1)) + min;
+  private randomRpsMove(): RpsMove {
+    const moves: RpsMove[] = ['rock', 'paper', 'scissors'];
+    const index = Math.floor(Math.random() * moves.length);
+    return moves[index];
+  }
+
+  private resolveRpsOutcome(player: RpsMove, opponent: RpsMove): RpsOutcome {
+    if (player === opponent) {
+      return 'draw';
+    }
+
+    const winsAgainst: Record<RpsMove, RpsMove> = {
+      rock: 'scissors',
+      paper: 'rock',
+      scissors: 'paper',
+    };
+
+    return winsAgainst[player] === opponent ? 'win' : 'lose';
   }
 
   private restorePreferences(): void {

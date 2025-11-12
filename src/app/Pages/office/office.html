@@ -10,15 +10,6 @@
       <span>{{ connectionLabel }}</span>
     </div>
 
-    <button
-      type="button"
-      class="broadcast-button"
-      *ngIf="isConnected"
-      (click)="openBroadcast()"
-    >
-      Mensaje global
-    </button>
-
     <button type="button" class="exit-button" (click)="exitOffice()">Salir a la home</button>
   </header>
 
@@ -123,12 +114,10 @@
       </ul>
     </aside>
 
-    <div class="room-announcements" *ngIf="roomMessages.length">
-      <div class="room-announcement" *ngFor="let message of roomMessages; trackBy: trackByRoomMessage">
-        <strong>{{ message.authorName }}:</strong>
-        <span>{{ message.content }}</span>
-      </div>
-    </div>
+    <footer class="office-shortcuts" *ngIf="isConnected">
+      <span>Atajos: E para interactuar con personas cercanas · Espacio abre el mensaje global</span>
+      <button type="button" (click)="openBroadcast()">Abrir mensaje global</button>
+    </footer>
   </section>
 
   <div class="interaction-overlay" *ngIf="interactionView">
@@ -147,7 +136,6 @@
         <div class="interaction-options">
           <button type="button" (click)="chooseInteraction('chat')">💬 Charlar</button>
           <button type="button" (click)="chooseInteraction('game')">🎮 Jugar</button>
-          <button type="button" (click)="chooseInteraction('broadcast')">📢 Mensaje global</button>
           <button type="button" class="secondary" (click)="closeInteraction()">Cancelar</button>
         </div>
       </ng-container>
@@ -190,24 +178,47 @@
 
       <div *ngSwitchCase="'game'" class="interaction-game">
         <header>
-          <h2>Mini juego con {{ interactionTarget?.name }}</h2>
+          <h2>Piedra, papel o tijeras con {{ interactionTarget?.name || 'tu oponente' }}</h2>
           <button type="button" (click)="closeInteraction()">✕</button>
         </header>
 
-        <p *ngIf="miniGameState.status === 'playing'">
-          Adivina el número (1-5). Intentos usados: {{ miniGameState.attempts }} / {{ miniGameMaxAttempts }}.
-        </p>
-        <p *ngIf="miniGameState.status === 'won'">🎉 ¡Acertaste! Era el {{ miniGameState.target }}.</p>
-        <p *ngIf="miniGameState.status === 'lost'">😅 Era el {{ miniGameState.target }}. ¡Otra ronda!</p>
+        <div class="game-scoreboard">
+          <div class="score-card">
+            <span class="label">Tú</span>
+            <strong>{{ miniGameState.playerScore }}</strong>
+          </div>
+          <div class="round-info">
+            <span>Ronda {{ miniGameState.status === 'playing' ? miniGameState.round : miniGameState.history.length }}</span>
+            <small>Mejor de 3</small>
+          </div>
+          <div class="score-card opponent">
+            <span class="label">{{ interactionTarget?.name || 'Oponente' }}</span>
+            <strong>{{ miniGameState.opponentScore }}</strong>
+          </div>
+        </div>
 
-        <div class="number-grid" *ngIf="miniGameState.status === 'playing'">
-          <button type="button" *ngFor="let option of [1, 2, 3, 4, 5]" (click)="guessMiniGame(option)">
-            {{ option }}
+        <p *ngIf="miniGameState.status === 'playing'">
+          Elige tu jugada. Quien consiga dos victorias se lleva la partida.
+        </p>
+        <p *ngIf="miniGameState.status === 'won'">🎉 ¡Ganaste el duelo!</p>
+        <p *ngIf="miniGameState.status === 'lost'">😅 {{ interactionTarget?.name || 'Tu oponente' }} ganó esta vez.</p>
+
+        <div class="last-round" *ngIf="miniGameLastRound as last">
+          <span class="label">Última ronda</span>
+          <span>{{ formatRpsMove(last.playerMove) }} vs {{ formatRpsMove(last.opponentMove) }} · {{ formatRpsOutcome(last.outcome) }}</span>
+        </div>
+
+        <div class="rps-options" *ngIf="miniGameState.status === 'playing'">
+          <button type="button" *ngFor="let move of miniGameMoves" (click)="playMiniGame(move.id)">
+            <span class="emoji">{{ move.emoji }}</span>
+            <span>{{ move.label }}</span>
           </button>
         </div>
 
         <div class="actions">
-          <button type="button" (click)="replayMiniGame()">Reintentar</button>
+          <button type="button" (click)="replayMiniGame()">
+            {{ miniGameState.status === 'playing' ? 'Reiniciar' : 'Revancha' }}
+          </button>
           <button type="button" class="secondary" (click)="interactionView = 'menu'">Volver</button>
         </div>
       </div>
