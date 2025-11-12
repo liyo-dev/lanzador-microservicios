@@ -466,10 +466,6 @@ ipcMain.handle('save-users', (event, users) => {
   return { success: true };
 });
 
-// Abrir portal con navegador
-
-const { handlePortalAutoLogin } = require('./autologin-handler');
-
 // Abrir portal con navegador - NUEVA IMPLEMENTACIÓN MEJORADA
 ipcMain.handle('open-portal-with-autologin', async (event, loginData) => {
   return await handlePortalAutoLogin(loginData);
