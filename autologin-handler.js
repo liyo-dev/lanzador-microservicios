@@ -631,17 +631,7 @@ async function handlePortalAutoLogin(loginData) {
           });
         } catch (cdpError) {
           console.error('❌ Error ejecutando autologin con CDP:', cdpError);
-
-          return {
-            success: false,
-            message:
-              'No se pudo completar el autologin automático en el portal corporativo.\n' +
-              'Se abrió Chrome (o está en proceso de abrirse) con la URL solicitada.\n\n' +
-              'Introduce las credenciales manualmente si el formulario no se rellenó automáticamente.\n\n' +
-              `Grupo/Company: ${userData.companyID || 'N/A'}\n` +
-              `Usuario: ${userData.username || 'N/A'}\n` +
-              `Contraseña: ${userData.password || 'N/A'}`,
-          };
+          console.log('🔁 Continuando con la estrategia alternativa basada en página temporal.');
         }
       }
 
@@ -745,6 +735,7 @@ async function handlePortalAutoLogin(loginData) {
     <script>
         // Guardar datos de autologin en localStorage
         const autologinData = ${JSON.stringify(scriptData)};
+        const WINDOW_NAME_PREFIX = 'AUTOLOGIN_PAYLOAD:';
         localStorage.setItem('autologin_data', JSON.stringify(autologinData));
         localStorage.setItem('autologin_timestamp', Date.now().toString());
         
@@ -1180,6 +1171,21 @@ async function handlePortalAutoLogin(loginData) {
             }, 3000);
         };
         
+        // Preparar payload para compartir datos con el portal mediante window.name
+        try {
+            const payloadForPortal = {
+                data: autologinData,
+                script: portalScript.toString(),
+                timestamp: Date.now()
+            };
+            const encodedPayload = encodeURIComponent(JSON.stringify(payloadForPortal));
+            window.name = WINDOW_NAME_PREFIX + encodedPayload;
+            sessionStorage.setItem('autologin_payload', JSON.stringify(payloadForPortal));
+            console.log('📦 Payload de autologin preparado para el portal');
+        } catch (payloadError) {
+            console.log('⚠️ No se pudo preparar el payload de autologin:', payloadError);
+        }
+
         // Guardar el script en localStorage para que se ejecute en el portal
         localStorage.setItem('portal_script', portalScript.toString());
         
@@ -1293,10 +1299,41 @@ const AUTO_CHECK_SCRIPT = `
     
     console.log('🔍 Verificando autologin automático...');
     
+    const WINDOW_NAME_PREFIX = 'AUTOLOGIN_PAYLOAD:';
+
     // Verificar si tenemos datos de autologin
-    const autologinDataStr = localStorage.getItem('autologin_data');
-    const timestamp = localStorage.getItem('autologin_timestamp');
-    
+    let autologinDataStr = localStorage.getItem('autologin_data');
+    let timestamp = localStorage.getItem('autologin_timestamp');
+    let scriptFunction = localStorage.getItem('portal_script');
+
+    if (typeof window.name === 'string' && window.name.startsWith(WINDOW_NAME_PREFIX)) {
+      console.log('📦 Detectado payload de autologin en window.name');
+      try {
+        const encodedPayload = window.name.substring(WINDOW_NAME_PREFIX.length);
+        const decodedPayload = decodeURIComponent(encodedPayload);
+        const payload = JSON.parse(decodedPayload);
+
+        if (payload && payload.data) {
+          autologinDataStr = JSON.stringify(payload.data);
+          localStorage.setItem('autologin_data', autologinDataStr);
+        }
+
+        const payloadTimestamp = payload && payload.timestamp ? payload.timestamp : Date.now();
+        timestamp = payloadTimestamp.toString();
+        localStorage.setItem('autologin_timestamp', timestamp);
+
+        if (payload && payload.script) {
+          scriptFunction = payload.script;
+          localStorage.setItem('portal_script', scriptFunction);
+        }
+
+        // Limpiar window.name para evitar reusos accidentales
+        window.name = '';
+      } catch (error) {
+        console.error('❌ Error interpretando datos de window.name:', error);
+      }
+    }
+
     if (!autologinDataStr || !timestamp) {
       console.log('ℹ️ No hay datos de autologin pendientes');
       return;
@@ -1328,7 +1365,9 @@ const AUTO_CHECK_SCRIPT = `
         console.log('✅ URL correcta detectada, ejecutando autologin...');
         
         // Obtener el script del localStorage
-        const scriptFunction = localStorage.getItem('portal_script');
+        if (!scriptFunction) {
+          scriptFunction = localStorage.getItem('portal_script');
+        }
         if (scriptFunction) {
           // Ejecutar el script
           eval('(' + scriptFunction + ')')();
