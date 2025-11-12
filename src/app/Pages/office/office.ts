@@ -312,7 +312,9 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
 
     setTimeout(() => {
       if (view === 'chat') {
-        document.querySelector<HTMLInputElement>('input[name="interactionChat"]')?.focus();
+        document
+          .querySelector<HTMLInputElement>('.chat-composer input[name="interactionChat"]')
+          ?.focus();
       }
       if (view === 'broadcast') {
         document.querySelector<HTMLInputElement>('input[name="interactionBroadcast"]')?.focus();
@@ -329,6 +331,7 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
 
     this.officeService.sendPrivateMessage(target.id, content);
     this.chatInput = '';
+    this.closeInteraction();
   }
 
   sendBroadcastMessage(): void {
@@ -535,13 +538,6 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
 
     if (message.fromId === this.selfId) {
       this.chatInput = '';
-    }
-
-    if (message.toId === this.selfId) {
-      this.interactionTargetId = message.fromId;
-      if (this.interactionView !== 'chat') {
-        this.interactionView = 'chat';
-      }
     }
   }
 

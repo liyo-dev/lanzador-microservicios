@@ -120,7 +120,7 @@
     </footer>
   </section>
 
-  <div class="interaction-overlay" *ngIf="interactionView">
+  <div class="interaction-overlay" *ngIf="interactionView && interactionView !== 'chat'">
     <div class="interaction-card" [ngSwitch]="interactionView">
       <ng-container *ngSwitchCase="'menu'">
         <header class="interaction-header" *ngIf="interactionTarget">
@@ -139,24 +139,6 @@
           <button type="button" class="secondary" (click)="closeInteraction()">Cancelar</button>
         </div>
       </ng-container>
-
-      <form *ngSwitchCase="'chat'" class="interaction-chat" (ngSubmit)="sendChatMessage()">
-        <header>
-          <h2>Chat privado con {{ interactionTarget?.name }}</h2>
-          <button type="button" (click)="closeInteraction()">✕</button>
-        </header>
-        <input
-          type="text"
-          name="interactionChat"
-          autocomplete="off"
-          placeholder="Escribe un mensaje y pulsa Enter"
-          [(ngModel)]="chatInput"
-        />
-        <div class="actions">
-          <button type="submit" [disabled]="!chatInput.trim()">Enviar</button>
-          <button type="button" class="secondary" (click)="interactionView = 'menu'">Volver</button>
-        </div>
-      </form>
 
       <form *ngSwitchCase="'broadcast'" class="interaction-broadcast" (ngSubmit)="sendBroadcastMessage()">
         <header>
@@ -224,4 +206,32 @@
       </div>
     </div>
   </div>
+
+  <form
+    class="chat-composer"
+    *ngIf="interactionView === 'chat' && interactionTarget"
+    (ngSubmit)="sendChatMessage()"
+  >
+    <div class="chat-composer-header">
+      <div class="chat-composer-avatar" [class]="'tone-' + interactionTarget.avatar.tone">
+        <span>{{ interactionTarget.avatar.emoji }}</span>
+      </div>
+      <div class="chat-composer-meta">
+        <strong>{{ interactionTarget.name }}</strong>
+        <span>Mensaje privado</span>
+      </div>
+      <button type="button" class="chat-composer-close" (click)="closeInteraction()">✕</button>
+    </div>
+
+    <div class="chat-composer-input">
+      <input
+        type="text"
+        name="interactionChat"
+        autocomplete="off"
+        placeholder="Escribe algo y pulsa Enter"
+        [(ngModel)]="chatInput"
+      />
+      <button type="submit" [disabled]="!chatInput.trim()">Enviar</button>
+    </div>
+  </form>
 </div>

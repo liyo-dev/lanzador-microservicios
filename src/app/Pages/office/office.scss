@@ -399,16 +399,18 @@
   position: absolute;
   right: 1.5rem;
   top: 1.5rem;
-  width: 240px;
-  background: rgba(11, 11, 15, 0.85);
-  border-radius: 1rem;
-  padding: 1rem;
-  box-shadow: 0 20px 35px rgba(0, 0, 0, 0.35);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  width: 260px;
+  background: linear-gradient(155deg, rgba(248, 250, 255, 0.95), rgba(229, 236, 255, 0.92));
+  border-radius: 1.2rem;
+  padding: 1.1rem;
+  box-shadow: 0 24px 40px rgba(24, 32, 56, 0.25);
+  border: 1px solid rgba(127, 90, 240, 0.18);
+  color: #1b2540;
 
   h3 {
     margin: 0 0 0.75rem;
     font-size: 1rem;
+    font-weight: 600;
   }
 
   ul {
@@ -423,7 +425,9 @@
   li {
     &.active {
       button {
-        background: rgba(127, 90, 240, 0.25);
+        background: rgba(127, 90, 240, 0.2);
+        color: #1b2540;
+        box-shadow: 0 12px 22px rgba(127, 90, 240, 0.25);
       }
     }
 
@@ -433,15 +437,17 @@
       align-items: center;
       gap: 0.65rem;
       border: none;
-      background: rgba(255, 255, 255, 0.05);
-      color: inherit;
-      padding: 0.45rem 0.6rem;
-      border-radius: 0.8rem;
+      background: rgba(27, 37, 64, 0.05);
+      color: #1b2540;
+      padding: 0.55rem 0.7rem;
+      border-radius: 0.85rem;
       cursor: pointer;
-      transition: background 120ms ease;
+      transition: background 120ms ease, box-shadow 120ms ease, transform 120ms ease;
 
       &:hover {
-        background: rgba(127, 90, 240, 0.22);
+        background: rgba(127, 90, 240, 0.18);
+        box-shadow: 0 10px 18px rgba(127, 90, 240, 0.2);
+        transform: translateY(-1px);
       }
 
       .badge {
@@ -451,6 +457,7 @@
         display: grid;
         place-items: center;
         font-size: 1.3rem;
+        background: rgba(127, 90, 240, 0.18);
       }
     }
   }
@@ -480,6 +487,117 @@
   gap: 1.25rem;
   border: 1px solid rgba(127, 90, 240, 0.18);
   color: #1b2540;
+}
+
+.chat-composer {
+  position: fixed;
+  left: 50%;
+  bottom: 2rem;
+  transform: translateX(-50%);
+  width: min(520px, calc(100% - 2.5rem));
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem 1.15rem;
+  border-radius: 1.1rem;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.97), rgba(236, 242, 255, 0.95));
+  border: 1px solid rgba(127, 90, 240, 0.2);
+  box-shadow: 0 26px 44px rgba(24, 32, 56, 0.28);
+  color: #1b2540;
+  z-index: 60;
+
+  &-header {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+  }
+
+  &-avatar {
+    width: 2.8rem;
+    height: 2.8rem;
+    border-radius: 0.9rem;
+    display: grid;
+    place-items: center;
+    font-size: 1.6rem;
+    box-shadow: 0 10px 20px rgba(127, 90, 240, 0.25);
+  }
+
+  &-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+
+    strong {
+      font-size: 1.05rem;
+      font-weight: 700;
+    }
+
+    span {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: rgba(27, 37, 64, 0.6);
+    }
+  }
+
+  &-close {
+    margin-left: auto;
+    border: none;
+    background: rgba(27, 37, 64, 0.08);
+    color: #1b2540;
+    border-radius: 999px;
+    width: 2rem;
+    height: 2rem;
+    cursor: pointer;
+    transition: background 120ms ease, transform 120ms ease;
+
+    &:hover {
+      background: rgba(127, 90, 240, 0.2);
+      transform: translateY(-1px);
+    }
+  }
+
+  &-input {
+    display: flex;
+    gap: 0.75rem;
+
+    input {
+      flex: 1;
+      border-radius: 0.85rem;
+      border: 1px solid rgba(120, 160, 255, 0.22);
+      padding: 0.8rem 1rem;
+      background: rgba(248, 250, 255, 0.92);
+      color: #1b2540;
+      font-size: 0.95rem;
+
+      &:focus {
+        outline: none;
+        border-color: rgba(127, 90, 240, 0.65);
+        box-shadow: 0 0 0 3px rgba(127, 90, 240, 0.25);
+      }
+    }
+
+    button {
+      border: none;
+      border-radius: 0.85rem;
+      padding: 0.75rem 1.4rem;
+      background: var(--app-primary);
+      color: #0b0b0f;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 120ms ease, box-shadow 120ms ease;
+
+      &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      &:not(:disabled):hover {
+        transform: translateY(-1px);
+        box-shadow: 0 12px 24px rgba(127, 90, 240, 0.25);
+      }
+    }
+  }
 }
 
 .interaction-header {
@@ -539,7 +657,6 @@
 }
 
 
-.interaction-chat,
 .interaction-broadcast {
   display: flex;
   flex-direction: column;
@@ -808,5 +925,19 @@
 
   .interaction-card {
     padding: 1.25rem;
+  }
+
+  .chat-composer {
+    width: calc(100% - 1.5rem);
+    bottom: 1.5rem;
+    padding: 0.85rem 1rem;
+
+    &-input {
+      flex-direction: column;
+
+      button {
+        width: 100%;
+      }
+    }
   }
 }
