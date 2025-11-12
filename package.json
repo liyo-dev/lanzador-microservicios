@@ -5,7 +5,8 @@
   "type": "commonjs",
   "scripts": {
     "ng": "ng serve",
-    "start": "ng serve",
+    "start": "node virtual-office-server.js",
+    "dev": "ng serve",
     "build": "ng build --base-href ./",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
@@ -29,6 +30,8 @@
     "strip-ansi": "^6.0.1",
     "tree-kill": "^1.2.2",
     "tslib": "^2.3.0",
+    "uuid": "^9.0.0",
+    "ws": "^8.14.0",
     "zone.js": "~0.15.0"
   },
   "devDependencies": {

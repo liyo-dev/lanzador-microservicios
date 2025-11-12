@@ -1,0 +1,13 @@
+# Render Build and Deploy Configuration
+services:
+  - type: web
+    name: virtual-office
+    env: node
+    buildCommand: npm install
+    startCommand: node virtual-office-server.js
+    healthCheckPath: /
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        sync: false  # Railway will set this automatically

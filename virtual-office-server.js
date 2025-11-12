@@ -1,7 +1,9 @@
 const http = require('http');
 const crypto = require('crypto');
 
-const PORT = Number(process.env.VIRTUAL_OFFICE_PORT || 8974);
+// Configuración del servidor - Compatible con servicios cloud
+const PORT = process.env.PORT || process.env.VIRTUAL_OFFICE_PORT || 8974;
+const HOST = process.env.HOST || '0.0.0.0';
 const OFFICE_WIDTH = Number(process.env.VIRTUAL_OFFICE_WIDTH || 960);
 const OFFICE_HEIGHT = Number(process.env.VIRTUAL_OFFICE_HEIGHT || 560);
 const EDGE_PADDING = Number(process.env.VIRTUAL_OFFICE_PADDING || 48);
@@ -62,8 +64,10 @@ server.on('upgrade', (req, socket, head) => {
   socket.on('error', () => disconnectClient(client));
 });
 
-server.listen(PORT, () => {
-  console.log(`🚀 Servidor de oficina virtual escuchando en el puerto ${PORT}`);
+server.listen(PORT, HOST, () => {
+  console.log(`🚀 Servidor de oficina virtual escuchando en ${HOST}:${PORT}`);
+  console.log(`🌐 Entorno: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`📍 URL para conectar: ws://${HOST}:${PORT}`);
 });
 
 class Client {

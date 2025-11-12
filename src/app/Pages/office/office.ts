@@ -22,6 +22,7 @@ import {
   SpaceDescriptor,
   VirtualOfficeService,
 } from './virtual-office.service';
+import { getVirtualOfficeUrl } from '../../config/virtual-office.config';
 
 export type AvatarTone = 'sky' | 'sunset' | 'forest' | 'amethyst' | 'ocean' | 'ember';
 
@@ -124,7 +125,9 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
   displayName = '';
   messageText = '';
   privateMessageText = '';
-  serverUrl = 'ws://localhost:8974';
+  
+  // URL del servidor cloud automática
+  serverUrl = getVirtualOfficeUrl();
 
   selectedAvatar: AvatarOption = this.avatars[0];
   readonly systemAvatar: AvatarOption = {
