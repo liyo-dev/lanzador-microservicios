@@ -8,7 +8,7 @@ const os = require("os");
 // Biblioteca para controlar Chrome a través del protocolo DevTools
 const CDP = require('chrome-remote-interface');
 // Nuevo handler de autologin mejorado
-const { handlePortalAutoLogin } = require('./autologin-handler');
+const { handlePortalAutoLogin, AUTO_CHECK_SCRIPT } = require('./autologin-handler');
 
 // ----------------------------------------------
 // DETECCIÓN DEV vs PROD
@@ -79,6 +79,49 @@ function createWindow() {
 
 app.whenReady().then(() => {
   createWindow();
+  
+  // Inyectar script de verificación de autologin en todas las páginas web
+  const { webContents } = require('electron');
+  
+  webContents.getAllWebContents().forEach((contents) => {
+    contents.on('dom-ready', () => {
+      // Solo inyectar en páginas web externas (no en nuestra app)
+      const url = contents.getURL();
+      if (url && (url.startsWith('http://') || url.startsWith('https://')) && 
+          !url.includes('localhost:4200') && !url.includes('file://')) {
+        
+        console.log('🔄 Inyectando script de autologin en:', url);
+        
+        contents.executeJavaScript(AUTO_CHECK_SCRIPT)
+          .then(() => {
+            console.log('✅ Script de autologin inyectado correctamente');
+          })
+          .catch((error) => {
+            console.log('⚠️ No se pudo inyectar script (normal en algunas páginas):', error.message);
+          });
+      }
+    });
+  });
+  
+  // También aplicar a nuevos webContents que se creen
+  app.on('web-contents-created', (event, contents) => {
+    contents.on('dom-ready', () => {
+      const url = contents.getURL();
+      if (url && (url.startsWith('http://') || url.startsWith('https://')) && 
+          !url.includes('localhost:4200') && !url.includes('file://')) {
+        
+        console.log('🔄 Inyectando script de autologin en nueva página:', url);
+        
+        contents.executeJavaScript(AUTO_CHECK_SCRIPT)
+          .then(() => {
+            console.log('✅ Script de autologin inyectado correctamente en nueva página');
+          })
+          .catch((error) => {
+            console.log('⚠️ No se pudo inyectar script en nueva página (normal en algunas páginas):', error.message);
+          });
+      }
+    });
+  });
 
   app.on("activate", function () {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
