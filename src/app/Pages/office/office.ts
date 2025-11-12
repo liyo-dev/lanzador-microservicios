@@ -36,21 +36,26 @@ interface SpeechBubble {
 }
 
 type RpsMove = 'rock' | 'paper' | 'scissors';
-type RpsOutcome = 'win' | 'lose' | 'draw';
+type RpsOutcome = 'win' | 'lose' | 'draw' | 'invalid';
+type MiniGameStatus = 'idle' | 'countdown' | 'reveal' | 'finished';
 
 interface MiniGameRound {
   round: number;
-  playerMove: RpsMove;
-  opponentMove: RpsMove;
+  playerMove: RpsMove | null;
+  opponentMove: RpsMove | null;
   outcome: RpsOutcome;
 }
 
 interface MiniGameState {
-  status: 'idle' | 'playing' | 'won' | 'lost';
+  status: MiniGameStatus;
   round: number;
   playerScore: number;
   opponentScore: number;
+  countdown: number;
   history: MiniGameRound[];
+  playerMove: RpsMove | null;
+  opponentMove: RpsMove | null;
+  winner: 'self' | 'opponent' | 'draw' | null;
 }
 
 interface PlayerState extends PlayerPayload {
@@ -122,7 +127,7 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
   nearbyPlayerIds = new Set<string>();
   closestNearbyPlayerId: string | null = null;
   interactionTargetId: string | null = null;
-  interactionView: 'menu' | 'chat' | 'broadcast' | 'game' | null = null;
+  interactionView: 'menu' | 'chat' | 'broadcast' | null = null;
 
   space: SpaceDescriptor = DEFAULT_SPACE;
 
@@ -132,6 +137,8 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
     { id: 'scissors', label: 'Tijeras', emoji: '✂️' },
   ];
   miniGameState: MiniGameState = this.createMiniGameState('idle');
+  private miniGameTimerId: number | null = null;
+  private miniGameTimeoutId: number | null = null;
 
   selfId: string | null = null;
   private subscriptions: Subscription[] = [];
@@ -196,6 +203,7 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
   ngOnDestroy(): void {
     this.subscriptions.forEach((subscription) => subscription.unsubscribe());
     this.officeService.disconnect();
+    this.clearMiniGameTimers();
   }
 
   get previewName(): string {
@@ -210,11 +218,6 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
     return this.connectionLabels[this.connectionState];
   }
 
-  get miniGameLastRound(): MiniGameRound | null {
-    const { history } = this.miniGameState;
-    return history.length ? history[history.length - 1] : null;
-  }
-
   formatRpsMove(move: RpsMove): string {
     return this.miniGameMoves.find((item) => item.id === move)?.label ?? move;
   }
@@ -225,8 +228,10 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
         return 'Ganaste la ronda';
       case 'lose':
         return 'Perdiste la ronda';
-      default:
+      case 'draw':
         return 'Empate';
+      default:
+        return 'Turno no válido';
     }
   }
 
@@ -282,16 +287,23 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   openInteraction(playerId: string): void {
+    if (this.isMiniGameActive() && this.interactionTargetId !== playerId) {
+      this.stopMiniGame();
+    }
+
     this.interactionTargetId = playerId;
     this.interactionView = 'menu';
   }
 
   closeInteraction(): void {
+    if (this.isMiniGameActive()) {
+      this.stopMiniGame();
+    }
+
     this.interactionTargetId = null;
     this.interactionView = null;
     this.chatInput = '';
     this.broadcastInput = '';
-    this.miniGameState = this.createMiniGameState('idle');
   }
 
   openBroadcast(): void {
@@ -305,7 +317,10 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     if (view === 'game') {
-      this.miniGameState = this.createMiniGameState('playing');
+      this.startMiniGame();
+      this.interactionView = null;
+      this.focusWorkspace();
+      return;
     }
 
     this.interactionView = view;
@@ -331,7 +346,11 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
 
     this.officeService.sendPrivateMessage(target.id, content);
     this.chatInput = '';
-    this.closeInteraction();
+    setTimeout(() => {
+      document
+        .querySelector<HTMLInputElement>('.chat-composer input[name="interactionChat"]')
+        ?.focus();
+    });
   }
 
   sendBroadcastMessage(): void {
@@ -345,47 +364,124 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
     this.closeInteraction();
   }
 
-  playMiniGame(move: RpsMove): void {
-    if (this.miniGameState.status !== 'playing') {
+  isMiniGameActive(): boolean {
+    return this.miniGameState.status !== 'idle' && !!this.interactionTargetId;
+  }
+
+  private isMiniGameCountdown(): boolean {
+    return this.isMiniGameActive() && this.miniGameState.status === 'countdown';
+  }
+
+  selectMiniGameMove(move: RpsMove): void {
+    if (!this.isMiniGameCountdown()) {
       return;
     }
 
-    const opponentMove = this.randomRpsMove();
-    const outcome = this.resolveRpsOutcome(move, opponentMove);
-
-    const playerScore = this.miniGameState.playerScore + (outcome === 'win' ? 1 : 0);
-    const opponentScore = this.miniGameState.opponentScore + (outcome === 'lose' ? 1 : 0);
-
-    const history = [
-      ...this.miniGameState.history,
-      {
-        round: this.miniGameState.history.length + 1,
-        playerMove: move,
-        opponentMove,
-        outcome,
-      },
-    ];
-
-    const hasWinner = playerScore >= 2 || opponentScore >= 2;
-    const status: MiniGameState['status'] = hasWinner
-      ? playerScore >= 2
-        ? 'won'
-        : 'lost'
-      : 'playing';
-
-    const round = hasWinner ? history.length : history.length + 1;
-
     this.miniGameState = {
-      status,
-      round,
-      playerScore,
-      opponentScore,
-      history,
+      ...this.miniGameState,
+      playerMove: move,
     };
   }
 
-  replayMiniGame(): void {
-    this.miniGameState = this.createMiniGameState('playing');
+  get miniGameLastRound(): MiniGameRound | null {
+    const { history } = this.miniGameState;
+    return history.length ? history[history.length - 1] : null;
+  }
+
+  miniGameScoreFor(playerId: string): number | null {
+    if (!this.isMiniGameActive()) {
+      return null;
+    }
+    if (!this.interactionTargetId) {
+      return null;
+    }
+    if (playerId === this.selfId) {
+      return this.miniGameState.playerScore;
+    }
+    if (playerId === this.interactionTargetId) {
+      return this.miniGameState.opponentScore;
+    }
+    return null;
+  }
+
+  isMiniGameParticipant(player: PlayerState): boolean {
+    if (!this.isMiniGameActive()) {
+      return false;
+    }
+    if (!this.interactionTargetId) {
+      return false;
+    }
+    return player.id === this.selfId || player.id === this.interactionTargetId;
+  }
+
+  get miniGameRoundLabel(): string {
+    if (!this.isMiniGameActive()) {
+      return '';
+    }
+    const roundNumber =
+      this.miniGameState.status === 'countdown'
+        ? this.miniGameState.round
+        : this.miniGameState.history.length;
+    return `Ronda ${roundNumber} · Mejor de 3`;
+  }
+
+  shouldShowMiniGameChoices(player: PlayerState): boolean {
+    return this.isMiniGameCountdown() && player.id === this.selfId;
+  }
+
+  miniGameCountdownVisible(): boolean {
+    if (!this.isMiniGameActive()) {
+      return false;
+    }
+    return ['countdown', 'reveal'].includes(this.miniGameState.status);
+  }
+
+  get miniGameCountdownLabel(): string {
+    if (this.miniGameState.status === 'reveal') {
+      return '¡YA!';
+    }
+    return this.miniGameState.countdown.toString();
+  }
+
+  miniGameCenterPosition(): { left: number; top: number } | null {
+    const self = this.players.find((player) => player.id === this.selfId);
+    const opponent = this.players.find((player) => player.id === this.interactionTargetId);
+    if (!self || !opponent) {
+      return null;
+    }
+    return {
+      left: (self.x + opponent.x) / 2,
+      top: (self.y + opponent.y) / 2 - 60,
+    };
+  }
+
+  get miniGameResultMessage(): string {
+    if (this.miniGameState.status !== 'finished' || !this.miniGameState.winner) {
+      return '';
+    }
+    switch (this.miniGameState.winner) {
+      case 'self':
+        return '¡Ganaste la partida!';
+      case 'opponent':
+        return `${this.interactionTarget?.name ?? 'Tu oponente'} ganó esta vez.`;
+      default:
+        return 'Empate. Nadie suma puntos.';
+    }
+  }
+
+  closeMiniGame(): void {
+    this.stopMiniGame();
+    this.interactionTargetId = null;
+    this.interactionView = null;
+  }
+
+  rematchMiniGame(): void {
+    if (!this.interactionTargetId) {
+      return;
+    }
+    this.stopMiniGame();
+    this.startMiniGame();
+    this.focusWorkspace();
   }
 
   trackByPlayerId(_: number, player: PlayerState): string {
@@ -430,6 +526,11 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     if (event.key === 'Escape') {
+      if (this.isMiniGameActive()) {
+        event.preventDefault();
+        this.closeMiniGame();
+        return;
+      }
       if (this.interactionView) {
         event.preventDefault();
         this.closeInteraction();
@@ -533,8 +634,7 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
       authorId: message.fromId,
     };
 
-    this.setSpeechBubble(message.fromId, bubble);
-    this.setSpeechBubble(message.toId, bubble);
+  this.setSpeechBubble(message.fromId, bubble);
 
     if (message.fromId === this.selfId) {
       this.chatInput = '';
@@ -716,13 +816,175 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
     return Math.hypot(a.x - b.x, a.y - b.y);
   }
 
-  private createMiniGameState(status: 'idle' | 'playing'): MiniGameState {
-    return {
-      status,
-      round: status === 'playing' ? 1 : 0,
+  private startMiniGame(): void {
+    if (!this.interactionTargetId) {
+      return;
+    }
+
+    this.clearMiniGameTimers();
+    this.miniGameState = {
+      status: 'countdown',
+      round: 1,
       playerScore: 0,
       opponentScore: 0,
+      countdown: 3,
       history: [],
+      playerMove: null,
+      opponentMove: null,
+      winner: null,
+    };
+    this.runMiniGameCountdown();
+    this.cdr.markForCheck();
+  }
+
+  private runMiniGameCountdown(): void {
+    this.clearIntervalTimer();
+    this.miniGameTimerId = window.setInterval(() => {
+      if (this.miniGameState.status !== 'countdown') {
+        this.clearIntervalTimer();
+        return;
+      }
+
+      if (this.miniGameState.countdown <= 1) {
+        this.clearIntervalTimer();
+        this.resolveMiniGameRound();
+        return;
+      }
+
+      this.miniGameState = {
+        ...this.miniGameState,
+        countdown: this.miniGameState.countdown - 1,
+      };
+      this.cdr.markForCheck();
+    }, 1000);
+  }
+
+  private resolveMiniGameRound(): void {
+    if (this.miniGameState.status !== 'countdown') {
+      return;
+    }
+
+    const playerMove = this.miniGameState.playerMove;
+    const opponentMove = this.randomRpsMove();
+
+    let outcome: RpsOutcome;
+    let playerScore = this.miniGameState.playerScore;
+    let opponentScore = this.miniGameState.opponentScore;
+
+    if (!playerMove && !opponentMove) {
+      outcome = 'invalid';
+    } else if (!playerMove) {
+      outcome = 'lose';
+      opponentScore += 1;
+    } else if (!opponentMove) {
+      outcome = 'win';
+      playerScore += 1;
+    } else {
+      outcome = this.resolveRpsOutcome(playerMove, opponentMove);
+      if (outcome === 'win') {
+        playerScore += 1;
+      } else if (outcome === 'lose') {
+        opponentScore += 1;
+      }
+    }
+
+    const history: MiniGameRound[] = [
+      ...this.miniGameState.history,
+      {
+        round: this.miniGameState.round,
+        playerMove: playerMove ?? null,
+        opponentMove: opponentMove ?? null,
+        outcome,
+      },
+    ];
+
+    const finished = playerScore >= 2 || opponentScore >= 2;
+    const winner: MiniGameState['winner'] = finished
+      ? playerScore === opponentScore
+        ? 'draw'
+        : playerScore > opponentScore
+        ? 'self'
+        : 'opponent'
+      : null;
+
+    this.miniGameState = {
+      ...this.miniGameState,
+      status: finished ? 'finished' : 'reveal',
+      playerScore,
+      opponentScore,
+      countdown: 0,
+      history,
+      playerMove: playerMove ?? null,
+      opponentMove: opponentMove ?? null,
+      winner,
+    };
+
+    this.cdr.markForCheck();
+
+    if (finished) {
+      return;
+    }
+
+    this.scheduleNextMiniGameRound();
+  }
+
+  private scheduleNextMiniGameRound(): void {
+    this.clearTimeoutTimer();
+    this.miniGameTimeoutId = window.setTimeout(() => {
+      if (this.miniGameState.status !== 'reveal') {
+        return;
+      }
+
+      this.miniGameState = {
+        ...this.miniGameState,
+        status: 'countdown',
+        round: this.miniGameState.history.length + 1,
+        countdown: 3,
+        playerMove: null,
+        opponentMove: null,
+        winner: null,
+      };
+
+      this.cdr.markForCheck();
+      this.runMiniGameCountdown();
+    }, 1200);
+  }
+
+  private stopMiniGame(): void {
+    this.clearMiniGameTimers();
+    this.miniGameState = this.createMiniGameState('idle');
+  }
+
+  private clearMiniGameTimers(): void {
+    this.clearIntervalTimer();
+    this.clearTimeoutTimer();
+  }
+
+  private clearIntervalTimer(): void {
+    if (this.miniGameTimerId !== null) {
+      window.clearInterval(this.miniGameTimerId);
+      this.miniGameTimerId = null;
+    }
+  }
+
+  private clearTimeoutTimer(): void {
+    if (this.miniGameTimeoutId !== null) {
+      window.clearTimeout(this.miniGameTimeoutId);
+      this.miniGameTimeoutId = null;
+    }
+  }
+
+  private createMiniGameState(status: MiniGameStatus): MiniGameState {
+    return {
+      status,
+      round: status === 'idle' ? 0 : 1,
+      playerScore: 0,
+      opponentScore: 0,
+      countdown: status === 'countdown' ? 3 : 0,
+      history: [],
+      playerMove: null,
+      opponentMove: null,
+      winner: null,
     };
   }
 
@@ -732,7 +994,7 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
     return moves[index];
   }
 
-  private resolveRpsOutcome(player: RpsMove, opponent: RpsMove): RpsOutcome {
+  private resolveRpsOutcome(player: RpsMove, opponent: RpsMove): Exclude<RpsOutcome, 'invalid'> {
     if (player === opponent) {
       return 'draw';
     }

@@ -92,13 +92,64 @@
             {{ speechBubbles[player.id]?.content }}
           </div>
 
+          <div class="mini-game-score" *ngIf="isMiniGameParticipant(player)">
+            {{ miniGameScoreFor(player.id) ?? 0 }}
+          </div>
+
           <div class="interact-hint" *ngIf="shouldShowInteractHint(player)">Pulsa E</div>
 
           <div class="player-avatar" [class]="'tone-' + player.avatar.tone">
             <span>{{ player.avatar.emoji }}</span>
           </div>
           <span class="player-name">{{ player.name }}</span>
+
+          <div class="mini-game-choices" *ngIf="shouldShowMiniGameChoices(player)">
+            <button
+              type="button"
+              *ngFor="let move of miniGameMoves"
+              (click)="selectMiniGameMove(move.id)"
+              [class.selected]="miniGameState.playerMove === move.id"
+            >
+              <span class="emoji">{{ move.emoji }}</span>
+              <span>{{ move.label }}</span>
+            </button>
+            <p class="mini-game-choice-hint" *ngIf="miniGameState.playerMove as readyMove">
+              Jugada lista: {{ formatRpsMove(readyMove) }}
+            </p>
+          </div>
         </div>
+
+        <div class="mini-game-round-banner" *ngIf="isMiniGameActive()">
+          {{ miniGameRoundLabel }}
+        </div>
+
+        <ng-container *ngIf="miniGameCountdownVisible() && miniGameCenterPosition() as countdownPos">
+          <div class="mini-game-countdown" [style.left.px]="countdownPos.left" [style.top.px]="countdownPos.top">
+            {{ miniGameCountdownLabel }}
+          </div>
+        </ng-container>
+
+        <ng-container *ngIf="miniGameState.status === 'reveal'">
+          <ng-container *ngIf="miniGameCenterPosition() as revealPos">
+            <ng-container *ngIf="miniGameLastRound as last">
+              <div class="mini-game-reveal" [style.left.px]="revealPos.left" [style.top.px]="revealPos.top + 56">
+                <strong>{{ formatRpsOutcome(last.outcome) }}</strong>
+              </div>
+            </ng-container>
+          </ng-container>
+        </ng-container>
+
+        <ng-container *ngIf="miniGameState.status === 'finished' && miniGameResultMessage as resultText">
+          <ng-container *ngIf="miniGameCenterPosition() as resultPos">
+            <div class="mini-game-result" [style.left.px]="resultPos.left" [style.top.px]="resultPos.top">
+              <p>{{ resultText }}</p>
+              <div class="actions">
+                <button type="button" (click)="rematchMiniGame()">Revancha</button>
+                <button type="button" class="secondary" (click)="closeMiniGame()">Cerrar</button>
+              </div>
+            </div>
+          </ng-container>
+        </ng-container>
       </div>
     </div>
 
@@ -157,53 +208,6 @@
           <button type="button" class="secondary" (click)="interactionView = 'menu'">Volver</button>
         </div>
       </form>
-
-      <div *ngSwitchCase="'game'" class="interaction-game">
-        <header>
-          <h2>Piedra, papel o tijeras con {{ interactionTarget?.name || 'tu oponente' }}</h2>
-          <button type="button" (click)="closeInteraction()">✕</button>
-        </header>
-
-        <div class="game-scoreboard">
-          <div class="score-card">
-            <span class="label">Tú</span>
-            <strong>{{ miniGameState.playerScore }}</strong>
-          </div>
-          <div class="round-info">
-            <span>Ronda {{ miniGameState.status === 'playing' ? miniGameState.round : miniGameState.history.length }}</span>
-            <small>Mejor de 3</small>
-          </div>
-          <div class="score-card opponent">
-            <span class="label">{{ interactionTarget?.name || 'Oponente' }}</span>
-            <strong>{{ miniGameState.opponentScore }}</strong>
-          </div>
-        </div>
-
-        <p *ngIf="miniGameState.status === 'playing'">
-          Elige tu jugada. Quien consiga dos victorias se lleva la partida.
-        </p>
-        <p *ngIf="miniGameState.status === 'won'">🎉 ¡Ganaste el duelo!</p>
-        <p *ngIf="miniGameState.status === 'lost'">😅 {{ interactionTarget?.name || 'Tu oponente' }} ganó esta vez.</p>
-
-        <div class="last-round" *ngIf="miniGameLastRound as last">
-          <span class="label">Última ronda</span>
-          <span>{{ formatRpsMove(last.playerMove) }} vs {{ formatRpsMove(last.opponentMove) }} · {{ formatRpsOutcome(last.outcome) }}</span>
-        </div>
-
-        <div class="rps-options" *ngIf="miniGameState.status === 'playing'">
-          <button type="button" *ngFor="let move of miniGameMoves" (click)="playMiniGame(move.id)">
-            <span class="emoji">{{ move.emoji }}</span>
-            <span>{{ move.label }}</span>
-          </button>
-        </div>
-
-        <div class="actions">
-          <button type="button" (click)="replayMiniGame()">
-            {{ miniGameState.status === 'playing' ? 'Reiniciar' : 'Revancha' }}
-          </button>
-          <button type="button" class="secondary" (click)="interactionView = 'menu'">Volver</button>
-        </div>
-      </div>
     </div>
   </div>
 
