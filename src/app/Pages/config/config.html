@@ -1,123 +1,196 @@
-<h1>Configuración de Microservicios</h1>
-
-<div class="tab-selector">
-  <button [class.active]="selectedTab === 'angular'" (click)="changeTab('angular')" class="tab-btn angular-tab" title="Angular">
-    <img src="assets/logoAngular.png" alt="Angular" class="tab-logo">
-  </button>
-  <button [class.active]="selectedTab === 'spring'" (click)="changeTab('spring')" class="tab-btn spring-tab" title="Spring">
-    <img src="assets/logoSpring.png" alt="Spring" class="tab-logo">
-  </button>
-</div>
-
-<!-- Botón para agregar microservicio -->
-<div class="add-micro-section" *ngIf="!loading">
-  <button class="nav-btn add-btn" (click)="toggleAddMicroForm()" *ngIf="!showAddMicroForm" title="Agregar Microservicio">
-    ➕
-  </button>
-  
-  <!-- Formulario para agregar microservicio -->
-  <div class="add-micro-form" *ngIf="showAddMicroForm">
-    <h3>Agregar Nuevo Microservicio</h3>
-    <div class="form-row">
-      <input 
-        [(ngModel)]="newMicroName" 
-        type="text" 
-        placeholder="Nombre del microservicio"
-        maxlength="50"
-        (keyup.enter)="addCustomMicroservice()"
-      />
-      <select [(ngModel)]="newMicroType">
-        <option value="angular">Angular</option>
-        <option value="spring">Spring</option>
-      </select>
-    </div>
-    <div class="form-buttons">
-      <button class="nav-btn confirm-btn" (click)="addCustomMicroservice()" title="Confirmar">✅</button>
-      <button class="nav-btn cancel-btn" (click)="toggleAddMicroForm()" title="Cancelar">❌</button>
-    </div>
-  </div>
-</div>
-
-<div class="section" *ngIf="!loading && selectedTab === 'angular'">
-  <div class="micro-grid">
-    <div *ngFor="let micro of angularMicros" class="micro-card" [attr.data-key]="micro.key">
-      <div class="micro-header">
-        <h3>{{ micro.label }}</h3>
-        <button 
-          *ngIf="micro.isCustom" 
-          class="nav-btn remove-btn" 
-          (click)="removeCustomMicroservice(micro.key, 'angular')"
-          title="Eliminar microservicio personalizado"
-        >
-          🗑️
+<div class="config-page">
+  <section class="page-shell app-surface" [class.loading]="loading">
+    <header class="page-header">
+      <div>
+        <h1 class="page-title">Configuración de Microservicios</h1>
+        <p class="page-subtitle">
+          Define rutas, puertos y variables globales antes de lanzar tus servicios.
+        </p>
+      </div>
+      <div class="header-actions">
+        <button class="ghost-btn" (click)="goToHome()" title="Inicio">
+          <span class="emoji">🏠</span>
+        </button>
+        <button class="ghost-btn" (click)="goToLauncher()" title="Ir al launcher">
+          <span class="emoji">🚀</span>
+        </button>
+        <button class="primary-btn" (click)="save()" title="Guardar configuración">
+          <span class="emoji">💾</span>
+          Guardar todo
+        </button>
+        <button class="danger-btn" (click)="clear()" title="Borrar configuración">
+          <span class="emoji">🗑️</span>
         </button>
       </div>
-      <input [(ngModel)]="config.angular[micro.key].path" type="text" placeholder="Ruta del microservicio" />
-      <input [(ngModel)]="config.angular[micro.key].port" type="number" placeholder="Puerto" />
-    </div>
-  </div>
-</div>
+    </header>
 
-<div class="section" *ngIf="!loading && selectedTab === 'spring'">
-  <div class="spring-settings">
-    <fieldset>
-      <legend (click)="toggleSpringConfig()" style="cursor: pointer;">
-        Configuración general de entorno
-        <span>{{ showSpringConfig ? '🔽' : '▶️' }}</span>
-      </legend>
-      <div *ngIf="showSpringConfig">
-        <label>
-          JAVA_HOME:
-          <input [(ngModel)]="config.spring.javaHome" type="text" placeholder="Ej: C:\Java\jdk1.8.0_211" />
-          <!-- <button type="button" class="browse-btn" (click)="browseFolder($event)">📁</button> -->
-        </label>
-        <label>
-          MAVEN_HOME:
-          <input [(ngModel)]="config.spring.mavenHome" type="text"
-            placeholder="Ej: C:\Herramientas\apache-maven-3.8.6" />
-          <!-- <button type="button" class="browse-btn" (click)="browseFolder($event)">📁</button> -->
-        </label>
-        <label>
-          settings.xml:
-          <input [(ngModel)]="config.spring.settingsXml" type="text" placeholder="Ej: C:\.m2\settings.xml" />
-          <!-- <button type="button" class="browse-btn" (click)="browseFolder($event)">📁</button> -->
-        </label>
-        <label>
-          Repositorio .m2:
-          <input [(ngModel)]="config.spring.m2RepoPath" type="text" placeholder="Ej: C:\Users\usuario\.m2\repository" />
-          <!-- <button type="button" class="browse-btn" (click)="browseFolder($event)">📁</button> -->
-        </label>
-      </div>
-    </fieldset>
-  </div>
-  <div class="micro-grid">
-    <div *ngFor="let micro of springMicros" class="micro-card" [attr.data-key]="micro.key">
-      <div class="micro-header">
-        <h3>{{ micro.label }}</h3>
-        <button 
-          *ngIf="micro.isCustom" 
-          class="nav-btn remove-btn" 
-          (click)="removeCustomMicroservice(micro.key, 'spring')"
-          title="Eliminar microservicio personalizado"
+    <div class="tab-panel" *ngIf="!loading">
+      <div class="tabs">
+        <button
+          class="tab-btn"
+          [class.active]="selectedTab === 'angular'"
+          (click)="changeTab('angular')"
         >
-          🗑️
+          <img src="assets/logoAngular.png" alt="Angular" />
+          <span>Angular</span>
+        </button>
+        <button
+          class="tab-btn"
+          [class.active]="selectedTab === 'spring'"
+          (click)="changeTab('spring')"
+        >
+          <img src="assets/logoSpring.png" alt="Spring" />
+          <span>Spring</span>
         </button>
       </div>
-      <input [(ngModel)]="config.spring[micro.key].path" type="text" placeholder="Ruta del microservicio" />
+
+      <div class="tab-info">
+        <h2>
+          {{ selectedTab === 'angular' ? 'Fronts Angular' : 'Servicios Spring' }}
+        </h2>
+        <p>
+          {{ selectedTab === 'angular'
+            ? 'Configura rutas locales, puertos y proveedores legacy para los diferentes fronts.'
+            : 'Mantén tus rutas de compilación y variables globales actualizadas antes de ejecutar.'
+          }}
+        </p>
+      </div>
     </div>
-  </div>
-</div>
 
-<div class="button-bar" [ngClass]="{ invisible: loading }">
-  <button class="nav-btn home-btn" (click)="goToHome()" title="Home">🏠</button>
-  <button class="nav-btn save-btn" (click)="save()" title="Guardar">💾</button>
-  <button class="nav-btn clear-btn" (click)="clear()" title="Borrar">🗑</button>
-  <button class="nav-btn launcher-btn" (click)="goToLauncher()" title="Ir al launcher">🚀</button>
-</div>
+    <div class="content-area" *ngIf="!loading">
+      <aside class="sidebar">
+        <div class="card">
+          <div class="card-header">
+            <h3>Microservicios personalizados</h3>
+            <button class="ghost-btn" (click)="toggleAddMicroForm()" [attr.aria-expanded]="showAddMicroForm">
+              <span class="emoji">{{ showAddMicroForm ? '➖' : '➕' }}</span>
+            </button>
+          </div>
+          <p class="card-description">
+            Añade rutas específicas que no estén en la lista predeterminada. Puedes eliminarlas cuando ya no sean necesarias.
+          </p>
 
-<div class="feedback-zone">
-  <div *ngIf="guardadoOK" class="msg msg-guardar">✅ Configuración guardada correctamente.</div>
-  <div *ngIf="borradoOK" class="msg msg-borrar">🗑️ Configuración eliminada.</div>
-</div>
+          <form class="add-form" *ngIf="showAddMicroForm" (ngSubmit)="addCustomMicroservice()">
+            <label>
+              <span>Nombre del microservicio</span>
+              <input
+                [(ngModel)]="newMicroName"
+                name="microName"
+                type="text"
+                maxlength="50"
+                placeholder="Ej: portal-cliente"
+              />
+            </label>
+            <label>
+              <span>Tipo</span>
+              <select [(ngModel)]="newMicroType" name="microType">
+                <option value="angular">Angular</option>
+                <option value="spring">Spring</option>
+              </select>
+            </label>
+            <div class="form-actions">
+              <button type="submit" class="primary-btn">
+                <span class="emoji">✅</span>
+                Añadir
+              </button>
+              <button type="button" class="ghost-btn" (click)="toggleAddMicroForm()">
+                Cancelar
+              </button>
+            </div>
+          </form>
+        </div>
 
-<app-spinner *ngIf="loading"></app-spinner>
+        <div class="card insights">
+          <h3>Tips rápidos</h3>
+          <ul>
+            <li>Usa rutas absolutas para evitar errores al lanzar los servicios.</li>
+            <li>Los puertos solo se guardan para microservicios Angular.</li>
+            <li>El botón de borrar restablece toda la configuración a los valores por defecto.</li>
+          </ul>
+        </div>
+      </aside>
+
+      <section class="main-panel">
+        <div class="feedback-zone">
+          <div *ngIf="guardadoOK" class="alert success">✅ Configuración guardada correctamente.</div>
+          <div *ngIf="borradoOK" class="alert warning">🗑️ Configuración eliminada.</div>
+        </div>
+
+        <div class="micro-grid" *ngIf="selectedTab === 'angular'">
+          <article class="micro-card" *ngFor="let micro of angularMicros" [attr.data-key]="micro.key">
+            <header>
+              <h3>{{ micro.label }}</h3>
+              <button
+                *ngIf="micro.isCustom"
+                class="ghost-btn danger"
+                (click)="removeCustomMicroservice(micro.key, 'angular')"
+                title="Eliminar microservicio personalizado"
+              >
+                🗑️
+              </button>
+            </header>
+            <label>
+              <span>Ruta local</span>
+              <input [(ngModel)]="config.angular[micro.key].path" type="text" placeholder="Ruta del microservicio" />
+            </label>
+            <label>
+              <span>Puerto</span>
+              <input [(ngModel)]="config.angular[micro.key].port" type="number" placeholder="Puerto" />
+            </label>
+          </article>
+        </div>
+
+        <div class="spring-layout" *ngIf="selectedTab === 'spring'">
+          <article class="spring-card">
+            <header>
+              <h3>Configuración global</h3>
+              <button class="ghost-btn" (click)="toggleSpringConfig()">
+                {{ showSpringConfig ? 'Ocultar' : 'Mostrar' }}
+              </button>
+            </header>
+            <div class="spring-form" *ngIf="showSpringConfig">
+              <label>
+                <span>JAVA_HOME</span>
+                <input [(ngModel)]="config.spring.javaHome" type="text" placeholder="Ej: C:\\Java\\jdk1.8" />
+              </label>
+              <label>
+                <span>MAVEN_HOME</span>
+                <input [(ngModel)]="config.spring.mavenHome" type="text" placeholder="Ej: C:\\Herramientas\\apache-maven" />
+              </label>
+              <label>
+                <span>settings.xml</span>
+                <input [(ngModel)]="config.spring.settingsXml" type="text" placeholder="Ej: C:\\.m2\\settings.xml" />
+              </label>
+              <label>
+                <span>Repositorio .m2</span>
+                <input [(ngModel)]="config.spring.m2RepoPath" type="text" placeholder="Ej: C:\\Users\\usuario\\.m2\\repository" />
+              </label>
+            </div>
+          </article>
+
+          <div class="micro-grid">
+            <article class="micro-card" *ngFor="let micro of springMicros" [attr.data-key]="micro.key">
+              <header>
+                <h3>{{ micro.label }}</h3>
+                <button
+                  *ngIf="micro.isCustom"
+                  class="ghost-btn danger"
+                  (click)="removeCustomMicroservice(micro.key, 'spring')"
+                  title="Eliminar microservicio personalizado"
+                >
+                  🗑️
+                </button>
+              </header>
+              <label>
+                <span>Ruta del microservicio</span>
+                <input [(ngModel)]="config.spring[micro.key].path" type="text" placeholder="Ruta del microservicio" />
+              </label>
+            </article>
+          </div>
+        </div>
+      </section>
+    </div>
+  </section>
+
+  <app-spinner *ngIf="loading"></app-spinner>
+</div>

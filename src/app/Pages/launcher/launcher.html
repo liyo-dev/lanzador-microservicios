@@ -1,90 +1,119 @@
-<app-spinner *ngIf="loading"></app-spinner>
+<div class="launcher-page">
+  <app-spinner *ngIf="loading"></app-spinner>
 
-<div class="launcher-container">
-  <div class="top-bar">
-    <button class="nav-btn home-btn" (click)="goToHome()" title="Home">
-      🏠
-    </button>
-    <div class="top-bar-end">
-      <button class="nav-btn users-btn" (click)="goToUsers()" title="Usuarios Portal">
-        👥
+  <section class="launcher-shell app-surface" [class.disabled]="loading">
+    <header class="launcher-header">
+      <div>
+        <h1 class="page-title">Lanzador de Microservicios</h1>
+        <p class="page-subtitle">
+          Selecciona los servicios que necesitas y arráncalos en segundos.
+        </p>
+      </div>
+      <div class="header-actions">
+        <button class="ghost-btn" (click)="goToHome()" title="Inicio">
+          <span class="emoji">🏠</span>
+        </button>
+        <button class="ghost-btn" (click)="goToUsers()" title="Usuarios Portal">
+          <span class="emoji">👥</span>
+        </button>
+        <button class="ghost-btn" (click)="goToConfig()" title="Configuración">
+          <span class="emoji">⚙️</span>
+        </button>
+      </div>
+    </header>
+
+    <div class="launcher-tabs">
+      <button
+        class="tab-btn"
+        [class.active]="selectedTab === 'angular'"
+        (click)="selectedTab = 'angular'"
+      >
+        <img src="assets/logoAngular.png" alt="Angular" />
+        <span>Angular</span>
       </button>
-      <button class="nav-btn config-btn" (click)="goToConfig()" title="Configuración">
-        ⚙️
+      <button
+        class="tab-btn"
+        [class.active]="selectedTab === 'spring'"
+        (click)="selectedTab = 'spring'"
+      >
+        <img src="assets/logoSpring.png" alt="Spring" />
+        <span>Spring</span>
       </button>
     </div>
-  </div>
 
-  <div class="tab-selector">
-    <button [class.active]="selectedTab === 'angular'" (click)="selectedTab = 'angular'" class="tab-btn angular-tab" title="Angular">
-      <img src="assets/logoAngular.png" alt="Angular" class="tab-logo">
-    </button>
-    <button [class.active]="selectedTab === 'spring'" (click)="selectedTab = 'spring'" class="tab-btn spring-tab" title="Spring">
-      <img src="assets/logoSpring.png" alt="Spring" class="tab-logo">
-    </button>
-  </div>
+    <section class="launcher-body">
+      <div class="body-header">
+        <div>
+          <h2>{{ selectedTab === 'angular' ? 'Fronts disponibles' : 'Servicios disponibles' }}</h2>
+          <p>
+            {{ selectedTab === 'angular'
+              ? 'Selecciona los fronts que deseas arrancar. Puedes activar compatibilidad legacy por micro.'
+              : 'Selecciona los servicios de backend que necesitas ejecutar.'
+            }}
+          </p>
+        </div>
+        <div class="group-actions" *ngIf="hasMicrosToShow()">
+          <button class="ghost-btn" (click)="stopSelected()">🛑 Parar seleccionados</button>
+          <button class="primary-btn" (click)="startSelected()">🚀 Arrancar seleccionados</button>
+        </div>
+      </div>
 
-  <!-- Estado vacío cuando no hay microservicios configurados -->
-  <div class="empty-state" *ngIf="!hasMicrosToShow()">
-    <div class="empty-icon">📦</div>
-    <h3>No hay microservicios {{ selectedTab === 'angular' ? 'Angular' : 'Spring' }} configurados</h3>
-    <p>Ve a la configuración para agregar microservicios y configurar sus rutas.</p>
-    <button class="config-btn" (click)="goToConfig()">
-      ⚙️ Ir a Configuración
-    </button>
-  </div>
+      <div class="empty-state" *ngIf="!hasMicrosToShow()">
+        <div class="empty-card">
+          <div class="empty-icon">📦</div>
+          <h3>No hay microservicios {{ selectedTab === 'angular' ? 'Angular' : 'Spring' }} configurados</h3>
+          <p>Ve a la configuración para agregar microservicios y establecer sus rutas.</p>
+          <button class="primary-btn" (click)="goToConfig()">
+            ⚙️ Abrir configuración
+          </button>
+        </div>
+      </div>
 
-  <!-- Microservicios cuando hay configurados -->
-  <div *ngIf="hasMicrosToShow()">
-    <h2>Micros {{ selectedTab === 'angular' ? 'Angular' : 'Spring' }}</h2>
-    <div class="micro-selection">
-      <div *ngFor="let micro of getDisplayedMicros()" class="micro-card" [attr.data-key]="micro.key">
-        <div class="micro-header">
-          <label class="checkbox-wrapper">
+      <div class="micro-grid" *ngIf="hasMicrosToShow()">
+        <article class="micro-card" *ngFor="let micro of getDisplayedMicros()" [attr.data-key]="micro.key">
+          <label class="micro-checkbox">
             <input type="checkbox" [(ngModel)]="micro.selected" />
             <span class="checkmark"></span>
-            {{ micro.label }}
+            <span class="label">{{ micro.label }}</span>
           </label>
+
+          <div class="status" [class.running]="micro.status === 'running'" [class.stopped]="micro.status === 'stopped'">
+            {{ micro.status }}
+          </div>
+
+          <div class="legacy-toggle" *ngIf="selectedTab === 'angular'">
+            <label>
+              <input type="checkbox" [(ngModel)]="micro.useLegacyProvider" />
+              <span>Compatibilidad Node</span>
+            </label>
+          </div>
+        </article>
+      </div>
+
+      <div *ngIf="showSuccessMessage && !loading" class="success-banner" #successMessage>
+        ✅ Todos los micros arrancaron correctamente.
+      </div>
+    </section>
+
+    <section class="logs-card">
+      <div class="logs-header">
+        <div>
+          <h3>Logs recientes</h3>
+          <small *ngIf="logs.length > 0">{{ logs.length }} entradas | Límite: {{ MAX_LOGS }}</small>
         </div>
-        <div class="status" [class.running]="micro.status === 'running'" [class.stopped]="micro.status === 'stopped'">
-          {{ micro.status }}
-        </div>
-        <div class="legacy-node-toggle" *ngIf="selectedTab === 'angular'">
-          <label>
-            <input type="checkbox" [(ngModel)]="micro.useLegacyProvider" />
-            <span class="toggle-label">
-              🧪 Compat. Node 
-            </span>
-          </label>
+        <div class="logs-actions">
+          <button class="ghost-btn" (click)="toggleLogs()">
+            {{ showLogs ? 'Ocultar logs' : 'Mostrar logs' }}
+          </button>
+          <button class="danger-btn" (click)="clearLogs()" *ngIf="showLogs && logs.length > 1" title="Limpiar logs manualmente">
+            🗑️ Limpiar
+          </button>
         </div>
       </div>
-    </div>
 
-    <div class="button-bar">
-      <button class="stop-btn" (click)="stopSelected()">🛑 Parar</button>
-      <button class="start-btn" (click)="startSelected()">🚀 Arrancar</button>
-    </div>
-
-    <div *ngIf="showSuccessMessage && !loading" class="success-message" #successMessage>
-      ✅ Todos los micros arrancaron correctamente.
-    </div>
-  </div>
-
-  <div class="logs-section">
-    <div class="logs-header">
-      <button class="logs-toggle" (click)="toggleLogs()">
-        {{ showLogs ? '🔼 Ocultar logs' : '🔽 Mostrar logs' }}
-      </button>
-      <button class="clear-logs-btn" (click)="clearLogs()" *ngIf="showLogs && logs.length > 1" title="Limpiar logs manualmente">
-        🗑️ Limpiar
-      </button>
-    </div>
-
-    <div *ngIf="showLogs" class="log-box" #logBox>
-      <div class="log-stats" *ngIf="logs.length > 0">
-        <small>{{ logs.length }} logs | Límite: {{ MAX_LOGS }} | Limpieza automática cada 5 min</small>
+      <div *ngIf="showLogs" class="log-box" #logBox>
+        <div class="log-line" *ngFor="let log of logs">{{ log }}</div>
       </div>
-      <div *ngFor="let log of logs" class="log-line">{{ log }}</div>
-    </div>
-  </div>
+    </section>
+  </section>
 </div>
