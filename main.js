@@ -514,7 +514,6 @@ ipcMain.handle('open-portal-with-autologin', async (event, loginData) => {
       // También habilitamos el puerto de depuración remota para poder inyectar el script de autologin.
       const userDataDir = path.join(os.tmpdir(), 'chrome-autologin');
       const chromeArgs = [
-        '--incognito',
         '--user-data-dir=' + userDataDir,
         '--remote-debugging-port=9222',
         portalUrl
