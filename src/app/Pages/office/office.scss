@@ -476,6 +476,76 @@
   z-index: 6;
 }
 
+.mini-game-card,
+.mini-game-ready-card {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  z-index: 7;
+  background: rgba(9, 18, 32, 0.92);
+  border-radius: 1rem;
+  padding: 0.85rem 1.4rem;
+  border: 1px solid rgba(127, 90, 240, 0.3);
+  box-shadow: 0 18px 36px rgba(0, 0, 0, 0.45);
+  text-align: center;
+  min-width: 240px;
+  color: rgba(232, 238, 255, 0.95);
+}
+
+.mini-game-card p,
+.mini-game-ready-card p {
+  margin: 0 0 0.6rem;
+  font-weight: 600;
+}
+
+.mini-game-card .actions,
+.mini-game-ready-card .actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.mini-game-card button,
+.mini-game-ready-card button {
+  border: none;
+  border-radius: 0.75rem;
+  padding: 0.45rem 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  background: rgba(127, 90, 240, 0.35);
+  color: rgba(232, 238, 255, 0.95);
+  transition: transform 100ms ease, box-shadow 100ms ease, background 100ms ease;
+
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 12px 24px rgba(127, 90, 240, 0.35);
+  }
+
+  &.secondary {
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    box-shadow: none;
+  }
+}
+
+.mini-game-ready-card .ready-status {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 0.75rem;
+  font-size: 0.8rem;
+  color: rgba(189, 199, 255, 0.82);
+
+  span.ready {
+    color: #2bd67b;
+    font-weight: 600;
+  }
+}
+
 .mini-game-countdown,
 .mini-game-reveal,
 .mini-game-result {

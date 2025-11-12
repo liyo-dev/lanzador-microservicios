@@ -44,6 +44,38 @@ export interface PrivateMessagePayload {
   createdAt: string;
 }
 
+export interface MiniGameChallengePayload {
+  id: string;
+  fromId: string;
+  fromName: string;
+  toId: string;
+  avatar: AvatarDescriptor;
+  createdAt: string;
+}
+
+export interface MiniGameResponsePayload {
+  id: string;
+  fromId: string;
+  toId: string;
+  accepted: boolean;
+  createdAt: string;
+}
+
+export interface MiniGameReadyPayload {
+  id: string;
+  fromId: string;
+  toId: string;
+  ready: boolean;
+  createdAt: string;
+}
+
+export interface MiniGameCancelPayload {
+  id: string;
+  fromId: string;
+  toId: string;
+  createdAt: string;
+}
+
 export interface SpaceDescriptor {
   width: number;
   height: number;
@@ -56,6 +88,12 @@ export type ServerEvent =
   | { type: 'player-left'; id: string }
   | { type: 'general-message'; message: GeneralMessagePayload }
   | { type: 'private-message'; message: PrivateMessagePayload }
+  | { type: 'mini-game-challenge'; challenge: MiniGameChallengePayload }
+  | { type: 'mini-game-challenge-ack'; challenge: MiniGameChallengePayload }
+  | { type: 'mini-game-response'; response: MiniGameResponsePayload }
+  | { type: 'mini-game-response-ack'; response: MiniGameResponsePayload }
+  | { type: 'mini-game-ready'; payload: MiniGameReadyPayload }
+  | { type: 'mini-game-cancel'; payload: MiniGameCancelPayload }
   | { type: 'error'; message: string }
   | { type: 'disconnected' };
 
@@ -161,6 +199,22 @@ export class VirtualOfficeService {
 
   sendPrivateMessage(to: string, content: string): void {
     this.send({ type: 'private-message', to, content });
+  }
+
+  sendMiniGameChallenge(challengeId: string, to: string): void {
+    this.send({ type: 'mini-game-challenge', challengeId, to });
+  }
+
+  sendMiniGameResponse(challengeId: string, to: string, accepted: boolean): void {
+    this.send({ type: 'mini-game-response', challengeId, to, accepted });
+  }
+
+  sendMiniGameReady(challengeId: string, to: string): void {
+    this.send({ type: 'mini-game-ready', challengeId, to, ready: true });
+  }
+
+  sendMiniGameCancel(challengeId: string, to: string): void {
+    this.send({ type: 'mini-game-cancel', challengeId, to });
   }
 
   disconnect(): void {

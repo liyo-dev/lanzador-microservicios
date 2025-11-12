@@ -136,6 +136,18 @@ function handleClientMessage(client, raw) {
     case 'private-message':
       handlePrivateMessage(client, data);
       break;
+    case 'mini-game-challenge':
+      handleMiniGameChallenge(client, data);
+      break;
+    case 'mini-game-response':
+      handleMiniGameResponse(client, data);
+      break;
+    case 'mini-game-ready':
+      handleMiniGameReady(client, data);
+      break;
+    case 'mini-game-cancel':
+      handleMiniGameCancel(client, data);
+      break;
     default:
       send(client, { type: 'error', message: 'Acción no soportada.' });
   }
@@ -244,6 +256,119 @@ function handlePrivateMessage(client, data) {
   send(client, { type: 'private-message', message });
 }
 
+function handleMiniGameChallenge(client, data) {
+  if (!client.player) {
+    return;
+  }
+
+  const toId = sanitizeId(data.to);
+  if (!toId) {
+    return;
+  }
+
+  const target = clients.get(toId);
+  if (!target || !target.player) {
+    send(client, { type: 'error', message: 'La persona ya no está disponible.' });
+    return;
+  }
+
+  const challengeId = sanitizeId(data.challengeId) || crypto.randomUUID();
+  const challenge = {
+    id: challengeId,
+    fromId: client.id,
+    fromName: client.player.name,
+    toId,
+    avatar: client.player.avatar,
+    createdAt: new Date().toISOString(),
+  };
+
+  send(target, { type: 'mini-game-challenge', challenge });
+  send(client, { type: 'mini-game-challenge-ack', challenge });
+}
+
+function handleMiniGameResponse(client, data) {
+  if (!client.player) {
+    return;
+  }
+
+  const toId = sanitizeId(data.to);
+  const challengeId = sanitizeId(data.challengeId);
+  if (!toId || !challengeId) {
+    return;
+  }
+
+  const target = clients.get(toId);
+  if (!target || !target.player) {
+    send(client, { type: 'error', message: 'La persona ya no está disponible.' });
+    return;
+  }
+
+  const accepted = Boolean(data.accepted);
+  const response = {
+    id: challengeId,
+    fromId: client.id,
+    toId,
+    accepted,
+    createdAt: new Date().toISOString(),
+  };
+
+  send(target, { type: 'mini-game-response', response });
+  send(client, { type: 'mini-game-response-ack', response });
+}
+
+function handleMiniGameReady(client, data) {
+  if (!client.player) {
+    return;
+  }
+
+  const toId = sanitizeId(data.to);
+  const challengeId = sanitizeId(data.challengeId);
+  if (!toId || !challengeId) {
+    return;
+  }
+
+  const target = clients.get(toId);
+  if (!target || !target.player) {
+    return;
+  }
+
+  const payload = {
+    id: challengeId,
+    fromId: client.id,
+    toId,
+    ready: Boolean(data.ready),
+    createdAt: new Date().toISOString(),
+  };
+
+  send(target, { type: 'mini-game-ready', payload });
+}
+
+function handleMiniGameCancel(client, data) {
+  if (!client.player) {
+    return;
+  }
+
+  const toId = sanitizeId(data.to);
+  const challengeId = sanitizeId(data.challengeId);
+  if (!toId || !challengeId) {
+    return;
+  }
+
+  const target = clients.get(toId);
+  if (!target || !target.player) {
+    return;
+  }
+
+  const payload = {
+    id: challengeId,
+    fromId: client.id,
+    toId,
+    createdAt: new Date().toISOString(),
+  };
+
+  send(target, { type: 'mini-game-cancel', payload });
+}
+
 function disconnectClient(client) {
   if (clients.get(client.id) !== client) {
     return;
@@ -346,6 +471,14 @@ function sanitizePosition(value) {
   const x = clampNumber(value?.x, OFFICE_WIDTH / 2, minX, maxX);
   const y = clampNumber(value?.y, OFFICE_HEIGHT / 2, minY, maxY);
   return { x, y, direction };
+}
+
+function sanitizeId(value) {
+  if (typeof value !== 'string') {
+    return null;
+  }
+  const trimmed = value.trim();
+  return trimmed ? trimmed.slice(0, 64) : null;
 }
 
 function sanitizeDirection(value) {

@@ -18,6 +18,10 @@ import {
   PlayerPayload,
   PrivateMessagePayload,
   SpaceDescriptor,
+  MiniGameChallengePayload,
+  MiniGameResponsePayload,
+  MiniGameReadyPayload,
+  MiniGameCancelPayload,
   VirtualOfficeService,
 } from './virtual-office.service';
 import { getVirtualOfficeUrl } from '../../config/virtual-office.config';
@@ -37,7 +41,14 @@ interface SpeechBubble {
 
 type RpsMove = 'rock' | 'paper' | 'scissors';
 type RpsOutcome = 'win' | 'lose' | 'draw' | 'invalid';
-type MiniGameStatus = 'idle' | 'countdown' | 'reveal' | 'finished';
+type MiniGameStatus =
+  | 'idle'
+  | 'challenge-sent'
+  | 'challenge-received'
+  | 'ready-check'
+  | 'countdown'
+  | 'reveal'
+  | 'finished';
 
 interface MiniGameRound {
   round: number;
@@ -56,6 +67,10 @@ interface MiniGameState {
   playerMove: RpsMove | null;
   opponentMove: RpsMove | null;
   winner: 'self' | 'opponent' | 'draw' | null;
+  challengeId: string | null;
+  initiatorId: string | null;
+  selfReady: boolean;
+  opponentReady: boolean;
 }
 
 interface PlayerState extends PlayerPayload {
@@ -184,6 +199,24 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
           case 'private-message':
             this.addPrivateMessage(event.message);
             break;
+          case 'mini-game-challenge':
+            this.handleMiniGameChallenge(event.challenge);
+            break;
+          case 'mini-game-challenge-ack':
+            this.handleMiniGameChallengeAck(event.challenge);
+            break;
+          case 'mini-game-response':
+            this.handleMiniGameResponse(event.response);
+            break;
+          case 'mini-game-response-ack':
+            this.handleMiniGameResponseAck(event.response);
+            break;
+          case 'mini-game-ready':
+            this.handleMiniGameReady(event.payload);
+            break;
+          case 'mini-game-cancel':
+            this.handleMiniGameCancel(event.payload);
+            break;
           case 'error':
             this.connectionError = event.message;
             break;
@@ -288,7 +321,7 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
 
   openInteraction(playerId: string): void {
     if (this.isMiniGameActive() && this.interactionTargetId !== playerId) {
-      this.stopMiniGame();
+      this.stopMiniGame(true);
     }
 
     this.interactionTargetId = playerId;
@@ -297,7 +330,7 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
 
   closeInteraction(): void {
     if (this.isMiniGameActive()) {
-      this.stopMiniGame();
+      this.stopMiniGame(true);
     }
 
     this.interactionTargetId = null;
@@ -317,8 +350,8 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     if (view === 'game') {
-      this.startMiniGame();
       this.interactionView = null;
+      this.initiateMiniGameChallenge();
       this.focusWorkspace();
       return;
     }
@@ -369,7 +402,7 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private isMiniGameCountdown(): boolean {
-    return this.isMiniGameActive() && this.miniGameState.status === 'countdown';
+    return this.miniGameState.status === 'countdown';
   }
 
   selectMiniGameMove(move: RpsMove): void {
@@ -389,10 +422,11 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   miniGameScoreFor(playerId: string): number | null {
-    if (!this.isMiniGameActive()) {
+    if (!this.interactionTargetId) {
       return null;
     }
-    if (!this.interactionTargetId) {
+    const visibleStatuses: MiniGameStatus[] = ['ready-check', 'countdown', 'reveal', 'finished'];
+    if (!visibleStatuses.includes(this.miniGameState.status)) {
       return null;
     }
     if (playerId === this.selfId) {
@@ -405,7 +439,8 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   isMiniGameParticipant(player: PlayerState): boolean {
-    if (!this.isMiniGameActive()) {
+    const visibleStatuses: MiniGameStatus[] = ['ready-check', 'countdown', 'reveal', 'finished'];
+    if (!visibleStatuses.includes(this.miniGameState.status)) {
       return false;
     }
     if (!this.interactionTargetId) {
@@ -418,11 +453,26 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!this.isMiniGameActive()) {
       return '';
     }
-    const roundNumber =
-      this.miniGameState.status === 'countdown'
-        ? this.miniGameState.round
-        : this.miniGameState.history.length;
-    return `Ronda ${roundNumber} · Mejor de 3`;
+
+    const opponentName = this.interactionTarget?.name ?? 'Tu oponente';
+
+    switch (this.miniGameState.status) {
+      case 'challenge-sent':
+        return `Esperando a ${opponentName}…`;
+      case 'challenge-received':
+        return `${opponentName} te ha retado`;
+      case 'ready-check':
+        return '¿Preparados? Pulsa listo para comenzar';
+      case 'countdown':
+      case 'reveal': {
+        const roundNumber = this.miniGameState.round;
+        return `Ronda ${roundNumber} · Mejor de 3`;
+      }
+      case 'finished':
+        return 'Partida finalizada';
+      default:
+        return '';
+    }
   }
 
   shouldShowMiniGameChoices(player: PlayerState): boolean {
@@ -430,9 +480,6 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   miniGameCountdownVisible(): boolean {
-    if (!this.isMiniGameActive()) {
-      return false;
-    }
     return ['countdown', 'reveal'].includes(this.miniGameState.status);
   }
 
@@ -441,6 +488,288 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
       return '¡YA!';
     }
     return this.miniGameState.countdown.toString();
+  }
+
+  get miniGameOpponentName(): string {
+    return this.interactionTarget?.name ?? 'Tu oponente';
+  }
+
+  cancelMiniGameChallenge(): void {
+    if (!this.isMiniGameActive()) {
+      return;
+    }
+    this.stopMiniGame(true);
+  }
+
+  acceptMiniGameChallenge(): void {
+    if (this.miniGameState.status !== 'challenge-received') {
+      return;
+    }
+    const challengeId = this.miniGameState.challengeId;
+    const opponentId = this.interactionTargetId;
+    if (!challengeId || !opponentId) {
+      return;
+    }
+
+    this.officeService.sendMiniGameResponse(challengeId, opponentId, true);
+    this.miniGameState = {
+      ...this.miniGameState,
+      status: 'ready-check',
+      round: 1,
+      playerScore: 0,
+      opponentScore: 0,
+      countdown: 0,
+      history: [],
+      playerMove: null,
+      opponentMove: null,
+      winner: null,
+      selfReady: false,
+      opponentReady: false,
+    };
+    this.focusWorkspace();
+    this.cdr.markForCheck();
+  }
+
+  declineMiniGameChallenge(): void {
+    if (this.miniGameState.status !== 'challenge-received') {
+      return;
+    }
+    const challengeId = this.miniGameState.challengeId;
+    const opponentId = this.interactionTargetId;
+    if (!challengeId || !opponentId) {
+      return;
+    }
+
+    this.officeService.sendMiniGameResponse(challengeId, opponentId, false);
+    this.stopMiniGame();
+  }
+
+  confirmMiniGameReady(): void {
+    if (this.miniGameState.status !== 'ready-check') {
+      return;
+    }
+    if (this.miniGameState.selfReady) {
+      return;
+    }
+    const challengeId = this.miniGameState.challengeId;
+    const opponentId = this.interactionTargetId;
+    if (!challengeId || !opponentId) {
+      return;
+    }
+
+    this.miniGameState = {
+      ...this.miniGameState,
+      selfReady: true,
+    };
+
+    this.officeService.sendMiniGameReady(challengeId, opponentId);
+    this.cdr.markForCheck();
+    this.maybeStartMiniGameCountdown();
+  }
+
+  private initiateMiniGameChallenge(): void {
+    const targetId = this.interactionTargetId;
+    if (!targetId || !this.selfId) {
+      return;
+    }
+
+    if (this.miniGameState.status !== 'idle') {
+      const shouldNotify = this.shouldNotifyMiniGameCancel();
+      this.stopMiniGame(shouldNotify);
+    }
+
+    const challengeId = this.generateChallengeId();
+
+    this.miniGameState = this.createMiniGameState('challenge-sent', {
+      challengeId,
+      initiatorId: this.selfId,
+      round: 1,
+    });
+
+    this.officeService.sendMiniGameChallenge(challengeId, targetId);
+    this.interactionView = null;
+    this.cdr.markForCheck();
+  }
+
+  private maybeStartMiniGameCountdown(): void {
+    if (this.miniGameState.status !== 'ready-check') {
+      return;
+    }
+
+    if (!this.miniGameState.selfReady || !this.miniGameState.opponentReady) {
+      return;
+    }
+
+    this.startMiniGame();
+  }
+
+  private handleMiniGameChallenge(challenge: MiniGameChallengePayload): void {
+    if (challenge.toId !== this.selfId) {
+      return;
+    }
+
+    if (this.miniGameState.status !== 'idle') {
+      this.officeService.sendMiniGameResponse(challenge.id, challenge.fromId, false);
+      return;
+    }
+
+    this.interactionTargetId = challenge.fromId;
+    this.interactionView = null;
+    this.miniGameState = this.createMiniGameState('challenge-received', {
+      challengeId: challenge.id,
+      initiatorId: challenge.fromId,
+      round: 1,
+    });
+    this.focusWorkspace();
+    this.cdr.markForCheck();
+  }
+
+  private handleMiniGameChallengeAck(challenge: MiniGameChallengePayload): void {
+    if (challenge.fromId !== this.selfId) {
+      return;
+    }
+    if (this.miniGameState.status !== 'challenge-sent') {
+      return;
+    }
+
+    this.miniGameState = {
+      ...this.miniGameState,
+      challengeId: challenge.id,
+      initiatorId: challenge.fromId,
+    };
+    this.cdr.markForCheck();
+  }
+
+  private handleMiniGameResponse(response: MiniGameResponsePayload): void {
+    if (response.toId !== this.selfId) {
+      return;
+    }
+    if (this.miniGameState.challengeId && this.miniGameState.challengeId !== response.id) {
+      return;
+    }
+
+    this.interactionTargetId = response.fromId;
+
+    if (!response.accepted) {
+      this.maybeNotifyChallengeDeclined();
+      this.stopMiniGame();
+      return;
+    }
+
+    this.miniGameState = {
+      ...this.miniGameState,
+      status: 'ready-check',
+      round: 1,
+      playerScore: 0,
+      opponentScore: 0,
+      countdown: 0,
+      history: [],
+      playerMove: null,
+      opponentMove: null,
+      winner: null,
+      selfReady: false,
+      opponentReady: false,
+    };
+    this.focusWorkspace();
+    this.cdr.markForCheck();
+  }
+
+  private handleMiniGameResponseAck(response: MiniGameResponsePayload): void {
+    if (response.fromId !== this.selfId) {
+      return;
+    }
+    if (this.miniGameState.challengeId && this.miniGameState.challengeId !== response.id) {
+      return;
+    }
+
+    if (!response.accepted) {
+      this.stopMiniGame();
+      return;
+    }
+
+    if (this.miniGameState.status !== 'ready-check') {
+      this.miniGameState = {
+        ...this.miniGameState,
+        status: 'ready-check',
+        round: 1,
+        playerScore: 0,
+        opponentScore: 0,
+        countdown: 0,
+        history: [],
+        playerMove: null,
+        opponentMove: null,
+        winner: null,
+        selfReady: false,
+        opponentReady: false,
+      };
+      this.cdr.markForCheck();
+    }
+  }
+
+  private handleMiniGameReady(payload: MiniGameReadyPayload): void {
+    if (payload.toId !== this.selfId) {
+      return;
+    }
+    if (this.miniGameState.challengeId && this.miniGameState.challengeId !== payload.id) {
+      return;
+    }
+    if (this.miniGameState.status !== 'ready-check') {
+      return;
+    }
+
+    this.miniGameState = {
+      ...this.miniGameState,
+      opponentReady: payload.ready,
+    };
+    this.cdr.markForCheck();
+    this.maybeStartMiniGameCountdown();
+  }
+
+  private handleMiniGameCancel(payload: MiniGameCancelPayload): void {
+    if (payload.toId !== this.selfId) {
+      return;
+    }
+    if (this.miniGameState.challengeId && this.miniGameState.challengeId !== payload.id) {
+      return;
+    }
+
+    this.maybeNotifyChallengeDeclined();
+    this.stopMiniGame();
+  }
+
+  private maybeNotifyChallengeDeclined(): void {
+    if (!this.interactionTargetId) {
+      return;
+    }
+    const opponent = this.players.find((player) => player.id === this.interactionTargetId);
+    if (!opponent) {
+      return;
+    }
+    this.setSpeechBubble(opponent.id, {
+      content: 'Hoy no puedo jugar 😅',
+      kind: 'private',
+      authorId: opponent.id,
+    });
+  }
+
+  private generateChallengeId(): string {
+    try {
+      if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+        return crypto.randomUUID();
+      }
+    } catch (error) {
+      // noop fallback
+    }
+    return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+  }
+
+  private shouldNotifyMiniGameCancel(): boolean {
+    if (!this.miniGameState.challengeId) {
+      return false;
+    }
+    return ['challenge-sent', 'challenge-received', 'ready-check', 'countdown', 'reveal'].includes(
+      this.miniGameState.status,
+    );
   }
 
   miniGameCenterPosition(): { left: number; top: number } | null {
@@ -470,7 +799,7 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   closeMiniGame(): void {
-    this.stopMiniGame();
+    this.stopMiniGame(true);
     this.interactionTargetId = null;
     this.interactionView = null;
   }
@@ -480,7 +809,7 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
     this.stopMiniGame();
-    this.startMiniGame();
+    this.initiateMiniGameChallenge();
     this.focusWorkspace();
   }
 
@@ -820,9 +1149,13 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!this.interactionTargetId) {
       return;
     }
+    if (this.miniGameState.status === 'countdown') {
+      return;
+    }
 
     this.clearMiniGameTimers();
     this.miniGameState = {
+      ...this.miniGameState,
       status: 'countdown',
       round: 1,
       playerScore: 0,
@@ -832,6 +1165,8 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
       playerMove: null,
       opponentMove: null,
       winner: null,
+      selfReady: false,
+      opponentReady: false,
     };
     this.runMiniGameCountdown();
     this.cdr.markForCheck();
@@ -943,6 +1278,8 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
         playerMove: null,
         opponentMove: null,
         winner: null,
+        selfReady: false,
+        opponentReady: false,
       };
 
       this.cdr.markForCheck();
@@ -950,9 +1287,18 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
     }, 1200);
   }
 
-  private stopMiniGame(): void {
+  private stopMiniGame(notifyOpponent = false): void {
+    if (notifyOpponent && this.shouldNotifyMiniGameCancel()) {
+      const challengeId = this.miniGameState.challengeId;
+      const opponentId = this.interactionTargetId;
+      if (challengeId && opponentId) {
+        this.officeService.sendMiniGameCancel(challengeId, opponentId);
+      }
+    }
+
     this.clearMiniGameTimers();
     this.miniGameState = this.createMiniGameState('idle');
+    this.cdr.markForCheck();
   }
 
   private clearMiniGameTimers(): void {
@@ -974,7 +1320,7 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  private createMiniGameState(status: MiniGameStatus): MiniGameState {
+  private createMiniGameState(status: MiniGameStatus, overrides: Partial<MiniGameState> = {}): MiniGameState {
     return {
       status,
       round: status === 'idle' ? 0 : 1,
@@ -985,6 +1331,11 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
       playerMove: null,
       opponentMove: null,
       winner: null,
+      challengeId: null,
+      initiatorId: null,
+      selfReady: false,
+      opponentReady: false,
+      ...overrides,
     };
   }
 

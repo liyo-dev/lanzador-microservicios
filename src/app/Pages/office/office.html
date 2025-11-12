@@ -123,6 +123,41 @@
           {{ miniGameRoundLabel }}
         </div>
 
+        <ng-container *ngIf="miniGameState.status === 'challenge-sent' && miniGameCenterPosition() as challengePos">
+          <div class="mini-game-card mini-game-challenge-card" [style.left.px]="challengePos.left" [style.top.px]="challengePos.top">
+            <p>Esperando a {{ miniGameOpponentName }} para aceptar el reto.</p>
+            <div class="actions">
+              <button type="button" class="secondary" (click)="cancelMiniGameChallenge()">Cancelar reto</button>
+            </div>
+          </div>
+        </ng-container>
+
+        <ng-container *ngIf="miniGameState.status === 'challenge-received' && miniGameCenterPosition() as invitePos">
+          <div class="mini-game-card mini-game-challenge-card" [style.left.px]="invitePos.left" [style.top.px]="invitePos.top">
+            <p>{{ miniGameOpponentName }} quiere jugar a Piedra, papel o tijeras.</p>
+            <div class="actions">
+              <button type="button" (click)="acceptMiniGameChallenge()">Aceptar</button>
+              <button type="button" class="secondary" (click)="declineMiniGameChallenge()">Otro momento</button>
+            </div>
+          </div>
+        </ng-container>
+
+        <ng-container *ngIf="miniGameState.status === 'ready-check' && miniGameCenterPosition() as readyPos">
+          <div class="mini-game-ready-card" [style.left.px]="readyPos.left" [style.top.px]="readyPos.top">
+            <p>Cuando los dos estéis listos arrancará la cuenta atrás.</p>
+            <div class="ready-status">
+              <span [class.ready]="miniGameState.selfReady">Tú · {{ miniGameState.selfReady ? 'Preparado' : 'Esperando' }}</span>
+              <span [class.ready]="miniGameState.opponentReady">
+                {{ miniGameOpponentName }} · {{ miniGameState.opponentReady ? 'Preparado' : 'Esperando' }}
+              </span>
+            </div>
+            <div class="actions">
+              <button type="button" (click)="confirmMiniGameReady()" [disabled]="miniGameState.selfReady">¡Estoy listo!</button>
+              <button type="button" class="secondary" (click)="cancelMiniGameChallenge()">Cancelar</button>
+            </div>
+          </div>
+        </ng-container>
+
         <ng-container *ngIf="miniGameCountdownVisible() && miniGameCenterPosition() as countdownPos">
           <div class="mini-game-countdown" [style.left.px]="countdownPos.left" [style.top.px]="countdownPos.top">
             {{ miniGameCountdownLabel }}
