@@ -48,6 +48,7 @@ type MiniGameStatus =
   | 'ready-check'
   | 'countdown'
   | 'reveal'
+  | 'next-round'
   | 'finished';
 
 interface MiniGameRound {
@@ -154,6 +155,7 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
   miniGameState: MiniGameState = this.createMiniGameState('idle');
   private miniGameTimerId: number | null = null;
   private miniGameTimeoutId: number | null = null;
+  private miniGameNextRoundTimeoutId: number | null = null;
 
   selfId: string | null = null;
   private subscriptions: Subscription[] = [];
@@ -425,7 +427,7 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!this.interactionTargetId) {
       return null;
     }
-    const visibleStatuses: MiniGameStatus[] = ['ready-check', 'countdown', 'reveal', 'finished'];
+    const visibleStatuses: MiniGameStatus[] = ['ready-check', 'countdown', 'reveal', 'next-round', 'finished'];
     if (!visibleStatuses.includes(this.miniGameState.status)) {
       return null;
     }
@@ -439,7 +441,7 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   isMiniGameParticipant(player: PlayerState): boolean {
-    const visibleStatuses: MiniGameStatus[] = ['ready-check', 'countdown', 'reveal', 'finished'];
+    const visibleStatuses: MiniGameStatus[] = ['ready-check', 'countdown', 'reveal', 'next-round', 'finished'];
     if (!visibleStatuses.includes(this.miniGameState.status)) {
       return false;
     }
@@ -468,6 +470,8 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
         const roundNumber = this.miniGameState.round;
         return `Ronda ${roundNumber} · Mejor de 3`;
       }
+      case 'next-round':
+        return 'Siguiente turno';
       case 'finished':
         return 'Partida finalizada';
       default:
@@ -480,12 +484,15 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   miniGameCountdownVisible(): boolean {
-    return ['countdown', 'reveal'].includes(this.miniGameState.status);
+    return ['countdown', 'reveal', 'next-round'].includes(this.miniGameState.status);
   }
 
   get miniGameCountdownLabel(): string {
     if (this.miniGameState.status === 'reveal') {
       return '¡YA!';
+    }
+    if (this.miniGameState.status === 'next-round') {
+      return 'Preparando siguiente ronda...';
     }
     return this.miniGameState.countdown.toString();
   }
@@ -771,7 +778,7 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!this.miniGameState.challengeId) {
       return false;
     }
-    return ['challenge-sent', 'challenge-received', 'ready-check', 'countdown', 'reveal'].includes(
+    return ['challenge-sent', 'challenge-received', 'ready-check', 'countdown', 'reveal', 'next-round'].includes(
       this.miniGameState.status,
     );
   }
@@ -1172,7 +1179,7 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
       round: 1,
       playerScore: 0,
       opponentScore: 0,
-      countdown: 3,
+      countdown: 5,
       history: [],
       playerMove: null,
       opponentMove: null,
@@ -1282,21 +1289,35 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
         return;
       }
 
+      // Mostrar mensaje "Siguiente turno" por 2 segundos
       this.miniGameState = {
         ...this.miniGameState,
-        status: 'countdown',
-        round: this.miniGameState.history.length + 1,
-        countdown: 3,
-        playerMove: null,
-        opponentMove: null,
-        winner: null,
-        selfReady: false,
-        opponentReady: false,
+        status: 'next-round',
       };
-
       this.cdr.markForCheck();
-      this.runMiniGameCountdown();
-    }, 1200);
+
+      // Después de 2 segundos, iniciar la nueva ronda
+      this.miniGameNextRoundTimeoutId = window.setTimeout(() => {
+        if (this.miniGameState.status !== 'next-round') {
+          return;
+        }
+
+        this.miniGameState = {
+          ...this.miniGameState,
+          status: 'countdown',
+          round: this.miniGameState.history.length + 1,
+          countdown: 5,
+          playerMove: null,
+          opponentMove: null,
+          winner: null,
+          selfReady: false,
+          opponentReady: false,
+        };
+
+        this.cdr.markForCheck();
+        this.runMiniGameCountdown();
+      }, 2000);
+    }, 2000);
   }
 
   private stopMiniGame(notifyOpponent = false): void {
@@ -1316,6 +1337,7 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
   private clearMiniGameTimers(): void {
     this.clearIntervalTimer();
     this.clearTimeoutTimer();
+    this.clearNextRoundTimeoutTimer();
   }
 
   private clearIntervalTimer(): void {
@@ -1332,13 +1354,20 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
+  private clearNextRoundTimeoutTimer(): void {
+    if (this.miniGameNextRoundTimeoutId !== null) {
+      window.clearTimeout(this.miniGameNextRoundTimeoutId);
+      this.miniGameNextRoundTimeoutId = null;
+    }
+  }
+
   private createMiniGameState(status: MiniGameStatus, overrides: Partial<MiniGameState> = {}): MiniGameState {
     return {
       status,
       round: status === 'idle' ? 0 : 1,
       playerScore: 0,
       opponentScore: 0,
-      countdown: status === 'countdown' ? 3 : 0,
+      countdown: status === 'countdown' ? 5 : 0,
       history: [],
       playerMove: null,
       opponentMove: null,
