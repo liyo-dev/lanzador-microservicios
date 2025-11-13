@@ -513,10 +513,17 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
       return 'Preparando siguiente ronda...';
     }
     if (this.miniGameState.waitingForOpponentMove && this.miniGameState.countdown === 0) {
-      if (this.miniGameState.playerMove && !this.miniGameState.opponentMove) {
+      const playerMoved = !!this.miniGameState.playerMove;
+      const opponentMoved = !!this.miniGameState.opponentMove;
+      
+      if (playerMoved && !opponentMoved) {
         return `Esperando a ${this.miniGameOpponentName}...`;
-      } else if (!this.miniGameState.playerMove) {
-        return '¡Tiempo agotado! Elige tu movimiento';
+      } else if (!playerMoved && opponentMoved) {
+        return '¡Tu turno! Elige tu movimiento';
+      } else if (!playerMoved && !opponentMoved) {
+        return '¡Tiempo agotado! Los dos deben elegir';
+      } else {
+        return 'Resolviendo ronda...';
       }
     }
     return this.miniGameState.countdown.toString();
@@ -798,10 +805,13 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private checkIfBothPlayersReady(): void {
+    // Limpiar timeout existente si ambos han hecho movimiento
     if (this.miniGameState.playerMove && this.miniGameState.opponentMove) {
+      this.clearTimeoutTimer();
       // Ambos han hecho su movimiento, resolver la ronda
       this.resolveMiniGameRound();
     }
+    // Si no ambos han hecho movimiento, el timeout se encargará de resolver automáticamente
   }
 
   private maybeNotifyChallengeDeclined(): void {
@@ -1257,7 +1267,7 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
 
       if (this.miniGameState.countdown <= 1) {
         this.clearIntervalTimer();
-        // En lugar de resolver automáticamente, cambiar el estado para esperar movimientos
+        // Cambiar a estado de espera y establecer timeout para resolver automáticamente
         this.miniGameState = {
           ...this.miniGameState,
           countdown: 0,
@@ -1266,7 +1276,17 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
         this.cdr.markForCheck();
         
         // Si ambos jugadores ya hicieron su movimiento, resolver inmediatamente
-        this.checkIfBothPlayersReady();
+        if (this.miniGameState.playerMove && this.miniGameState.opponentMove) {
+          this.checkIfBothPlayersReady();
+        } else {
+          // Timeout de 10 segundos para resolver automáticamente
+          this.miniGameTimeoutId = window.setTimeout(() => {
+            if (this.miniGameState.status === 'countdown' && this.miniGameState.waitingForOpponentMove) {
+              // Resolver con movimientos actuales (pueden ser null)
+              this.resolveMiniGameRound();
+            }
+          }, 10000);
+        }
         return;
       }
 

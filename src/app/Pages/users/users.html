@@ -92,10 +92,18 @@
           </div>
         </dl>
 
-        <button class="primary-btn full-width" (click)="loginWithUser(user)" title="Abrir portal con este usuario">
-          <span class="emoji">🚀</span>
-          Acceder al Portal
-        </button>
+        <div class="portal-actions">
+          <!-- UN SOLO BOTÓN: Abrir Chrome + Copiar código -->
+          <button 
+            class="auto-login-btn" 
+            (click)="openChromeWithCode(user)"
+            [disabled]="isProcessing"
+            title="Abre Chrome con el portal y copia código JavaScript específico para este usuario"
+          >
+            <span class="emoji">{{ isProcessing ? '⏳' : '🚀' }}</span>
+            {{ isProcessing ? 'Abriendo...' : 'CHROME + F12' }}
+          </button>
+        </div>
       </article>
     </section>
 

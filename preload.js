@@ -15,5 +15,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // === GESTIÓN DE USUARIOS ===
   getUsers: () => ipcRenderer.invoke('get-users'),
   saveUsers: (users) => ipcRenderer.invoke('save-users', users),
-  openPortalWithAutoLogin: (userData) => ipcRenderer.invoke('open-portal-with-autologin', userData),
+  
+  // === CHROME CON URL ESPECÍFICA ===
+  openChromeWithUrl: (url) => ipcRenderer.invoke('open-chrome-with-url', url)
 });

@@ -449,12 +449,16 @@ export class UsersComponent implements OnInit {
       const electronAPI = (window as any).electronAPI;
       
       if (!electronAPI) {
+        console.error('❌ electronAPI no está disponible');
         throw new Error('electronAPI no está disponible');
       }
 
+      console.log('✅ electronAPI disponible:', Object.keys(electronAPI));
+      console.log('🔍 Función openPortalWithAutoLogin disponible:', !!electronAPI.openPortalWithAutoLogin);
       console.log('🌐 Abriendo portal con Chrome directamente');
       
       const portalUrl = this.getEnvironmentUrl(user);
+      console.log('🔗 URL del portal:', portalUrl);
       
       // Crear datos para el main process de Electron
       const loginData = {
@@ -468,16 +472,87 @@ export class UsersComponent implements OnInit {
         }
       };
 
+      console.log('📦 Datos de login para Chrome:', loginData);
+
       // Usar electronAPI para abrir Chrome
       if (electronAPI.openPortalWithAutoLogin) {
-        electronAPI.openPortalWithAutoLogin(loginData);
+        console.log('🚀 Llamando a openPortalWithAutoLogin...');
+        electronAPI.openPortalWithAutoLogin(loginData)
+          .then((result: any) => {
+            console.log('📨 Respuesta de Chrome:', result);
+          })
+          .catch((error: any) => {
+            console.error('❌ Error en openPortalWithAutoLogin:', error);
+          });
         console.log('✅ Solicitud enviada a Chrome');
       } else {
+        console.error('❌ Función openPortalWithAutoLogin no disponible');
         throw new Error('Función openPortalWithAutoLogin no disponible');
       }
 
     } catch (error) {
       console.error('❌ Error al ejecutar login:', error);
+      const portalUrl = this.getEnvironmentUrl(user);
+      alert(`❌ Error: ${error}\n\nURL del portal: ${portalUrl}`);
+    }
+  }
+
+  // Nuevo método para usar navegador integrado
+  loginWithIntegratedBrowser(user: User) {
+    console.log('🖥️ Iniciando login con navegador integrado para:', user);
+    this.showLoginConfirmation(user.name + ' (Navegador Integrado)');
+    
+    try {
+      const electronAPI = (window as any).electronAPI;
+      
+      if (!electronAPI) {
+        console.error('❌ electronAPI no está disponible');
+        throw new Error('electronAPI no está disponible');
+      }
+
+      console.log('✅ electronAPI disponible:', Object.keys(electronAPI));
+      console.log('🔍 Función openPortalIntegratedBrowser disponible:', !!electronAPI.openPortalIntegratedBrowser);
+
+      const portalUrl = this.getEnvironmentUrl(user);
+      console.log('🔗 URL del portal generada:', portalUrl);
+      
+      const loginData = {
+        url: portalUrl,
+        user: {
+          name: user.name,
+          companyID: user.companyID,
+          username: user.username,
+          password: user.password,
+          environment: user.environment
+        }
+      };
+
+      console.log('📦 Datos de login preparados:', loginData);
+
+      // Usar el nuevo navegador integrado
+      if (electronAPI.openPortalIntegratedBrowser) {
+        console.log('🚀 Llamando a openPortalIntegratedBrowser...');
+        electronAPI.openPortalIntegratedBrowser(loginData)
+          .then((result: any) => {
+            console.log('📨 Respuesta recibida:', result);
+            if (result.success) {
+              console.log('✅ Navegador integrado abierto:', result.message);
+            } else {
+              console.error('❌ Error abriendo navegador integrado:', result.message);
+              alert(`❌ Error: ${result.message}`);
+            }
+          })
+          .catch((error: any) => {
+            console.error('❌ Error con navegador integrado:', error);
+            alert(`❌ Error abriendo navegador integrado: ${error}`);
+          });
+      } else {
+        console.error('❌ Función openPortalIntegratedBrowser no disponible');
+        throw new Error('Función openPortalIntegratedBrowser no disponible');
+      }
+
+    } catch (error) {
+      console.error('❌ Error al ejecutar login con navegador integrado:', error);
       const portalUrl = this.getEnvironmentUrl(user);
       alert(`❌ Error: ${error}\n\nURL del portal: ${portalUrl}`);
     }
@@ -824,4 +899,262 @@ Contraseña: ${user.password}
   goToHome() {
     this.router.navigate(['']);
   }
+
+  // Métodos simples paso a paso
+  openChromeStep1(user: User) {
+    console.log('🌐 PASO 1: Abriendo Chrome para:', user.name);
+    
+    try {
+      const electronAPI = (window as any).electronAPI;
+      
+      if (!electronAPI?.openChromeSimple) {
+        alert('❌ Función openChromeSimple no disponible');
+        return;
+      }
+
+      const portalUrl = this.getEnvironmentUrl(user);
+      
+      const loginData = {
+        url: portalUrl,
+        user: {
+          name: user.name,
+          companyID: user.companyID,
+          username: user.username,
+          password: user.password,
+          environment: user.environment
+        }
+      };
+
+      console.log('🚀 Abriendo Chrome simple...');
+      electronAPI.openChromeSimple(loginData)
+        .then((result: any) => {
+          console.log('📨 Resultado:', result);
+          if (result.success) {
+            alert(`✅ ${result.message}`);
+          } else {
+            alert(`❌ ${result.message}`);
+          }
+        })
+        .catch((error: any) => {
+          console.error('❌ Error:', error);
+          alert(`❌ Error: ${error}`);
+        });
+
+    } catch (error) {
+      console.error('❌ Error en openChromeStep1:', error);
+      alert(`❌ Error: ${error}`);
+    }
+  }
+
+  fillDataStep2(user: User) {
+    console.log('📝 PASO 2: Llenando datos para:', user.name);
+    
+    try {
+      const electronAPI = (window as any).electronAPI;
+      
+      if (!electronAPI?.fillDataSimple) {
+        alert('❌ Función fillDataSimple no disponible');
+        return;
+      }
+
+      const portalUrl = this.getEnvironmentUrl(user);
+      
+      const loginData = {
+        url: portalUrl,
+        user: {
+          name: user.name,
+          companyID: user.companyID,
+          username: user.username,
+          password: user.password,
+          environment: user.environment
+        }
+      };
+
+      console.log('📝 Llenando datos...');
+      electronAPI.fillDataSimple(loginData)
+        .then((result: any) => {
+          console.log('📨 Resultado:', result);
+          if (result.success) {
+            // No mostrar alert aquí porque el script ya muestra uno
+            console.log(`✅ ${result.message}`);
+          } else {
+            alert(`❌ ${result.message}`);
+          }
+        })
+        .catch((error: any) => {
+          console.error('❌ Error:', error);
+          alert(`❌ Error: ${error}`);
+        });
+
+    } catch (error) {
+      console.error('❌ Error en fillDataStep2:', error);
+      alert(`❌ Error: ${error}`);
+    }
+  }
+
+  // Método para abrir Chrome con URL específica y copiar código del usuario
+  async openChromeWithCode(user: User) {
+    try {
+      this.isProcessing = true;
+      
+      const portalUrl = this.getEnvironmentUrl(user);
+      
+      // Generar código JavaScript específico para este usuario
+      let jsCode = '';
+      
+      if (user.environment === 'local-dev') {
+        const isLocalMode = this.selectedSubEnvironment === 'local';
+        
+        if (isLocalMode) {
+          // Script para LOCAL con auto-click
+          jsCode = `// Auto-login para ${user.name} en LOCAL
+console.log('🔍 Auto-completando campos para: ${user.name}');
+
+const companyField = document.getElementsByName('companyID')[0];
+const userField = document.getElementsByName('usuario')[0];
+const passwordField = document.getElementsByName('password')[0];
+
+if (companyField && userField && passwordField) {
+  companyField.value = '${user.companyID}';
+  userField.value = '${user.username}';
+  passwordField.value = '${user.password}';
+  
+  companyField.dispatchEvent(new Event('input', { bubbles: true }));
+  userField.dispatchEvent(new Event('input', { bubbles: true }));
+  passwordField.dispatchEvent(new Event('input', { bubbles: true }));
+  
+  console.log('✅ Campos completados para ${user.name}');
+  
+  // Auto-click en el botón de login (igual que DEV/PRE)
+  setTimeout(() => {
+    const loginBtn = document.querySelector('.opLogonStandardButton');
+    if (loginBtn) {
+      loginBtn.click();
+      console.log('🚀 Login automático enviado');
+    }
+  }, 500);
+} else {
+  console.error('❌ No se encontraron los campos de login');
+}`;
+        } else {
+          // Script para DEV
+          jsCode = `// Auto-login para ${user.name} en DESARROLLO
+console.log('🔍 Auto-completando campos para: ${user.name}');
+
+const grupoField = document.querySelector('#txt_group input');
+const userField = document.querySelector('#txt_usuario input');
+const passwordField = document.querySelector('#txt_pass input');
+
+if (grupoField && userField && passwordField) {
+  grupoField.value = '${user.companyID}';
+  userField.value = '${user.username}';
+  passwordField.value = '${user.password}';
+  
+  grupoField.dispatchEvent(new Event('input', { bubbles: true }));
+  userField.dispatchEvent(new Event('input', { bubbles: true }));
+  passwordField.dispatchEvent(new Event('input', { bubbles: true }));
+  
+  console.log('✅ Campos completados para ${user.name}');
+  
+  setTimeout(() => {
+    const loginBtn = document.querySelector('#btn_entrar');
+    if (loginBtn) {
+      loginBtn.click();
+      console.log('🚀 Login automático enviado');
+    }
+  }, 500);
+} else {
+  console.error('❌ No se encontraron los campos de login para DEV');
+}`;
+        }
+      } else if (user.environment === 'pre') {
+        // Script para PRE
+        jsCode = `// Auto-login para ${user.name} en PREPRODUCCIÓN
+console.log('🔍 Auto-completando campos para: ${user.name}');
+
+const grupoField = document.querySelector('#txt_group input');
+const userField = document.querySelector('#txt_usuario input');
+const passwordField = document.querySelector('#txt_pass input');
+
+if (grupoField && userField && passwordField) {
+  grupoField.value = '${user.companyID}';
+  userField.value = '${user.username}';
+  passwordField.value = '${user.password}';
+  
+  grupoField.dispatchEvent(new Event('input', { bubbles: true }));
+  userField.dispatchEvent(new Event('input', { bubbles: true }));
+  passwordField.dispatchEvent(new Event('input', { bubbles: true }));
+  
+  console.log('✅ Campos completados para ${user.name}');
+  
+  setTimeout(() => {
+    const loginBtn = document.querySelector('#btn_entrar');
+    if (loginBtn) {
+      loginBtn.click();
+      console.log('🚀 Login automático enviado');
+    }
+  }, 500);
+} else {
+  console.error('❌ No se encontraron los campos de login para PRE');
+}`;
+      }
+      
+      // Copiar código al portapapeles
+      await navigator.clipboard.writeText(jsCode);
+      
+      // Abrir Chrome con la URL específica del usuario
+      const electronAPI = (window as any).electronAPI;
+      
+      if (electronAPI?.openChromeWithUrl) {
+        await electronAPI.openChromeWithUrl(portalUrl);
+      } else {
+        // Fallback: abrir con window.open
+        window.open(portalUrl, '_blank');
+      }
+      
+      // Mostrar popup informativo
+      this.showInstructionsPopup(user, portalUrl);
+      
+    } catch (error) {
+      console.error('Error en openChromeWithCode:', error);
+      alert(`❌ Error: ${(error as Error).message}`);
+    } finally {
+      this.isProcessing = false;
+    }
+  }
+
+  // Mostrar popup con instrucciones
+  private showInstructionsPopup(user: User, portalUrl: string) {
+    const envName = user.environment === 'local-dev' 
+      ? (this.selectedSubEnvironment === 'local' ? 'LOCAL' : 'DESARROLLO')
+      : 'PREPRODUCCIÓN';
+    
+    const message = `✅ ¡Listo para hacer login!
+
+🌐 Chrome abierto en: ${envName}
+👤 Usuario: ${user.name}
+📋 Código copiado al portapapeles
+
+📍 INSTRUCCIONES:
+1. Ve a la pestaña que se abrió en Chrome
+2. Presiona F12 para abrir las herramientas de desarrollador
+3. Ve a la pestaña "Console"
+4. Pega el código (Ctrl+V) y presiona Enter
+5. Los campos se completarán automáticamente
+
+� Los datos se auto-completarán con:
+   • Grupo Empresarial: ${user.companyID}
+   • Usuario: ${user.username}
+   • Contraseña: [oculta]
+
+¿Todo claro?`;
+
+    alert(message);
+  }
+
+  // Variables para mostrar mensajes de estado
+  isProcessing = false;
+  statusMessage = '';
+  showSuccess = false;
+  showError = false;
 }
