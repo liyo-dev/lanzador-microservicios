@@ -76,6 +76,15 @@ export interface MiniGameCancelPayload {
   createdAt: string;
 }
 
+export interface MiniGameMovePayload {
+  id: string;
+  fromId: string;
+  toId: string;
+  round: number;
+  move: 'rock' | 'paper' | 'scissors';
+  createdAt: string;
+}
+
 export interface SpaceDescriptor {
   width: number;
   height: number;
@@ -94,6 +103,7 @@ export type ServerEvent =
   | { type: 'mini-game-response-ack'; response: MiniGameResponsePayload }
   | { type: 'mini-game-ready'; payload: MiniGameReadyPayload }
   | { type: 'mini-game-cancel'; payload: MiniGameCancelPayload }
+  | { type: 'mini-game-move'; payload: MiniGameMovePayload }
   | { type: 'error'; message: string }
   | { type: 'disconnected' };
 
@@ -215,6 +225,10 @@ export class VirtualOfficeService {
 
   sendMiniGameCancel(challengeId: string, to: string): void {
     this.send({ type: 'mini-game-cancel', challengeId, to });
+  }
+
+  sendMiniGameMove(challengeId: string, to: string, round: number, move: 'rock' | 'paper' | 'scissors'): void {
+    this.send({ type: 'mini-game-move', challengeId, to, round, move });
   }
 
   disconnect(): void {

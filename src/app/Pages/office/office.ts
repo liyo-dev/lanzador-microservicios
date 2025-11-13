@@ -22,6 +22,7 @@ import {
   MiniGameResponsePayload,
   MiniGameReadyPayload,
   MiniGameCancelPayload,
+  MiniGameMovePayload,
   VirtualOfficeService,
 } from './virtual-office.service';
 import { getVirtualOfficeUrl } from '../../config/virtual-office.config';
@@ -72,6 +73,7 @@ interface MiniGameState {
   initiatorId: string | null;
   selfReady: boolean;
   opponentReady: boolean;
+  waitingForOpponentMove: boolean;
 }
 
 interface PlayerState extends PlayerPayload {
@@ -218,6 +220,9 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
             break;
           case 'mini-game-cancel':
             this.handleMiniGameCancel(event.payload);
+            break;
+          case 'mini-game-move':
+            this.handleMiniGameMove(event.payload);
             break;
           case 'error':
             this.connectionError = event.message;
@@ -408,7 +413,7 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   selectMiniGameMove(move: RpsMove): void {
-    if (!this.isMiniGameCountdown()) {
+    if (!this.isMiniGameCountdown() && !(this.miniGameState.waitingForOpponentMove && !this.miniGameState.playerMove)) {
       return;
     }
 
@@ -416,6 +421,16 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
       ...this.miniGameState,
       playerMove: move,
     };
+
+    // Enviar el movimiento al oponente
+    const challengeId = this.miniGameState.challengeId;
+    const opponentId = this.interactionTargetId;
+    if (challengeId && opponentId) {
+      this.officeService.sendMiniGameMove(challengeId, opponentId, this.miniGameState.round, move);
+    }
+
+    // Verificar si ambos jugadores han hecho su movimiento
+    this.checkIfBothPlayersReady();
   }
 
   get miniGameLastRound(): MiniGameRound | null {
@@ -480,7 +495,10 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   shouldShowMiniGameChoices(player: PlayerState): boolean {
-    return this.isMiniGameCountdown() && player.id === this.selfId;
+    if (player.id !== this.selfId) {
+      return false;
+    }
+    return this.isMiniGameCountdown() || (this.miniGameState.waitingForOpponentMove && !this.miniGameState.playerMove);
   }
 
   miniGameCountdownVisible(): boolean {
@@ -493,6 +511,13 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
     }
     if (this.miniGameState.status === 'next-round') {
       return 'Preparando siguiente ronda...';
+    }
+    if (this.miniGameState.waitingForOpponentMove && this.miniGameState.countdown === 0) {
+      if (this.miniGameState.playerMove && !this.miniGameState.opponentMove) {
+        return `Esperando a ${this.miniGameOpponentName}...`;
+      } else if (!this.miniGameState.playerMove) {
+        return '¡Tiempo agotado! Elige tu movimiento';
+      }
     }
     return this.miniGameState.countdown.toString();
   }
@@ -746,6 +771,37 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
 
     this.maybeNotifyChallengeDeclined();
     this.stopMiniGame();
+  }
+
+  private handleMiniGameMove(payload: MiniGameMovePayload): void {
+    if (payload.toId !== this.selfId) {
+      return;
+    }
+    if (this.miniGameState.challengeId && this.miniGameState.challengeId !== payload.id) {
+      return;
+    }
+    if (this.miniGameState.round !== payload.round) {
+      return;
+    }
+    if (this.miniGameState.status !== 'countdown') {
+      return;
+    }
+
+    this.miniGameState = {
+      ...this.miniGameState,
+      opponentMove: payload.move,
+    };
+    this.cdr.markForCheck();
+
+    // Verificar si ambos jugadores han hecho su movimiento
+    this.checkIfBothPlayersReady();
+  }
+
+  private checkIfBothPlayersReady(): void {
+    if (this.miniGameState.playerMove && this.miniGameState.opponentMove) {
+      // Ambos han hecho su movimiento, resolver la ronda
+      this.resolveMiniGameRound();
+    }
   }
 
   private maybeNotifyChallengeDeclined(): void {
@@ -1201,7 +1257,16 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
 
       if (this.miniGameState.countdown <= 1) {
         this.clearIntervalTimer();
-        this.resolveMiniGameRound();
+        // En lugar de resolver automáticamente, cambiar el estado para esperar movimientos
+        this.miniGameState = {
+          ...this.miniGameState,
+          countdown: 0,
+          waitingForOpponentMove: true,
+        };
+        this.cdr.markForCheck();
+        
+        // Si ambos jugadores ya hicieron su movimiento, resolver inmediatamente
+        this.checkIfBothPlayersReady();
         return;
       }
 
@@ -1219,7 +1284,7 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     const playerMove = this.miniGameState.playerMove;
-    const opponentMove = this.randomRpsMove();
+    const opponentMove = this.miniGameState.opponentMove;
 
     let outcome: RpsOutcome;
     let playerScore = this.miniGameState.playerScore;
@@ -1240,6 +1305,7 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
       } else if (outcome === 'lose') {
         opponentScore += 1;
       }
+      // En caso de empate, no se suman puntos
     }
 
     const history: MiniGameRound[] = [
@@ -1271,6 +1337,7 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
       playerMove: playerMove ?? null,
       opponentMove: opponentMove ?? null,
       winner,
+      waitingForOpponentMove: false,
     };
 
     this.cdr.markForCheck();
@@ -1312,6 +1379,7 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
           winner: null,
           selfReady: false,
           opponentReady: false,
+          waitingForOpponentMove: false,
         };
 
         this.cdr.markForCheck();
@@ -1376,6 +1444,7 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
       initiatorId: null,
       selfReady: false,
       opponentReady: false,
+      waitingForOpponentMove: false,
       ...overrides,
     };
   }
