@@ -26,6 +26,15 @@ import {
   VirtualOfficeService,
 } from './virtual-office.service';
 import { getVirtualOfficeUrl } from '../../config/virtual-office.config';
+import {
+  RockPaperScissorsGame,
+  RpsMove,
+  RpsOutcome,
+  RpsGameStatus,
+  RpsGameState,
+  RpsRound,
+  RpsGameCallbacks,
+} from './games/rock-paper-scissors.game';
 
 export type AvatarTone = 'sky' | 'sunset' | 'forest' | 'amethyst' | 'ocean' | 'ember';
 
@@ -38,42 +47,6 @@ interface SpeechBubble {
   content: string;
   kind: 'private' | 'broadcast';
   authorId: string;
-}
-
-type RpsMove = 'rock' | 'paper' | 'scissors';
-type RpsOutcome = 'win' | 'lose' | 'draw' | 'invalid';
-type MiniGameStatus =
-  | 'idle'
-  | 'challenge-sent'
-  | 'challenge-received'
-  | 'ready-check'
-  | 'countdown'
-  | 'reveal'
-  | 'next-round'
-  | 'finished';
-
-interface MiniGameRound {
-  round: number;
-  playerMove: RpsMove | null;
-  opponentMove: RpsMove | null;
-  outcome: RpsOutcome;
-}
-
-interface MiniGameState {
-  status: MiniGameStatus;
-  round: number;
-  playerScore: number;
-  opponentScore: number;
-  countdown: number;
-  history: MiniGameRound[];
-  playerMove: RpsMove | null;
-  opponentMove: RpsMove | null;
-  winner: 'self' | 'opponent' | 'draw' | null;
-  challengeId: string | null;
-  initiatorId: string | null;
-  selfReady: boolean;
-  opponentReady: boolean;
-  waitingForOpponentMove: boolean;
 }
 
 interface PlayerState extends PlayerPayload {
@@ -154,10 +127,24 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
     { id: 'paper', label: 'Papel', emoji: '📄' },
     { id: 'scissors', label: 'Tijeras', emoji: '✂️' },
   ];
-  miniGameState: MiniGameState = this.createMiniGameState('idle');
-  private miniGameTimerId: number | null = null;
-  private miniGameTimeoutId: number | null = null;
-  private miniGameNextRoundTimeoutId: number | null = null;
+  
+  // Juego de Piedra, Papel o Tijera
+  private rpsGame!: RockPaperScissorsGame;
+  miniGameState: RpsGameState = {
+    status: 'idle',
+    round: 0,
+    playerScore: 0,
+    opponentScore: 0,
+    countdown: 0,
+    history: [],
+    playerMove: null,
+    opponentMove: null,
+    winner: null,
+    challengeId: null,
+    initiatorId: null,
+    selfReady: false,
+    opponentReady: false,
+  };
 
   selfId: string | null = null;
   private subscriptions: Subscription[] = [];
@@ -167,7 +154,32 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
     private readonly officeService: VirtualOfficeService,
     private readonly cdr: ChangeDetectorRef,
     private readonly router: Router,
-  ) {}
+  ) {
+    // Inicializar el juego con los callbacks
+    const gameCallbacks: RpsGameCallbacks = {
+      onStateChange: (state) => {
+        this.miniGameState = state;
+        this.cdr.markForCheck();
+      },
+      onSendMove: (challengeId, opponentId, round, move) => {
+        this.officeService.sendMiniGameMove(challengeId, opponentId, round, move);
+      },
+      onSendChallenge: (challengeId, targetId) => {
+        this.officeService.sendMiniGameChallenge(challengeId, targetId);
+      },
+      onSendResponse: (challengeId, opponentId, accepted) => {
+        this.officeService.sendMiniGameResponse(challengeId, opponentId, accepted);
+      },
+      onSendReady: (challengeId, opponentId) => {
+        this.officeService.sendMiniGameReady(challengeId, opponentId);
+      },
+      onSendCancel: (challengeId, opponentId) => {
+        this.officeService.sendMiniGameCancel(challengeId, opponentId);
+      },
+    };
+    
+    this.rpsGame = new RockPaperScissorsGame(gameCallbacks);
+  }
 
   ngOnInit(): void {
     this.restorePreferences();
@@ -243,7 +255,7 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
   ngOnDestroy(): void {
     this.subscriptions.forEach((subscription) => subscription.unsubscribe());
     this.officeService.disconnect();
-    this.clearMiniGameTimers();
+    this.rpsGame.cancel();
   }
 
   get previewName(): string {
@@ -263,13 +275,38 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   formatRpsOutcome(outcome: RpsOutcome): string {
+    const lastRound = this.miniGameLastRound;
+    if (!lastRound) {
+      switch (outcome) {
+        case 'win':
+          return 'Ganaste la ronda';
+        case 'lose':
+          return 'Perdiste la ronda';
+        case 'draw':
+          return 'Empate';
+        default:
+          return 'Turno no válido';
+      }
+    }
+
+    const playerMoved = !!lastRound.playerMove;
+    const opponentMoved = !!lastRound.opponentMove;
+
     switch (outcome) {
       case 'win':
+        if (playerMoved && !opponentMoved) {
+          return `Ganaste - ${this.miniGameOpponentName} no eligió a tiempo`;
+        }
         return 'Ganaste la ronda';
       case 'lose':
+        if (!playerMoved && opponentMoved) {
+          return 'Perdiste - No elegiste a tiempo';
+        }
         return 'Perdiste la ronda';
       case 'draw':
-        return 'Empate';
+        return 'Empate - Misma elección';
+      case 'invalid':
+        return 'Turno no válido - Ninguno eligió';
       default:
         return 'Turno no válido';
     }
@@ -413,27 +450,15 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   selectMiniGameMove(move: RpsMove): void {
-    if (!this.isMiniGameCountdown() && !(this.miniGameState.waitingForOpponentMove && !this.miniGameState.playerMove)) {
+    if (!this.isMiniGameCountdown() || !this.interactionTargetId) {
       return;
     }
 
-    this.miniGameState = {
-      ...this.miniGameState,
-      playerMove: move,
-    };
-
-    // Enviar el movimiento al oponente
-    const challengeId = this.miniGameState.challengeId;
-    const opponentId = this.interactionTargetId;
-    if (challengeId && opponentId) {
-      this.officeService.sendMiniGameMove(challengeId, opponentId, this.miniGameState.round, move);
-    }
-
-    // Verificar si ambos jugadores han hecho su movimiento
-    this.checkIfBothPlayersReady();
+    this.rpsGame.selectMove(move, this.interactionTargetId);
+    this.cdr.markForCheck();
   }
 
-  get miniGameLastRound(): MiniGameRound | null {
+  get miniGameLastRound(): RpsRound | null {
     const { history } = this.miniGameState;
     return history.length ? history[history.length - 1] : null;
   }
@@ -442,7 +467,7 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!this.interactionTargetId) {
       return null;
     }
-    const visibleStatuses: MiniGameStatus[] = ['ready-check', 'countdown', 'reveal', 'next-round', 'finished'];
+    const visibleStatuses: RpsGameStatus[] = ['ready-check', 'countdown', 'reveal', 'next-round', 'finished'];
     if (!visibleStatuses.includes(this.miniGameState.status)) {
       return null;
     }
@@ -456,7 +481,7 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   isMiniGameParticipant(player: PlayerState): boolean {
-    const visibleStatuses: MiniGameStatus[] = ['ready-check', 'countdown', 'reveal', 'next-round', 'finished'];
+    const visibleStatuses: RpsGameStatus[] = ['ready-check', 'countdown', 'reveal', 'next-round', 'finished'];
     if (!visibleStatuses.includes(this.miniGameState.status)) {
       return false;
     }
@@ -498,7 +523,7 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
     if (player.id !== this.selfId) {
       return false;
     }
-    return this.isMiniGameCountdown() || (this.miniGameState.waitingForOpponentMove && !this.miniGameState.playerMove);
+    return this.isMiniGameCountdown();
   }
 
   miniGameCountdownVisible(): boolean {
@@ -511,20 +536,6 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
     }
     if (this.miniGameState.status === 'next-round') {
       return 'Preparando siguiente ronda...';
-    }
-    if (this.miniGameState.waitingForOpponentMove && this.miniGameState.countdown === 0) {
-      const playerMoved = !!this.miniGameState.playerMove;
-      const opponentMoved = !!this.miniGameState.opponentMove;
-      
-      if (playerMoved && !opponentMoved) {
-        return `Esperando a ${this.miniGameOpponentName}...`;
-      } else if (!playerMoved && opponentMoved) {
-        return '¡Tu turno! Elige tu movimiento';
-      } else if (!playerMoved && !opponentMoved) {
-        return '¡Tiempo agotado! Los dos deben elegir';
-      } else {
-        return 'Resolviendo ronda...';
-      }
     }
     return this.miniGameState.countdown.toString();
   }
@@ -550,21 +561,7 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
-    this.officeService.sendMiniGameResponse(challengeId, opponentId, true);
-    this.miniGameState = {
-      ...this.miniGameState,
-      status: 'ready-check',
-      round: 1,
-      playerScore: 0,
-      opponentScore: 0,
-      countdown: 0,
-      history: [],
-      playerMove: null,
-      opponentMove: null,
-      winner: null,
-      selfReady: false,
-      opponentReady: false,
-    };
+    this.rpsGame.acceptChallenge(challengeId, opponentId);
     this.focusWorkspace();
     this.cdr.markForCheck();
   }
@@ -579,7 +576,7 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
-    this.officeService.sendMiniGameResponse(challengeId, opponentId, false);
+    this.rpsGame.declineChallenge(challengeId, opponentId);
     this.stopMiniGame();
   }
 
@@ -596,14 +593,8 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
-    this.miniGameState = {
-      ...this.miniGameState,
-      selfReady: true,
-    };
-
-    this.officeService.sendMiniGameReady(challengeId, opponentId);
+    this.rpsGame.confirmReady(challengeId, opponentId);
     this.cdr.markForCheck();
-    this.maybeStartMiniGameCountdown();
   }
 
   private initiateMiniGameChallenge(): void {
@@ -617,15 +608,7 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
       this.stopMiniGame(shouldNotify);
     }
 
-    const challengeId = this.generateChallengeId();
-
-    this.miniGameState = this.createMiniGameState('challenge-sent', {
-      challengeId,
-      initiatorId: this.selfId,
-      round: 1,
-    });
-
-    this.officeService.sendMiniGameChallenge(challengeId, targetId);
+    this.rpsGame.initiateChallenge(targetId, this.selfId);
     this.interactionView = null;
     this.cdr.markForCheck();
   }
@@ -647,22 +630,10 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
-    if (this.miniGameState.status && !['idle', 'finished'].includes(this.miniGameState.status)) {
-      this.officeService.sendMiniGameResponse(challenge.id, challenge.fromId, false);
-      return;
-    }
-
-    if (this.miniGameState.status === 'finished') {
-      this.stopMiniGame();
-    }
-
     this.interactionTargetId = challenge.fromId;
     this.interactionView = null;
-    this.miniGameState = this.createMiniGameState('challenge-received', {
-      challengeId: challenge.id,
-      initiatorId: challenge.fromId,
-      round: 1,
-    });
+    
+    this.rpsGame.handleChallengeReceived(challenge.id, challenge.fromId);
     this.focusWorkspace();
     this.cdr.markForCheck();
   }
@@ -675,11 +646,7 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
-    this.miniGameState = {
-      ...this.miniGameState,
-      challengeId: challenge.id,
-      initiatorId: challenge.fromId,
-    };
+    this.rpsGame.handleChallengeAck(challenge.id, challenge.fromId);
     this.cdr.markForCheck();
   }
 
@@ -699,20 +666,7 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
-    this.miniGameState = {
-      ...this.miniGameState,
-      status: 'ready-check',
-      round: 1,
-      playerScore: 0,
-      opponentScore: 0,
-      countdown: 0,
-      history: [],
-      playerMove: null,
-      opponentMove: null,
-      winner: null,
-      selfReady: false,
-      opponentReady: false,
-    };
+    this.rpsGame.handleResponse(response.id, response.accepted);
     this.focusWorkspace();
     this.cdr.markForCheck();
   }
@@ -730,23 +684,8 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
-    if (this.miniGameState.status !== 'ready-check') {
-      this.miniGameState = {
-        ...this.miniGameState,
-        status: 'ready-check',
-        round: 1,
-        playerScore: 0,
-        opponentScore: 0,
-        countdown: 0,
-        history: [],
-        playerMove: null,
-        opponentMove: null,
-        winner: null,
-        selfReady: false,
-        opponentReady: false,
-      };
-      this.cdr.markForCheck();
-    }
+    this.rpsGame.handleResponseAck(response.id, response.accepted);
+    this.cdr.markForCheck();
   }
 
   private handleMiniGameReady(payload: MiniGameReadyPayload): void {
@@ -760,12 +699,8 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
-    this.miniGameState = {
-      ...this.miniGameState,
-      opponentReady: payload.ready,
-    };
+    this.rpsGame.handleReady();
     this.cdr.markForCheck();
-    this.maybeStartMiniGameCountdown();
   }
 
   private handleMiniGameCancel(payload: MiniGameCancelPayload): void {
@@ -794,24 +729,13 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
-    this.miniGameState = {
-      ...this.miniGameState,
-      opponentMove: payload.move,
-    };
+    this.rpsGame.handleMove(payload.move, payload.round);
     this.cdr.markForCheck();
-
-    // Verificar si ambos jugadores han hecho su movimiento
-    this.checkIfBothPlayersReady();
   }
 
   private checkIfBothPlayersReady(): void {
-    // Limpiar timeout existente si ambos han hecho movimiento
-    if (this.miniGameState.playerMove && this.miniGameState.opponentMove) {
-      this.clearTimeoutTimer();
-      // Ambos han hecho su movimiento, resolver la ronda
-      this.resolveMiniGameRound();
-    }
-    // Si no ambos han hecho movimiento, el timeout se encargará de resolver automáticamente
+    // El juego ya maneja automáticamente la resolución de rondas cuando ambos jugadores eligen
+    // No es necesario hacer nada aquí
   }
 
   private maybeNotifyChallengeDeclined(): void {
@@ -1238,174 +1162,9 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
-    this.clearMiniGameTimers();
-    this.miniGameState = {
-      ...this.miniGameState,
-      status: 'countdown',
-      round: 1,
-      playerScore: 0,
-      opponentScore: 0,
-      countdown: 5,
-      history: [],
-      playerMove: null,
-      opponentMove: null,
-      winner: null,
-      selfReady: false,
-      opponentReady: false,
-    };
-    this.runMiniGameCountdown();
+    // El juego ya está activo a través de los callbacks
+    // No necesitamos hacer nada aquí, el estado ya fue actualizado por handleResponseAck
     this.cdr.markForCheck();
-  }
-
-  private runMiniGameCountdown(): void {
-    this.clearIntervalTimer();
-    this.miniGameTimerId = window.setInterval(() => {
-      if (this.miniGameState.status !== 'countdown') {
-        this.clearIntervalTimer();
-        return;
-      }
-
-      if (this.miniGameState.countdown <= 1) {
-        this.clearIntervalTimer();
-        // Cambiar a estado de espera y establecer timeout para resolver automáticamente
-        this.miniGameState = {
-          ...this.miniGameState,
-          countdown: 0,
-          waitingForOpponentMove: true,
-        };
-        this.cdr.markForCheck();
-        
-        // Si ambos jugadores ya hicieron su movimiento, resolver inmediatamente
-        if (this.miniGameState.playerMove && this.miniGameState.opponentMove) {
-          this.checkIfBothPlayersReady();
-        } else {
-          // Timeout de 10 segundos para resolver automáticamente
-          this.miniGameTimeoutId = window.setTimeout(() => {
-            if (this.miniGameState.status === 'countdown' && this.miniGameState.waitingForOpponentMove) {
-              // Resolver con movimientos actuales (pueden ser null)
-              this.resolveMiniGameRound();
-            }
-          }, 10000);
-        }
-        return;
-      }
-
-      this.miniGameState = {
-        ...this.miniGameState,
-        countdown: this.miniGameState.countdown - 1,
-      };
-      this.cdr.markForCheck();
-    }, 1000);
-  }
-
-  private resolveMiniGameRound(): void {
-    if (this.miniGameState.status !== 'countdown') {
-      return;
-    }
-
-    const playerMove = this.miniGameState.playerMove;
-    const opponentMove = this.miniGameState.opponentMove;
-
-    let outcome: RpsOutcome;
-    let playerScore = this.miniGameState.playerScore;
-    let opponentScore = this.miniGameState.opponentScore;
-
-    if (!playerMove && !opponentMove) {
-      outcome = 'invalid';
-    } else if (!playerMove) {
-      outcome = 'lose';
-      opponentScore += 1;
-    } else if (!opponentMove) {
-      outcome = 'win';
-      playerScore += 1;
-    } else {
-      outcome = this.resolveRpsOutcome(playerMove, opponentMove);
-      if (outcome === 'win') {
-        playerScore += 1;
-      } else if (outcome === 'lose') {
-        opponentScore += 1;
-      }
-      // En caso de empate, no se suman puntos
-    }
-
-    const history: MiniGameRound[] = [
-      ...this.miniGameState.history,
-      {
-        round: this.miniGameState.round,
-        playerMove: playerMove ?? null,
-        opponentMove: opponentMove ?? null,
-        outcome,
-      },
-    ];
-
-    const finished = playerScore >= 2 || opponentScore >= 2;
-    const winner: MiniGameState['winner'] = finished
-      ? playerScore === opponentScore
-        ? 'draw'
-        : playerScore > opponentScore
-        ? 'self'
-        : 'opponent'
-      : null;
-
-    this.miniGameState = {
-      ...this.miniGameState,
-      status: finished ? 'finished' : 'reveal',
-      playerScore,
-      opponentScore,
-      countdown: 0,
-      history,
-      playerMove: playerMove ?? null,
-      opponentMove: opponentMove ?? null,
-      winner,
-      waitingForOpponentMove: false,
-    };
-
-    this.cdr.markForCheck();
-
-    if (finished) {
-      return;
-    }
-
-    this.scheduleNextMiniGameRound();
-  }
-
-  private scheduleNextMiniGameRound(): void {
-    this.clearTimeoutTimer();
-    this.miniGameTimeoutId = window.setTimeout(() => {
-      if (this.miniGameState.status !== 'reveal') {
-        return;
-      }
-
-      // Mostrar mensaje "Siguiente turno" por 2 segundos
-      this.miniGameState = {
-        ...this.miniGameState,
-        status: 'next-round',
-      };
-      this.cdr.markForCheck();
-
-      // Después de 2 segundos, iniciar la nueva ronda
-      this.miniGameNextRoundTimeoutId = window.setTimeout(() => {
-        if (this.miniGameState.status !== 'next-round') {
-          return;
-        }
-
-        this.miniGameState = {
-          ...this.miniGameState,
-          status: 'countdown',
-          round: this.miniGameState.history.length + 1,
-          countdown: 5,
-          playerMove: null,
-          opponentMove: null,
-          winner: null,
-          selfReady: false,
-          opponentReady: false,
-          waitingForOpponentMove: false,
-        };
-
-        this.cdr.markForCheck();
-        this.runMiniGameCountdown();
-      }, 2000);
-    }, 2000);
   }
 
   private stopMiniGame(notifyOpponent = false): void {
@@ -1417,76 +1176,14 @@ export class OfficeComponent implements OnInit, AfterViewInit, OnDestroy {
       }
     }
 
-    this.clearMiniGameTimers();
-    this.miniGameState = this.createMiniGameState('idle');
+    this.rpsGame.cancel();
     this.cdr.markForCheck();
-  }
-
-  private clearMiniGameTimers(): void {
-    this.clearIntervalTimer();
-    this.clearTimeoutTimer();
-    this.clearNextRoundTimeoutTimer();
-  }
-
-  private clearIntervalTimer(): void {
-    if (this.miniGameTimerId !== null) {
-      window.clearInterval(this.miniGameTimerId);
-      this.miniGameTimerId = null;
-    }
-  }
-
-  private clearTimeoutTimer(): void {
-    if (this.miniGameTimeoutId !== null) {
-      window.clearTimeout(this.miniGameTimeoutId);
-      this.miniGameTimeoutId = null;
-    }
-  }
-
-  private clearNextRoundTimeoutTimer(): void {
-    if (this.miniGameNextRoundTimeoutId !== null) {
-      window.clearTimeout(this.miniGameNextRoundTimeoutId);
-      this.miniGameNextRoundTimeoutId = null;
-    }
-  }
-
-  private createMiniGameState(status: MiniGameStatus, overrides: Partial<MiniGameState> = {}): MiniGameState {
-    return {
-      status,
-      round: status === 'idle' ? 0 : 1,
-      playerScore: 0,
-      opponentScore: 0,
-      countdown: status === 'countdown' ? 5 : 0,
-      history: [],
-      playerMove: null,
-      opponentMove: null,
-      winner: null,
-      challengeId: null,
-      initiatorId: null,
-      selfReady: false,
-      opponentReady: false,
-      waitingForOpponentMove: false,
-      ...overrides,
-    };
   }
 
   private randomRpsMove(): RpsMove {
     const moves: RpsMove[] = ['rock', 'paper', 'scissors'];
     const index = Math.floor(Math.random() * moves.length);
     return moves[index];
-  }
-
-  private resolveRpsOutcome(player: RpsMove, opponent: RpsMove): Exclude<RpsOutcome, 'invalid'> {
-    if (player === opponent) {
-      return 'draw';
-    }
-
-    const winsAgainst: Record<RpsMove, RpsMove> = {
-      rock: 'scissors',
-      paper: 'rock',
-      scissors: 'paper',
-    };
-
-    return winsAgainst[player] === opponent ? 'win' : 'lose';
   }
 
   private restorePreferences(): void {
