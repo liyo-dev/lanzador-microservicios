@@ -482,6 +482,8 @@ export class RockPaperScissorsGame {
     this.state.opponentScore = opponentScore;
     this.state.countdown = 0;
     this.state.history = history;
+    this.state.playerMove = playerMove ?? null;
+    this.state.opponentMove = opponentMove ?? null;
     this.state.winner = winner;
 
     this.notifyStateChange();
