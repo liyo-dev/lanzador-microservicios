@@ -533,16 +533,6 @@ export class Launcher implements OnInit, OnDestroy {
   }
 
   goToHome() {
-    const angularActivos = this.angularMicros.some(
-      (m) => m.status !== 'stopped'
-    );
-    const springActivos = this.springMicros.some((m) => m.status !== 'stopped');
-
-    if (angularActivos || springActivos) {
-      alert('⚠️ No puedes ir a la configuración mientras haya micros activos.');
-      return;
-    }
-
     this.router.navigate(['']);
   }
 
