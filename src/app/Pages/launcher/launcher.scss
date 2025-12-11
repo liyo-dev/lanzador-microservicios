@@ -149,7 +149,7 @@
 .micro-grid {
   display: grid;
   gap: 1.25rem;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
 }
 
 .micro-card {
@@ -160,6 +160,7 @@
   display: grid;
   gap: 1rem;
   box-shadow: var(--shadow-sm);
+  min-width: 0;
 }
 
 .git-panel {
@@ -169,6 +170,9 @@
   padding: 0.85rem;
   display: grid;
   gap: 0.75rem;
+  width: 100%;
+  box-sizing: border-box;
+  min-width: 0;
 }
 
 .git-header {
@@ -177,6 +181,7 @@
   align-items: center;
   gap: 0.75rem;
   flex-wrap: wrap;
+  width: 100%;
 }
 
 .branch-pill {
@@ -228,14 +233,16 @@
   display: flex;
   flex-wrap: wrap;
   gap: 1rem;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
+  width: 100%;
 }
 
 .branch-select {
   display: grid;
   gap: 0.35rem;
   min-width: 180px;
+  flex: 1;
 }
 
 .branch-select span {
@@ -249,22 +256,76 @@
   border: 1px solid var(--color-border);
   background: white;
   font-weight: 600;
+  width: 100%;
 }
 
 .git-buttons {
   display: flex;
   gap: 0.5rem;
   flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
-.git-hint {
-  background: rgba(234, 179, 8, 0.12);
-  border: 1px solid rgba(234, 179, 8, 0.35);
-  color: #854d0e;
-  padding: 0.6rem 0.75rem;
+.git-status-banner {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.7rem 0.85rem;
   border-radius: var(--radius-sm);
-  font-size: 0.88rem;
+  border: 1px solid rgba(234, 179, 8, 0.35);
+  background: rgba(234, 179, 8, 0.12);
+  color: #854d0e;
+  font-size: 0.9rem;
   line-height: 1.4;
+
+  &.warning {
+    border-color: rgba(234, 179, 8, 0.35);
+    background: rgba(234, 179, 8, 0.12);
+    color: #854d0e;
+  }
+
+  &.loading {
+    border-color: rgba(59, 130, 246, 0.35);
+    background: rgba(59, 130, 246, 0.08);
+    color: var(--color-primary-dark);
+  }
+
+  &.success {
+    border-color: rgba(16, 185, 129, 0.4);
+    background: rgba(16, 185, 129, 0.12);
+    color: var(--color-success);
+  }
+}
+
+.status-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: white;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+}
+
+.status-icon .spinner {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid rgba(59, 130, 246, 0.5);
+  border-top-color: var(--color-primary);
+  animation: spin 0.8s linear infinite;
+}
+
+.status-copy {
+  min-width: 0;
+}
+
+.status-copy p {
+  margin: 0;
+  color: inherit;
 }
 
 .git-loading {
@@ -295,6 +356,15 @@
   100% {
     transform: scale(0.9);
     opacity: 0.7;
+  }
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
   }
 }
 
