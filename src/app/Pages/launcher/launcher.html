@@ -149,10 +149,25 @@
             </div>
 
             <div
-              class="git-hint"
-              *ngIf="gitState[repoKey(selectedTab, micro.key)]?.hasChanges && !gitState[repoKey(selectedTab, micro.key)]?.error"
+              class="git-status-banner"
+              *ngIf="(gitStatuses[repoKey(selectedTab, micro.key)] || gitState[repoKey(selectedTab, micro.key)]?.hasChanges) && !gitState[repoKey(selectedTab, micro.key)]?.error"
+              [class.success]="gitStatuses[repoKey(selectedTab, micro.key)]?.tone === 'success'"
+              [class.loading]="gitStatuses[repoKey(selectedTab, micro.key)]?.tone === 'loading'"
+              [class.warning]="!gitStatuses[repoKey(selectedTab, micro.key)]"
             >
-              ⚠️ Tienes cambios locales. Continuaremos siempre que Git no devuelva conflictos.
+              <div class="status-icon" [class.spinning]="gitStatuses[repoKey(selectedTab, micro.key)]?.tone === 'loading'">
+                <span *ngIf="gitStatuses[repoKey(selectedTab, micro.key)]?.tone === 'loading'" class="spinner"></span>
+                <span *ngIf="gitStatuses[repoKey(selectedTab, micro.key)]?.tone === 'success'">✅</span>
+                <span *ngIf="!gitStatuses[repoKey(selectedTab, micro.key)]">⚠️</span>
+              </div>
+              <div class="status-copy">
+                <p>
+                  {{
+                    gitStatuses[repoKey(selectedTab, micro.key)]?.message
+                      || 'Tienes cambios locales. Continuaremos siempre que Git no devuelva conflictos.'
+                  }}
+                </p>
+              </div>
             </div>
 
             <div class="git-loading" *ngIf="gitState[repoKey(selectedTab, micro.key)]?.loading">
