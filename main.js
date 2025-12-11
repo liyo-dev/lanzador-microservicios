@@ -1,5 +1,5 @@
 const { app, BrowserWindow, ipcMain, shell, dialog } = require("electron");
-const { spawn } = require("child_process");
+const { spawn, exec } = require("child_process");
 const stripAnsi = require("strip-ansi");
 const kill = require("tree-kill");
 const path = require("path");
@@ -18,6 +18,7 @@ let mainWindow;
 let processes = {};
 let angularStatus = {};
 let springStatus = {};
+const gitLocks = new Set();
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -492,6 +493,152 @@ ipcMain.handle("get-last-status", () => {
   return {
     angular: angularStatus,
     spring: springStatus,
+  };
+});
+
+// ===== GESTIÓN DE GIT POR MICRO =====
+const acquireGitLock = (cwd) => {
+  if (gitLocks.has(cwd)) {
+    return false;
+  }
+  gitLocks.add(cwd);
+  return true;
+};
+
+const releaseGitLock = (cwd) => {
+  gitLocks.delete(cwd);
+};
+
+const runGitCommand = (command, cwd) => {
+  return new Promise((resolve) => {
+    exec(command, { cwd }, (error, stdout, stderr) => {
+      if (error) {
+        resolve({
+          success: false,
+          stdout,
+          stderr,
+          error: stderr?.trim() || error.message,
+        });
+      } else {
+        resolve({ success: true, stdout, stderr });
+      }
+    });
+  });
+};
+
+const ensureGitRepo = async (cwd) => {
+  if (!cwd || !fs.existsSync(cwd)) {
+    return { success: false, error: "La ruta configurada no existe" };
+  }
+
+  const checkRepo = await runGitCommand(
+    "git rev-parse --is-inside-work-tree",
+    cwd
+  );
+
+  if (!checkRepo.success) {
+    return {
+      success: false,
+      error: "La carpeta no es un repositorio Git válido",
+    };
+  }
+
+  return { success: true };
+};
+
+const getGitStatus = async (cwd) => {
+  const validation = await ensureGitRepo(cwd);
+  if (!validation.success) return validation;
+
+  const [branch, branchesRaw, changes] = await Promise.all([
+    runGitCommand("git rev-parse --abbrev-ref HEAD", cwd),
+    runGitCommand('git branch --format="%(refname:short)"', cwd),
+    runGitCommand("git status --porcelain", cwd),
+  ]);
+
+  if (!branch.success) return branch;
+  if (!branchesRaw.success) return branchesRaw;
+
+  return {
+    success: true,
+    branch: branch.stdout.trim(),
+    branches: branchesRaw.stdout.split(/\r?\n/).filter(Boolean),
+    hasChanges: !!changes.stdout?.trim(),
+  };
+};
+
+ipcMain.handle("git-info", async (event, data) => {
+  return getGitStatus(data?.path);
+});
+
+ipcMain.handle("git-fetch", async (event, data) => {
+  const repoPath = data?.path;
+  const validation = await ensureGitRepo(repoPath);
+  if (!validation.success) return validation;
+
+  if (!acquireGitLock(repoPath)) {
+    return { success: false, error: "Ya hay una operación Git en curso" };
+  }
+
+  const result = await runGitCommand("git fetch --all", repoPath);
+  releaseGitLock(repoPath);
+
+  return {
+    success: result.success,
+    error: result.error,
+    details: result.stdout || result.stderr,
+  };
+});
+
+ipcMain.handle("git-pull", async (event, data) => {
+  const repoPath = data?.path;
+  const validation = await ensureGitRepo(repoPath);
+  if (!validation.success) return validation;
+
+  if (!acquireGitLock(repoPath)) {
+    return { success: false, error: "Ya hay una operación Git en curso" };
+  }
+
+  const result = await runGitCommand("git pull", repoPath);
+  releaseGitLock(repoPath);
+
+  return {
+    success: result.success,
+    error: result.error,
+    details: result.stdout || result.stderr,
+  };
+});
+
+ipcMain.handle("git-checkout", async (event, data) => {
+  const repoPath = data?.path;
+  const branch = data?.branch;
+  const validation = await ensureGitRepo(repoPath);
+  if (!validation.success) return validation;
+
+  if (!branch) {
+    return { success: false, error: "Debes seleccionar una rama" };
+  }
+
+  const status = await runGitCommand("git status --porcelain", repoPath);
+  if (status.success && status.stdout.trim()) {
+    return {
+      success: false,
+      error:
+        "Hay cambios locales sin commitear. Limpia o guarda los cambios antes de cambiar de rama.",
+    };
+  }
+
+  if (!acquireGitLock(repoPath)) {
+    return { success: false, error: "Ya hay una operación Git en curso" };
+  }
+
+  const result = await runGitCommand(`git checkout ${branch}`, repoPath);
+  releaseGitLock(repoPath);
+
+  return {
+    success: result.success,
+    error: result.error,
+    details: result.stdout || result.stderr,
   };
 });
 

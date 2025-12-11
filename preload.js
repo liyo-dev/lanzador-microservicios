@@ -15,7 +15,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // === GESTIÓN DE USUARIOS ===
   getUsers: () => ipcRenderer.invoke('get-users'),
   saveUsers: (users) => ipcRenderer.invoke('save-users', users),
-  
+
   // === CHROME CON URL ESPECÍFICA ===
-  openChromeWithUrl: (url) => ipcRenderer.invoke('open-chrome-with-url', url)
+  openChromeWithUrl: (url) => ipcRenderer.invoke('open-chrome-with-url', url),
+
+  // === GIT POR MICRO ===
+  getGitInfo: (payload) => ipcRenderer.invoke('git-info', payload),
+  gitFetch: (payload) => ipcRenderer.invoke('git-fetch', payload),
+  gitPull: (payload) => ipcRenderer.invoke('git-pull', payload),
+  gitCheckout: (payload) => ipcRenderer.invoke('git-checkout', payload)
 });
