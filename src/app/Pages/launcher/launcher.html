@@ -1,5 +1,7 @@
 <div class="launcher-page">
-  <app-spinner *ngIf="loading"></app-spinner>
+  @if (loading) {
+    <app-spinner></app-spinner>
+  }
 
   <section class="launcher-shell app-surface" [class.disabled]="loading">
     <header class="launcher-header">
@@ -42,10 +44,12 @@
         </button>
       </div>
 
-      <div class="group-actions" *ngIf="hasMicrosToShow()">
-        <button class="ghost-btn" (click)="stopSelected()">🛑 Parar seleccionados</button>
-        <button class="primary-btn" (click)="startSelected()">🚀 Arrancar seleccionados</button>
-      </div>
+      @if (hasMicrosToShow()) {
+        <div class="group-actions">
+          <button class="ghost-btn" (click)="stopSelected()">🛑 Parar seleccionados</button>
+          <button class="primary-btn" (click)="startSelected()">🚀 Arrancar seleccionados</button>
+        </div>
+      }
     </div>
 
     <section class="launcher-body">
@@ -61,149 +65,176 @@
         </div>
       </div>
 
-      <div class="empty-state" *ngIf="!hasMicrosToShow()">
-        <div class="empty-card">
-          <div class="empty-icon">📦</div>
-          <h3>No hay microservicios {{ selectedTab === 'angular' ? 'Angular' : 'Spring' }} configurados</h3>
-          <p>Ve a la configuración para agregar microservicios y establecer sus rutas.</p>
-          <button class="primary-btn" (click)="goToConfig()">
-            ⚙️ Abrir configuración
-          </button>
-        </div>
-      </div>
-
-      <div class="micro-grid" *ngIf="hasMicrosToShow()">
-        <article class="micro-card" *ngFor="let micro of getDisplayedMicros()" [attr.data-key]="micro.key">
-          <label class="micro-checkbox">
-            <input type="checkbox" [(ngModel)]="micro.selected" />
-            <span class="checkmark"></span>
-            <span class="label">{{ micro.label }}</span>
-          </label>
-
-          <div class="status" [class.running]="micro.status === 'running'" [class.stopped]="micro.status === 'stopped'">
-            {{ micro.status }}
+      @if (!hasMicrosToShow()) {
+        <div class="empty-state">
+          <div class="empty-card">
+            <div class="empty-icon">📦</div>
+            <h3>No hay microservicios {{ selectedTab === 'angular' ? 'Angular' : 'Spring' }} configurados</h3>
+            <p>Ve a la configuración para agregar microservicios y establecer sus rutas.</p>
+            <button class="primary-btn" (click)="goToConfig()">
+              ⚙️ Abrir configuración
+            </button>
           </div>
+        </div>
+      }
 
-          <div class="git-panel">
-            <div class="git-header">
-              <div
-                class="branch-pill"
-                [class.warn]="gitState[repoKey(selectedTab, micro.key)]?.hasChanges"
-                *ngIf="gitState[repoKey(selectedTab, micro.key)]?.branch"
-              >
-                <span class="dot"></span>
-                {{ gitState[repoKey(selectedTab, micro.key)]?.branch }}
-                <span class="badge" *ngIf="gitState[repoKey(selectedTab, micro.key)]?.hasChanges">Cambios locales</span>
-              </div>
-              <div class="branch-pill muted" *ngIf="gitState[repoKey(selectedTab, micro.key)]?.error">
-                ⚠️ {{ gitState[repoKey(selectedTab, micro.key)]?.error }}
-              </div>
-              <button
-                class="ghost-btn small"
-                (click)="refreshGitInfo(micro, selectedTab)"
-                [disabled]="gitState[repoKey(selectedTab, micro.key)]?.loading"
-              >
-                🔄 Actualizar Git
-              </button>
-            </div>
-
-            <div class="git-controls" *ngIf="!gitState[repoKey(selectedTab, micro.key)]?.error">
-              <label class="branch-select">
-                <span>Rama</span>
-                <select
-                  [(ngModel)]="gitSelections[repoKey(selectedTab, micro.key)]"
-                  [disabled]="gitState[repoKey(selectedTab, micro.key)]?.loading"
-                >
-                  <option
-                    *ngFor="let branch of gitState[repoKey(selectedTab, micro.key)]?.branches"
-                    [value]="branch"
-                  >
-                    {{ branch }}
-                  </option>
-                </select>
+      @if (hasMicrosToShow()) {
+        <div class="micro-grid">
+          @for (micro of getDisplayedMicros(); track micro.key) {
+            <article class="micro-card" [attr.data-key]="micro.key">
+              <label class="micro-checkbox">
+                <input type="checkbox" [(ngModel)]="micro.selected" />
+                <span class="checkmark"></span>
+                <span class="label">{{ micro.label }}</span>
               </label>
 
-              <div class="git-buttons">
-                <button
-                  class="ghost-btn"
-                  (click)="runGitAction('fetch', micro, selectedTab)"
-                  [disabled]="gitState[repoKey(selectedTab, micro.key)]?.loading || gitActions[repoKey(selectedTab, micro.key)]"
-                >
-                  Fetch
-                </button>
-                <button
-                  class="ghost-btn"
-                  (click)="runGitAction('checkout', micro, selectedTab)"
-                  [disabled]="gitState[repoKey(selectedTab, micro.key)]?.loading || gitActions[repoKey(selectedTab, micro.key)]"
-                >
-                  Cambiar rama
-                </button>
-                <button
-                  class="primary-btn"
-                  (click)="runGitAction('pull', micro, selectedTab)"
-                  [disabled]="gitState[repoKey(selectedTab, micro.key)]?.loading || gitActions[repoKey(selectedTab, micro.key)]"
-                >
-                  Pull
-                </button>
+              <div class="status" [class.running]="micro.status === 'running'" [class.stopped]="micro.status === 'stopped'">
+                {{ micro.status }}
               </div>
-            </div>
 
-            <div
-              class="git-hint"
-              *ngIf="gitState[repoKey(selectedTab, micro.key)]?.hasChanges && !gitState[repoKey(selectedTab, micro.key)]?.error"
-            >
-              ⚠️ Tienes cambios locales. Continuaremos siempre que Git no devuelva conflictos.
-            </div>
+              <div class="git-panel">
+                <div class="git-header">
+                  @if (gitState[repoKey(selectedTab, micro.key)]?.branch) {
+                    <div
+                      class="branch-pill"
+                      [class.warn]="gitState[repoKey(selectedTab, micro.key)]?.hasChanges"
+                    >
+                      <span class="dot"></span>
+                      {{ gitState[repoKey(selectedTab, micro.key)].branch }}
+                      @if (gitState[repoKey(selectedTab, micro.key)]?.hasChanges) {
+                        <span class="badge">Cambios locales</span>
+                      }
+                    </div>
+                  }
+                  @if (gitState[repoKey(selectedTab, micro.key)]?.error) {
+                    <div class="branch-pill muted">
+                      ⚠️ {{ gitState[repoKey(selectedTab, micro.key)].error }}
+                    </div>
+                  }
+                  <button
+                    class="ghost-btn small"
+                    (click)="refreshGitInfo(micro, selectedTab)"
+                    [disabled]="gitState[repoKey(selectedTab, micro.key)]?.loading ?? false"
+                  >
+                    🔄 Actualizar Git
+                  </button>
+                </div>
 
-            <div class="git-loading" *ngIf="gitState[repoKey(selectedTab, micro.key)]?.loading">
-              <span class="dot"></span> Consultando Git...
-            </div>
-          </div>
+                @if (!gitState[repoKey(selectedTab, micro.key)]?.error) {
+                  <div class="git-controls">
+                    <label class="branch-select">
+                      <span>Rama</span>
+                      <select
+                        [(ngModel)]="gitSelections[repoKey(selectedTab, micro.key)]"
+                        [disabled]="gitState[repoKey(selectedTab, micro.key)]?.loading ?? false"
+                      >
+                        @for (branch of gitState[repoKey(selectedTab, micro.key)]?.branches; track branch) {
+                          <option [value]="branch">
+                            {{ branch }}
+                          </option>
+                        }
+                      </select>
+                    </label>
 
-          <div class="legacy-toggle" *ngIf="selectedTab === 'angular'">
-            <label>
-              <input type="checkbox" [(ngModel)]="micro.useLegacyProvider" />
-              <span>Compatibilidad Node</span>
-            </label>
-          </div>
-        </article>
-      </div>
+                    <div class="git-buttons">
+                      <button
+                        class="ghost-btn"
+                        (click)="runGitAction('fetch', micro, selectedTab)"
+                        [disabled]="(gitState[repoKey(selectedTab, micro.key)]?.loading ?? false) || gitActions[repoKey(selectedTab, micro.key)]"
+                      >
+                        Fetch
+                      </button>
+                      <button
+                        class="ghost-btn"
+                        (click)="runGitAction('checkout', micro, selectedTab)"
+                        [disabled]="(gitState[repoKey(selectedTab, micro.key)]?.loading ?? false) || gitActions[repoKey(selectedTab, micro.key)]"
+                      >
+                        Cambiar rama
+                      </button>
+                      <button
+                        class="primary-btn"
+                        (click)="runGitAction('pull', micro, selectedTab)"
+                        [disabled]="(gitState[repoKey(selectedTab, micro.key)]?.loading ?? false) || gitActions[repoKey(selectedTab, micro.key)]"
+                      >
+                        Pull
+                      </button>
+                    </div>
+                  </div>
+                }
 
-      <div *ngIf="showSuccessMessage && !loading" class="success-banner" #successMessage>
-        ✅ Todos los micros arrancaron correctamente.
-      </div>
+                @if (gitState[repoKey(selectedTab, micro.key)]?.hasChanges && !gitState[repoKey(selectedTab, micro.key)]?.error) {
+                  <div class="git-hint">
+                    ⚠️ Tienes cambios locales. Continuaremos siempre que Git no devuelva conflictos.
+                  </div>
+                }
+
+                @if (gitState[repoKey(selectedTab, micro.key)]?.loading) {
+                  <div class="git-loading">
+                    <span class="dot"></span> Consultando Git...
+                  </div>
+                }
+              </div>
+
+              @if (selectedTab === 'angular') {
+                <div class="legacy-toggle">
+                  <label>
+                    <input type="checkbox" [(ngModel)]="micro.useLegacyProvider" />
+                    <span>Compatibilidad Node</span>
+                  </label>
+                </div>
+              }
+            </article>
+          }
+        </div>
+      }
+
+      @if (showSuccessMessage && !loading) {
+        <div class="success-banner" #successMessage>
+          ✅ Todos los micros arrancaron correctamente.
+        </div>
+      }
     </section>
 
     <section class="logs-card">
       <div class="logs-header">
         <div>
           <h3>Logs recientes</h3>
-          <small *ngIf="logs.length > 0">{{ logs.length }} entradas | Límite: {{ MAX_LOGS }}</small>
+          @if (logs.length > 0) {
+            <small>{{ logs.length }} entradas | Límite: {{ MAX_LOGS }}</small>
+          }
         </div>
         <div class="logs-actions">
           <button class="ghost-btn" (click)="toggleLogs()">
             {{ showLogs ? 'Ocultar logs' : 'Mostrar logs' }}
           </button>
-          <button class="danger-btn" (click)="clearLogs()" *ngIf="showLogs && logs.length > 1" title="Limpiar logs manualmente">
-            🗑️ Limpiar
-          </button>
+          @if (showLogs && logs.length > 1) {
+            <button class="danger-btn" (click)="clearLogs()" title="Limpiar logs manualmente">
+              🗑️ Limpiar
+            </button>
+          }
         </div>
       </div>
 
-      <div *ngIf="showLogs" class="log-box" #logBox>
-        <div class="log-line" *ngFor="let log of logs">{{ log }}</div>
-      </div>
+      @if (showLogs) {
+        <div class="log-box" #logBox>
+          @for (log of logs; track $index) {
+            <div class="log-line">{{ log }}</div>
+          }
+        </div>
+      }
     </section>
   </section>
 
-  <div class="git-dialog-backdrop" *ngIf="gitDialog?.open">
-    <div class="git-dialog" [class.danger]="gitDialog?.tone === 'danger'" [class.success]="gitDialog?.tone === 'success'">
-      <div class="dialog-icon">{{ gitDialog?.tone === 'danger' ? '⚠️' : '✅' }}</div>
-      <div class="dialog-copy">
-        <h4>{{ gitDialog?.title }}</h4>
-        <p>{{ gitDialog?.message }}</p>
+  @if (gitDialog?.open) {
+    <div class="git-dialog-backdrop">
+      <div class="git-dialog" [class.danger]="gitDialog?.tone === 'danger'" [class.success]="gitDialog?.tone === 'success'">
+        <div class="dialog-icon">{{ gitDialog?.tone === 'danger' ? '⚠️' : '✅' }}</div>
+        <div class="dialog-copy">
+          <h4>{{ gitDialog?.title }}</h4>
+          <p>{{ gitDialog?.message }}</p>
+        </div>
+        <button class="primary-btn" (click)="closeGitDialog()">Entendido</button>
       </div>
-      <button class="primary-btn" (click)="closeGitDialog()">Entendido</button>
     </div>
-  </div>
+  }
 </div>
