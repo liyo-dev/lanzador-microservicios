@@ -15,6 +15,21 @@ interface MicroService {
   isCustom?: boolean;
 }
 
+interface GitInfo {
+  branch?: string;
+  branches?: string[];
+  hasChanges?: boolean;
+  loading?: boolean;
+  error?: string;
+}
+
+interface GitDialog {
+  open: boolean;
+  title: string;
+  message: string;
+  tone: 'danger' | 'success';
+}
+
 @Component({
   selector: 'app-launcher',
   standalone: true,
@@ -32,6 +47,11 @@ export class Launcher implements OnInit, OnDestroy {
   loading = false;
   showLogs = true;
   showSuccessMessage = false;
+
+  gitState: Record<string, GitInfo> = {};
+  gitSelections: Record<string, string> = {};
+  gitActions: Record<string, string | null> = {};
+  gitDialog: GitDialog | null = null;
 
   // Configuración para gestión de logs - hacemos públicas las constantes que necesita el template
   readonly MAX_LOGS = 500; // Máximo número de logs antes de limpiar
@@ -58,7 +78,18 @@ export class Launcher implements OnInit, OnDestroy {
       this.buildMicroServiceLists();
       // Cargar el último estado guardado sin verificar puertos
       this.loadLastStatus();
+      this.refreshAllGitInfo();
     });
+  }
+
+  repoKey(type: 'angular' | 'spring', microKey: string) {
+    return `${type}-${microKey}`;
+  }
+
+  private getPathFor(type: 'angular' | 'spring', microKey: string) {
+    return type === 'angular'
+      ? this.config.angular?.[microKey]?.path
+      : this.config.spring?.[microKey]?.path;
   }
 
   private loadLastStatus() {
@@ -238,6 +269,61 @@ export class Launcher implements OnInit, OnDestroy {
     });
   }
 
+  private refreshAllGitInfo() {
+    this.angularMicros.forEach((micro) => this.refreshGitInfo(micro, 'angular'));
+    this.springMicros.forEach((micro) => this.refreshGitInfo(micro, 'spring'));
+  }
+
+  refreshGitInfo(micro: MicroService, type: 'angular' | 'spring') {
+    const key = this.repoKey(type, micro.key);
+    const path = this.getPathFor(type, micro.key);
+
+    if (!path) {
+      this.gitState[key] = {
+        loading: false,
+        error: 'Configura la ruta del microservicio antes de usar Git',
+      };
+      return;
+    }
+
+    this.gitState[key] = {
+      ...(this.gitState[key] || {}),
+      loading: true,
+      error: undefined,
+    };
+
+    (window as any).electronAPI
+      .getGitInfo({ path })
+      .then((result: any) => {
+        this.ngZone.run(() => {
+          if (result.success) {
+            this.gitState[key] = {
+              branch: result.branch,
+              branches: result.branches,
+              hasChanges: result.hasChanges,
+              loading: false,
+            };
+            this.gitSelections[key] = result.branch;
+          } else {
+            this.gitState[key] = {
+              loading: false,
+              error:
+                result.error ||
+                'No se pudo leer la información de Git para este microservicio',
+            };
+          }
+        });
+      })
+      .catch((error: any) => {
+        this.ngZone.run(() => {
+          this.gitState[key] = {
+            loading: false,
+            error: error?.message || 'No se pudo obtener la información de Git',
+          };
+        });
+      });
+  }
+
   private showEmptyState() {
     setTimeout(() => {
       const emptyMessage = document.querySelector('.empty-state');
@@ -249,6 +335,94 @@ export class Launcher implements OnInit, OnDestroy {
         );
       }
     }, 100);
+  }
+
+  private showGitDialog(title: string, message: string, tone: 'danger' | 'success') {
+    this.gitDialog = {
+      open: true,
+      title,
+      message,
+      tone,
+    };
+  }
+
+  closeGitDialog() {
+    this.gitDialog = null;
+  }
+
+  async runGitAction(
+    action: 'fetch' | 'pull' | 'checkout',
+    micro: MicroService,
+    type: 'angular' | 'spring'
+  ) {
+    const repoKey = this.repoKey(type, micro.key);
+    const path = this.getPathFor(type, micro.key);
+    const selectedBranch = this.gitSelections[repoKey];
+    const typeLabel = type === 'angular' ? 'Angular' : 'Spring';
+
+    if (!path) {
+      this.showGitDialog(
+        'Ruta no configurada',
+        'Debes configurar la ruta del microservicio antes de usar los comandos de Git.',
+        'danger'
+      );
+      return;
+    }
+
+    if (action === 'checkout' && !selectedBranch) {
+      this.showGitDialog(
+        'Selecciona una rama',
+        'Elige una rama destino antes de intentar cambiarla.',
+        'danger'
+      );
+      return;
+    }
+
+    this.gitActions[repoKey] = action;
+
+    const api = (window as any).electronAPI;
+    const actionPromise =
+      action === 'fetch'
+        ? api.gitFetch({ path })
+        : action === 'pull'
+        ? api.gitPull({ path })
+        : api.gitCheckout({ path, branch: selectedBranch });
+
+    try {
+      const result = await actionPromise;
+      this.ngZone.run(() => {
+        this.gitActions[repoKey] = null;
+
+        if (result?.success) {
+          const successLabel =
+            action === 'fetch'
+              ? 'Fetch completado'
+              : action === 'pull'
+              ? 'Pull realizado sin conflictos'
+              : `Cambio a rama ${selectedBranch}`;
+
+          this.showGitDialog('Git actualizado', successLabel, 'success');
+          this.pushLog(`[${typeLabel} ${micro.label}] ${successLabel}`);
+          this.refreshGitInfo(micro, type);
+        } else {
+          const errorMessage = result?.error || result?.details || 'La operación no pudo completarse.';
+          this.showGitDialog(
+            'Git devolvió un error',
+            errorMessage,
+            'danger'
+          );
+        }
+      });
+    } catch (error: any) {
+      this.ngZone.run(() => {
+        this.gitActions[repoKey] = null;
+        this.showGitDialog(
+          'Git devolvió un error',
+          error?.message || 'Se produjo un error inesperado al ejecutar Git.',
+          'danger'
+        );
+      });
+    }
   }
 
   private setupElectronListeners() {

@@ -84,6 +84,82 @@
             {{ micro.status }}
           </div>
 
+          <div class="git-panel">
+            <div class="git-header">
+              <div
+                class="branch-pill"
+                [class.warn]="gitState[repoKey(selectedTab, micro.key)]?.hasChanges"
+                *ngIf="gitState[repoKey(selectedTab, micro.key)]?.branch"
+              >
+                <span class="dot"></span>
+                {{ gitState[repoKey(selectedTab, micro.key)]?.branch }}
+                <span class="badge" *ngIf="gitState[repoKey(selectedTab, micro.key)]?.hasChanges">Cambios locales</span>
+              </div>
+              <div class="branch-pill muted" *ngIf="gitState[repoKey(selectedTab, micro.key)]?.error">
+                ⚠️ {{ gitState[repoKey(selectedTab, micro.key)]?.error }}
+              </div>
+              <button
+                class="ghost-btn small"
+                (click)="refreshGitInfo(micro, selectedTab)"
+                [disabled]="gitState[repoKey(selectedTab, micro.key)]?.loading"
+              >
+                🔄 Actualizar Git
+              </button>
+            </div>
+
+            <div class="git-controls" *ngIf="!gitState[repoKey(selectedTab, micro.key)]?.error">
+              <label class="branch-select">
+                <span>Rama</span>
+                <select
+                  [(ngModel)]="gitSelections[repoKey(selectedTab, micro.key)]"
+                  [disabled]="gitState[repoKey(selectedTab, micro.key)]?.loading"
+                >
+                  <option
+                    *ngFor="let branch of gitState[repoKey(selectedTab, micro.key)]?.branches"
+                    [value]="branch"
+                  >
+                    {{ branch }}
+                  </option>
+                </select>
+              </label>
+
+              <div class="git-buttons">
+                <button
+                  class="ghost-btn"
+                  (click)="runGitAction('fetch', micro, selectedTab)"
+                  [disabled]="gitState[repoKey(selectedTab, micro.key)]?.loading || gitActions[repoKey(selectedTab, micro.key)]"
+                >
+                  Fetch
+                </button>
+                <button
+                  class="ghost-btn"
+                  (click)="runGitAction('checkout', micro, selectedTab)"
+                  [disabled]="gitState[repoKey(selectedTab, micro.key)]?.loading || gitActions[repoKey(selectedTab, micro.key)]"
+                >
+                  Cambiar rama
+                </button>
+                <button
+                  class="primary-btn"
+                  (click)="runGitAction('pull', micro, selectedTab)"
+                  [disabled]="gitState[repoKey(selectedTab, micro.key)]?.loading || gitActions[repoKey(selectedTab, micro.key)]"
+                >
+                  Pull
+                </button>
+              </div>
+            </div>
+
+            <div
+              class="git-hint"
+              *ngIf="gitState[repoKey(selectedTab, micro.key)]?.hasChanges && !gitState[repoKey(selectedTab, micro.key)]?.error"
+            >
+              ⚠️ Tienes cambios locales. Continuaremos siempre que Git no devuelva conflictos.
+            </div>
+
+            <div class="git-loading" *ngIf="gitState[repoKey(selectedTab, micro.key)]?.loading">
+              <span class="dot"></span> Consultando Git...
+            </div>
+          </div>
+
           <div class="legacy-toggle" *ngIf="selectedTab === 'angular'">
             <label>
               <input type="checkbox" [(ngModel)]="micro.useLegacyProvider" />
@@ -119,4 +195,15 @@
       </div>
     </section>
   </section>
+
+  <div class="git-dialog-backdrop" *ngIf="gitDialog?.open">
+    <div class="git-dialog" [class.danger]="gitDialog?.tone === 'danger'" [class.success]="gitDialog?.tone === 'success'">
+      <div class="dialog-icon">{{ gitDialog?.tone === 'danger' ? '⚠️' : '✅' }}</div>
+      <div class="dialog-copy">
+        <h4>{{ gitDialog?.title }}</h4>
+        <p>{{ gitDialog?.message }}</p>
+      </div>
+      <button class="primary-btn" (click)="closeGitDialog()">Entendido</button>
+    </div>
+  </div>
 </div>
