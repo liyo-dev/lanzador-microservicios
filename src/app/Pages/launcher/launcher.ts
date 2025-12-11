@@ -51,6 +51,7 @@ export class Launcher implements OnInit, OnDestroy {
   gitState: Record<string, GitInfo> = {};
   gitSelections: Record<string, string> = {};
   gitActions: Record<string, string | null> = {};
+  gitStatuses: Record<string, { tone: 'warning' | 'success' | 'loading'; message: string }> = {};
   gitDialog: GitDialog | null = null;
 
   // Configuración para gestión de logs - hacemos públicas las constantes que necesita el template
@@ -380,6 +381,15 @@ export class Launcher implements OnInit, OnDestroy {
 
     this.gitActions[repoKey] = action;
 
+    const startMessage =
+      action === 'fetch'
+        ? 'Actualizando referencias remotas...'
+        : action === 'pull'
+        ? 'Ejecutando pull, comprobaremos si hay conflictos...'
+        : `Cambiando a la rama ${selectedBranch}...`;
+
+    this.gitStatuses[repoKey] = { tone: 'loading', message: startMessage };
+
     const api = (window as any).electronAPI;
     const actionPromise =
       action === 'fetch'
@@ -401,7 +411,10 @@ export class Launcher implements OnInit, OnDestroy {
               ? 'Pull realizado sin conflictos'
               : `Cambio a rama ${selectedBranch}`;
 
-          this.showGitDialog('Git actualizado', successLabel, 'success');
+          this.gitStatuses[repoKey] = {
+            tone: 'success',
+            message: successLabel,
+          };
           this.pushLog(`[${typeLabel} ${micro.label}] ${successLabel}`);
           this.refreshGitInfo(micro, type);
         } else {
@@ -411,6 +424,7 @@ export class Launcher implements OnInit, OnDestroy {
             errorMessage,
             'danger'
           );
+          delete this.gitStatuses[repoKey];
         }
       });
     } catch (error: any) {
@@ -421,6 +435,7 @@ export class Launcher implements OnInit, OnDestroy {
           error?.message || 'Se produjo un error inesperado al ejecutar Git.',
           'danger'
         );
+        delete this.gitStatuses[repoKey];
       });
     }
   }
