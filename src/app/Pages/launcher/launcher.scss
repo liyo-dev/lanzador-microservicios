@@ -409,13 +409,25 @@
   }
 }
 
+
 .status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
   font-size: 0.88rem;
   font-weight: 600;
   border-radius: 999px;
-  padding: 0.4rem 0.75rem;
+  padding: 0.35rem 0.65rem;
   justify-self: start;
   text-transform: capitalize;
+
+  &::before {
+    content: '';
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: currentColor;
+  }
 
   &.running {
     background: rgba(20, 184, 166, 0.18);
