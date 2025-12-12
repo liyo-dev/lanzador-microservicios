@@ -166,6 +166,8 @@
                   <div class="git-hint">
                     ⚠️ Tienes cambios locales. Continuaremos siempre que Git no devuelva conflictos.
                   </div>
+                } @else {
+                  <div class="git-hint placeholder" aria-hidden="true"></div>
                 }
 
                 @if (gitState[repoKey(selectedTab, micro.key)]?.loading) {
