@@ -344,6 +344,18 @@
   animation: pulse 1s ease-in-out infinite;
 }
 
+.git-hint {
+  font-size: 0.9rem;
+  color: #92400e;
+  line-height: 1.4;
+  min-height: 1.4rem;
+  padding: 0.1rem 0;
+}
+
+.git-hint.placeholder {
+  visibility: hidden;
+}
+
 @keyframes pulse {
   0% {
     transform: scale(0.9);
