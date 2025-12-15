@@ -8,37 +8,41 @@
       <div>
         <h1 class="page-title">Launcher de Microservicios</h1>
         <p class="page-subtitle">
-          Organiza y lanza tus entornos desde un único panel. Versión {{ version }}
+          Versión {{ version }}
         </p>
       </div>
     </header>
 
     <div class="welcome-body">
       <div class="intro">
-        <h2>¿Qué quieres hacer hoy?</h2>
+        <h2>Guía rápida de navegación</h2>
         <p>
-          Gestiona microservicios, configura rutas o accede al portal con usuarios guardados sin perder tiempo.
+          Esta aplicación centraliza la gestión de microservicios y acceso a portales. A continuación, una breve descripción de cada sección:
         </p>
         <ul class="features">
           <li>
             <span class="feature-icon">⚙️</span>
-            Configura rutas, puertos y variables de tus servicios Angular y Spring.
+            <strong>Configuración:</strong> Define rutas de repositorios, puertos, variables de entorno y parámetros globales para tus servicios Angular y Spring.
           </li>
           <li>
             <span class="feature-icon">🚀</span>
-            Arranca o detén múltiples microservicios en lote y consulta sus logs en tiempo real.
+            <strong>Lanzador:</strong> Arranca o detén múltiples microservicios simultáneamente, consulta logs en tiempo real y gestiona el estado de cada servicio.
           </li>
           <li>
             <span class="feature-icon">👥</span>
-            Guarda credenciales de acceso para saltar directamente al portal correcto.
+            <strong>Usuarios Portal:</strong> Administra credenciales de acceso organizadas por entorno para acceder directamente a los portales sin necesidad de recordar contraseñas.
+          </li>
+          <li>
+            <span class="feature-icon">💬</span>
+            <strong>Oficina Virtual:</strong> Colabora con tu equipo en tiempo real mediante chat y avatares personalizados en un espacio virtual compartido.
           </li>
         </ul>
       </div>
 
       <nav class="quick-actions">
         <article class="action-card">
-          <h3>Configurar Microservicios</h3>
-          <p>Define rutas, puertos y parámetros globales.</p>
+          <h3>Configuración</h3>
+          <p>Establece rutas de repositorios, puertos de servicio y variables de entorno necesarias para el correcto funcionamiento de tus microservicios.</p>
           <button class="btn" (click)="goToConfig()">
             <span>Ir a configuración</span>
             <span class="emoji">⚙️</span>
@@ -46,8 +50,8 @@
         </article>
 
         <article class="action-card">
-          <h3>Lanzar servicios</h3>
-          <p>Selecciona, arranca o detén microservicios al instante.</p>
+          <h3>Lanzador</h3>
+          <p>Inicia o detén múltiples servicios de forma simultánea y supervisa el estado de ejecución y logs en tiempo real.</p>
           <button class="btn" (click)="goToLauncher()">
             <span>Ir al lanzador</span>
             <span class="emoji">🚀</span>
@@ -55,8 +59,8 @@
         </article>
 
         <article class="action-card">
-          <h3>Usuarios Portal</h3>
-          <p>Gestiona usuarios y credenciales por entorno.</p>
+          <h3>Gestión de Usuarios</h3>
+          <p>Administra credenciales de acceso organizadas por entorno para facilitar la autenticación en diferentes portales.</p>
           <button class="btn" (click)="goToUsers()">
             <span>Gestionar usuarios</span>
             <span class="emoji">👥</span>
@@ -64,10 +68,10 @@
         </article>
 
         <article class="action-card">
-          <h3>Oficina Virtual</h3>
-          <p>Elige un avatar y coordínate con el equipo desde el chat.</p>
+          <h3>Sala de Descanso</h3>
+          <p>Tómate un respiro de 5 minutos. Chatea con compañeros, juega minijuegos y socializa en un entorno relajado.</p>
           <button class="btn" (click)="goToOffice()">
-            <span>Abrir oficina</span>
+            <span>Entrar a la sala</span>
             <span class="emoji">💬</span>
           </button>
         </article>

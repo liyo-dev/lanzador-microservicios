@@ -1,4 +1,25 @@
 <div class="launcher-page">
+  @if (initialLoading) {
+    <div class="initial-loading-overlay">
+      <div class="loading-content">
+        <div class="loading-spinner-container">
+          <div class="loading-spinner">
+            <div class="spinner-ring"></div>
+            <div class="spinner-ring"></div>
+            <div class="spinner-ring"></div>
+          </div>
+        </div>
+        <h2 class="loading-title">Inicializando Lanzador</h2>
+        <p class="loading-subtitle">Cargando configuración y estado de repositorios...</p>
+        <div class="loading-dots">
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+      </div>
+    </div>
+  }
+
   @if (loading) {
     <app-spinner></app-spinner>
   }
@@ -94,41 +115,45 @@
 
               <div class="git-panel">
                 <div class="git-header">
-                  @if (gitState[repoKey(selectedTab, micro.key)]?.branch) {
+                  @if (getGitState(selectedTab, micro.key).error) {
+                    <div class="branch-pill muted">
+                      ⚠️ {{ getGitState(selectedTab, micro.key).error }}
+                    </div>
+                  } @else if (getGitState(selectedTab, micro.key).branch) {
                     <div
                       class="branch-pill"
-                      [class.warn]="gitState[repoKey(selectedTab, micro.key)]?.hasChanges"
+                      [class.warn]="getGitState(selectedTab, micro.key).hasChanges"
                     >
                       <span class="dot"></span>
-                      {{ gitState[repoKey(selectedTab, micro.key)].branch }}
-                      @if (gitState[repoKey(selectedTab, micro.key)]?.hasChanges) {
+                      {{ getGitState(selectedTab, micro.key).branch }}
+                      @if (getGitState(selectedTab, micro.key).hasChanges) {
                         <span class="badge">Cambios locales</span>
                       }
                     </div>
-                  }
-                  @if (gitState[repoKey(selectedTab, micro.key)]?.error) {
+                  } @else {
                     <div class="branch-pill muted">
-                      ⚠️ {{ gitState[repoKey(selectedTab, micro.key)].error }}
+                      <span class="dot"></span>
+                      Sin información Git
                     </div>
                   }
                   <button
                     class="ghost-btn small"
                     (click)="refreshGitInfo(micro, selectedTab)"
-                    [disabled]="gitState[repoKey(selectedTab, micro.key)]?.loading ?? false"
+                    [disabled]="getGitState(selectedTab, micro.key).loading ?? false"
                   >
                     🔄 Actualizar Git
                   </button>
                 </div>
 
-                @if (!gitState[repoKey(selectedTab, micro.key)]?.error) {
+                @if (!getGitState(selectedTab, micro.key).error) {
                   <div class="git-controls">
                     <label class="branch-select">
                       <span>Rama</span>
                       <select
                         [(ngModel)]="gitSelections[repoKey(selectedTab, micro.key)]"
-                        [disabled]="gitState[repoKey(selectedTab, micro.key)]?.loading ?? false"
+                        [disabled]="getGitState(selectedTab, micro.key).loading ?? false"
                       >
-                        @for (branch of gitState[repoKey(selectedTab, micro.key)]?.branches; track branch) {
+                        @for (branch of getGitState(selectedTab, micro.key).branches; track branch) {
                           <option [value]="branch">
                             {{ branch }}
                           </option>
@@ -140,21 +165,21 @@
                       <button
                         class="ghost-btn"
                         (click)="runGitAction('fetch', micro, selectedTab)"
-                        [disabled]="(gitState[repoKey(selectedTab, micro.key)]?.loading ?? false) || gitActions[repoKey(selectedTab, micro.key)]"
+                        [disabled]="(getGitState(selectedTab, micro.key).loading ?? false) || gitActions[repoKey(selectedTab, micro.key)]"
                       >
                         Fetch
                       </button>
                       <button
                         class="ghost-btn"
                         (click)="runGitAction('checkout', micro, selectedTab)"
-                        [disabled]="(gitState[repoKey(selectedTab, micro.key)]?.loading ?? false) || gitActions[repoKey(selectedTab, micro.key)]"
+                        [disabled]="(getGitState(selectedTab, micro.key).loading ?? false) || gitActions[repoKey(selectedTab, micro.key)]"
                       >
                         Cambiar rama
                       </button>
                       <button
                         class="primary-btn"
                         (click)="runGitAction('pull', micro, selectedTab)"
-                        [disabled]="(gitState[repoKey(selectedTab, micro.key)]?.loading ?? false) || gitActions[repoKey(selectedTab, micro.key)]"
+                        [disabled]="(getGitState(selectedTab, micro.key).loading ?? false) || gitActions[repoKey(selectedTab, micro.key)]"
                       >
                         Pull
                       </button>
@@ -162,15 +187,13 @@
                   </div>
                 }
 
-                @if (gitState[repoKey(selectedTab, micro.key)]?.hasChanges && !gitState[repoKey(selectedTab, micro.key)]?.error) {
+                @if (getGitState(selectedTab, micro.key).hasChanges && !getGitState(selectedTab, micro.key).error) {
                   <div class="git-hint">
                     ⚠️ Tienes cambios locales. Continuaremos siempre que Git no devuelva conflictos.
                   </div>
-                } @else {
-                  <div class="git-hint placeholder" aria-hidden="true"></div>
                 }
 
-                @if (gitState[repoKey(selectedTab, micro.key)]?.loading) {
+                @if (getGitState(selectedTab, micro.key).loading) {
                   <div class="git-loading">
                     <span class="dot"></span> Consultando Git...
                   </div>

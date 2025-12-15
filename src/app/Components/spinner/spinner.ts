@@ -7,7 +7,16 @@ import { CommonModule } from '@angular/common';
   imports: [CommonModule],
   template: `
     <div class="spinner-overlay">
-      <div class="spinner"></div>
+      <div class="spinner-content">
+        <div class="spinner-container">
+          <div class="spinner">
+            <div class="spinner-ring"></div>
+            <div class="spinner-ring"></div>
+            <div class="spinner-ring"></div>
+          </div>
+        </div>
+        <p class="spinner-text">Procesando...</p>
+      </div>
     </div>
   `,
   styleUrls: ['./spinner.scss']

@@ -45,6 +45,8 @@ export class Launcher implements OnInit, OnDestroy {
 
   logs: string[] = [];
   loading = false;
+  initialLoading = true;
+  pendingGitOperations = 0;
   showLogs = true;
   showSuccessMessage = false;
 
@@ -71,6 +73,7 @@ export class Launcher implements OnInit, OnDestroy {
   ngOnInit() {
     this.showSuccessMessage = false;
     this.loading = false;
+    this.initialLoading = true;
   }
 
   private loadConfiguration() {
@@ -83,8 +86,22 @@ export class Launcher implements OnInit, OnDestroy {
     });
   }
 
+  private checkAndHideInitialLoading() {
+    // Solo ocultar el loading inicial cuando todas las operaciones Git hayan terminado
+    if (this.pendingGitOperations === 0 && this.initialLoading) {
+      setTimeout(() => {
+        this.initialLoading = false;
+      }, 300); // Un pequeño delay para una transición suave
+    }
+  }
+
   repoKey(type: 'angular' | 'spring', microKey: string) {
     return `${type}-${microKey}`;
+  }
+
+  getGitState(type: 'angular' | 'spring', microKey: string): GitInfo {
+    const key = this.repoKey(type, microKey);
+    return this.gitState[key] || {};
   }
 
   private getPathFor(type: 'angular' | 'spring', microKey: string) {
@@ -271,6 +288,15 @@ export class Launcher implements OnInit, OnDestroy {
   }
 
   private refreshAllGitInfo() {
+    const totalMicros = this.angularMicros.length + this.springMicros.length;
+    this.pendingGitOperations = totalMicros;
+    
+    // Si no hay microservicios, ocultar el loading inmediatamente
+    if (totalMicros === 0) {
+      this.checkAndHideInitialLoading();
+      return;
+    }
+    
     this.angularMicros.forEach((micro) => this.refreshGitInfo(micro, 'angular'));
     this.springMicros.forEach((micro) => this.refreshGitInfo(micro, 'spring'));
   }
@@ -284,6 +310,11 @@ export class Launcher implements OnInit, OnDestroy {
         loading: false,
         error: 'Configura la ruta del microservicio antes de usar Git',
       };
+      // Solo decrementar si estamos en carga inicial
+      if (this.initialLoading) {
+        this.pendingGitOperations--;
+        this.checkAndHideInitialLoading();
+      }
       return;
     }
 
@@ -313,6 +344,11 @@ export class Launcher implements OnInit, OnDestroy {
                 'No se pudo leer la información de Git para este microservicio',
             };
           }
+          // Solo decrementar si estamos en carga inicial
+          if (this.initialLoading) {
+            this.pendingGitOperations--;
+            this.checkAndHideInitialLoading();
+          }
         });
       })
       .catch((error: any) => {
@@ -321,6 +357,11 @@ export class Launcher implements OnInit, OnDestroy {
             loading: false,
             error: error?.message || 'No se pudo obtener la información de Git',
           };
+          // Solo decrementar si estamos en carga inicial
+          if (this.initialLoading) {
+            this.pendingGitOperations--;
+            this.checkAndHideInitialLoading();
+          }
         });
       });
   }
