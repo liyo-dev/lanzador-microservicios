@@ -35,6 +35,7 @@ export class UsersComponent implements OnInit {
   editingUser: User | null = null;
   selectedEnvironment: 'local-dev' | 'pre' = 'local-dev';
   selectedSubEnvironment: 'local' | 'dev' = 'local'; // Para saber si mostrar local o dev cuando esté en local-dev
+  showPassword = false; // Para toggle de contraseña
   
   environments: Environment[] = [
     {
@@ -399,8 +400,13 @@ export class UsersComponent implements OnInit {
         this.showAddForm = false;
         this.editingUser = null;
         this.resetNewUser();
+        this.showPassword = false; // Reset password visibility
       }
     });
+  }
+
+  togglePasswordVisibility() {
+    this.showPassword = !this.showPassword;
   }
 
   private resetNewUser() {

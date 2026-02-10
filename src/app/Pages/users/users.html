@@ -3,7 +3,6 @@
     <header class="users-header">
       <div class="title-block">
         <h1 class="page-title">
-          <span class="emoji">👥</span>
           Gestión de Usuarios Portal
         </h1>
         <p class="page-subtitle">
@@ -195,15 +194,25 @@
             />
           </label>
 
-          <label>
+          <label class="password-field">
             <span>Contraseña</span>
-            <input 
-              type="password" 
-              [(ngModel)]="newUser.password" 
-              placeholder="Contraseña del usuario"
-              autocomplete="current-password"
-              name="password"
-            />
+            <div class="password-input-wrapper">
+              <input 
+                [type]="showPassword ? 'text' : 'password'" 
+                [(ngModel)]="newUser.password" 
+                placeholder="Contraseña del usuario"
+                autocomplete="current-password"
+                name="password"
+              />
+              <button 
+                type="button" 
+                class="toggle-password-btn" 
+                (click)="togglePasswordVisibility()"
+                [title]="showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'"
+              >
+                {{ showPassword ? '👁️' : '👁️‍🗨️' }}
+              </button>
+            </div>
           </label>
 
           <label>

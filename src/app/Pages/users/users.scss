@@ -118,19 +118,44 @@
 
 .users-content {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 1.5rem;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1.25rem;
 }
 
 .user-card {
-  background: var(--color-surface-alt);
-  border-radius: var(--radius-md);
-  border: 1px solid rgba(148, 163, 184, 0.2);
-  padding: 1.6rem;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.9), rgba(248, 250, 252, 0.95));
+  border-radius: 16px;
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  padding: 1.75rem;
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
-  box-shadow: var(--shadow-sm);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  &:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 24px -4px rgba(0, 0, 0, 0.1), 0 6px 8px -2px rgba(0, 0, 0, 0.05);
+    border-color: rgba(99, 102, 241, 0.3);
+
+    &::before {
+      opacity: 1;
+    }
+  }
 
   header {
     display: flex;
@@ -278,6 +303,43 @@
       color: var(--color-muted);
     }
   }
+
+  .password-field {
+    position: relative;
+
+    .password-input-wrapper {
+      position: relative;
+      display: flex;
+      align-items: center;
+
+      input {
+        width: 100%;
+        padding-right: 2.75rem; // Espacio para el botón
+      }
+
+      .toggle-password-btn {
+        position: absolute;
+        right: 8px;
+        background: transparent;
+        border: none;
+        cursor: pointer;
+        font-size: 1.2rem;
+        padding: 0.25rem 0.5rem;
+        border-radius: 6px;
+        transition: all 0.2s ease;
+        opacity: 0.6;
+
+        &:hover {
+          opacity: 1;
+          background: rgba(99, 102, 241, 0.1);
+        }
+
+        &:active {
+          transform: scale(0.95);
+        }
+      }
+    }
+  }
 }
 
 .form-actions {
@@ -365,7 +427,7 @@
   font-size: 1.1rem;
 }
 
-// Estilos para AUTO-LOGIN (simplificado)
+// Estilos para AUTO-LOGIN (rediseñado - ya no naranja)
 .auto-login-section {
   grid-column: 1 / -1;
   margin: 1rem 0 0.5rem 0;
@@ -373,29 +435,47 @@
 
 .auto-login-btn {
   width: 100%;
-  background: linear-gradient(135deg, #f59e0b, #d97706);
+  background: linear-gradient(135deg, #3b82f6 0%, #6366f1 50%, #8b5cf6 100%);
   color: white;
   border: none;
   border-radius: 12px;
-  padding: 1rem;
-  font-size: 1rem;
+  padding: 0.95rem 1.25rem;
+  font-size: 0.95rem;
   font-weight: 600;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 0.6rem;
   cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 14px 0 rgba(59, 130, 246, 0.25);
+  position: relative;
+  overflow: hidden;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    transition: left 0.5s ease;
+  }
 
   &:hover:not(:disabled) {
-    background: linear-gradient(135deg, #d97706, #b45309);
+    background: linear-gradient(135deg, #2563eb 0%, #4f46e5 50%, #7c3aed 100%);
     transform: translateY(-2px);
-    box-shadow: 0 8px 20px rgba(245, 158, 11, 0.4);
+    box-shadow: 0 8px 24px 0 rgba(59, 130, 246, 0.35);
+
+    &::before {
+      left: 100%;
+    }
   }
 
   &:active:not(:disabled) {
     transform: translateY(0);
+    box-shadow: 0 4px 14px 0 rgba(59, 130, 246, 0.25);
   }
 
   &:disabled {
@@ -405,7 +485,7 @@
   }
 
   .emoji {
-    font-size: 1.2rem;
+    font-size: 1.15rem;
   }
 }
 

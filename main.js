@@ -774,131 +774,111 @@ function autoLogin() {
   }
 }
 
-// Intentar login cuando la página cargue
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => setTimeout(autoLogin, 1000));
-} else {
-  setTimeout(autoLogin, 1000);
-}`;
+setTimeout(autoLogin, 1000);
+`;
     } else if (loginData.user.environment === 'pre') {
-      // Script para PRE/DEV - más robusto con múltiples selectores
+      // Script para PRE/DEV - usar intervalo para detectar cuando Angular termine de cargar
       autoScript = `
 let intentos = 0;
-const maxIntentos = 20; // 10 segundos de reintentos
+const maxIntentos = 40; // 20 segundos
+
+function debugDOM() {
+  console.log('🔍 [DEBUG] Analizando estructura de la página...');
+  const allInputs = document.querySelectorAll('input');
+  console.log('📋 [DEBUG] Total de inputs:', allInputs.length);
+  
+  allInputs.forEach((input, index) => {
+    if (input.offsetParent !== null) { // Solo inputs visibles
+      console.log('Input visible ' + index + ':', {
+        type: input.type,
+        name: input.name,
+        id: input.id,
+        placeholder: input.placeholder
+      });
+    }
+  });
+}
 
 function autoLogin() {
   intentos++;
-  console.log('🔍 [DEV/PRE] Intento ' + intentos + '/' + maxIntentos + ' - Buscando campos de login...');
+  console.log('🔍 [DEV/PRE] Intento ' + intentos + '/' + maxIntentos);
   
-  // Probar múltiples selectores para cada campo
-  const grupoSelectors = [
-    '#txt_group input',
-    'input[name="grupoEmpresarial"]',
-    'input[placeholder*="Grupo"]',
-    'input[placeholder*="grupo"]',
-    'input[id*="group"]',
-    'input[id*="grupo"]'
-  ];
+  if (intentos === 3) {
+    debugDOM();
+  }
   
-  const userSelectors = [
-    '#txt_usuario input',
-    'input[name="usuario"]',
-    'input[name="username"]',
-    'input[placeholder*="Usuario"]',
-    'input[placeholder*="usuario"]',
-    'input[id*="usuario"]',
-    'input[id*="user"]'
-  ];
+  // Esperar a que Angular termine de renderizar
+  const appRoot = document.querySelector('app-root');
+  if (!appRoot || !appRoot.children.length) {
+    console.log('⏳ Esperando que Angular cargue...');
+    if (intentos < maxIntentos) {
+      setTimeout(autoLogin, 500);
+    }
+    return;
+  }
   
-  const passwordSelectors = [
-    '#txt_pass input',
-    'input[name="password"]',
-    'input[name="contrasena"]',
-    'input[type="password"]',
-    'input[placeholder*="Contraseña"]',
-    'input[placeholder*="contraseña"]',
-    'input[id*="pass"]'
-  ];
+  // Buscar todos los inputs visibles de tipo texto y password
+  const textInputs = Array.from(document.querySelectorAll('input[type="text"]')).filter(i => i.offsetParent !== null);
+  const passInputs = Array.from(document.querySelectorAll('input[type="password"]')).filter(i => i.offsetParent !== null);
+  
+  console.log('📋 Inputs texto visibles:', textInputs.length, 'Password:', passInputs.length);
   
   let grupoField = null;
   let userField = null;
-  let passwordField = null;
+  let passwordField = passInputs[0] || null;
   
-  // Buscar campo de grupo empresarial
-  for (let selector of grupoSelectors) {
-    try {
-      grupoField = document.querySelector(selector);
-      if (grupoField) {
-        console.log('✅ [DEV/PRE] Campo grupo encontrado con:', selector);
-        break;
-      }
-    } catch (e) {}
+  // Intentar identificar campos por orden (normalmente: grupo, usuario, password)
+  if (textInputs.length >= 2) {
+    grupoField = textInputs[0];
+    userField = textInputs[1];
+  } else if (textInputs.length === 1) {
+    userField = textInputs[0];
   }
   
-  // Buscar campo de usuario
-  for (let selector of userSelectors) {
-    try {
-      userField = document.querySelector(selector);
-      if (userField) {
-        console.log('✅ [DEV/PRE] Campo usuario encontrado con:', selector);
-        break;
-      }
-    } catch (e) {}
-  }
-  
-  // Buscar campo de contraseña
-  for (let selector of passwordSelectors) {
-    try {
-      passwordField = document.querySelector(selector);
-      if (passwordField) {
-        console.log('✅ [DEV/PRE] Campo password encontrado con:', selector);
-        break;
-      }
-    } catch (e) {}
-  }
-
+  // Si encontramos los campos, rellenar
   if (grupoField && userField && passwordField) {
-    console.log('✅ [DEV/PRE] Todos los campos encontrados, rellenando...');
+    console.log('✅ [DEV/PRE] Campos encontrados, rellenando...');
     
-    // Rellenar campos
-    grupoField.value = '${loginData.user.companyID}';
-    userField.value = '${loginData.user.username}';
-    passwordField.value = '${loginData.user.password}';
-    
-    // Disparar todos los eventos posibles para que se registren los cambios
-    [grupoField, userField, passwordField].forEach(field => {
-      field.dispatchEvent(new Event('input', { bubbles: true }));
+    // Función auxiliar para rellenar un campo
+    function fillField(field, value, name) {
+      field.focus();
+      field.click();
+      field.value = '';
+      
+      // Simular escritura carácter por carácter
+      for (let i = 0; i < value.length; i++) {
+        field.value = value.substring(0, i + 1);
+        field.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+      
       field.dispatchEvent(new Event('change', { bubbles: true }));
       field.dispatchEvent(new Event('blur', { bubbles: true }));
-      field.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true }));
-      field.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true }));
-    });
+      console.log('  ✓', name, 'rellenado');
+    }
     
-    console.log('✅ [DEV/PRE] Campos rellenados automáticamente para ${loginData.user.name}');
-    console.log('📋 Valores:', {
-      grupo: grupoField.value,
-      usuario: userField.value,
-      password: '***'
-    });
+    fillField(grupoField, '${loginData.user.companyID}', 'Grupo');
+    setTimeout(() => {
+      fillField(userField, '${loginData.user.username}', 'Usuario');
+      setTimeout(() => {
+        fillField(passwordField, '${loginData.user.password}', 'Password');
+        console.log('✅ [DEV/PRE] AUTO-LOGIN COMPLETADO para ${loginData.user.name}');
+      }, 300);
+    }, 300);
+    
   } else {
-    console.log('⏳ [DEV/PRE] Campos no disponibles aún...');
-    console.log('   Grupo:', !!grupoField, 'Usuario:', !!userField, 'Password:', !!passwordField);
-    
+    console.log('⏳ [DEV/PRE] Campos no encontrados:', {grupo: !!grupoField, user: !!userField, pass: !!passwordField});
     if (intentos < maxIntentos) {
       setTimeout(autoLogin, 500);
     } else {
-      console.error('❌ [DEV/PRE] No se encontraron los campos después de ' + maxIntentos + ' intentos');
-      console.log('💡 Revisa la consola para ver la estructura de la página');
+      console.error('❌ Timeout esperando campos');
+      debugDOM();
     }
   }
 }
 
-// Intentar login cuando la página cargue
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => setTimeout(autoLogin, 1500));
-} else {
-  setTimeout(autoLogin, 1500);
-}`;
+// Esperar a que la página cargue completamente
+setTimeout(autoLogin, 2000);
+`;
     }
     
     // Crear HTML temporal que redirige e inyecta el script
