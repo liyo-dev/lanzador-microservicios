@@ -23,183 +23,209 @@
     </header>
 
     <div class="environment-tabs">
-      <button
-        *ngFor="let env of environments"
-        class="env-tab"
-        [class.active]="selectedEnvironment === env.key"
-        (click)="switchEnvironment(env.key)"
-        [attr.data-env]="env.key"
-      >
-        <span class="icon">{{ env.icon }}</span>
-        <span class="name">{{ env.name }}</span>
-        <span class="count">{{ getUserCountByEnvironment(env.key) }}</span>
-      </button>
+      @for (env of environments; track env.key) {
+        <button
+          class="env-tab"
+          [class.active]="selectedEnvironment === env.key"
+          (click)="switchEnvironment(env.key)"
+          [attr.data-env]="env.key"
+        >
+          <span class="icon">{{ env.icon }}</span>
+          <span class="name">{{ env.name }}</span>
+          <span class="count">{{ getUserCountByEnvironment(env.key) }}</span>
+        </button>
+      }
     </div>
 
-    <div class="sub-environment-switcher" *ngIf="selectedEnvironment === 'local-dev'">
-      <span class="label">Vista del portal:</span>
-      <button
-        class="sub-env"
-        [class.active]="selectedSubEnvironment === 'local'"
-        (click)="switchSubEnvironment('local')"
-      >
-        🏠 Local
-      </button>
-      <button
-        class="sub-env"
-        [class.active]="selectedSubEnvironment === 'dev'"
-        (click)="switchSubEnvironment('dev')"
-      >
-        🔧 Desarrollo
-      </button>
-    </div>
+    @if (selectedEnvironment === 'local-dev') {
+      <div class="sub-environment-switcher">
+        <span class="label">Vista del portal:</span>
+        <button
+          class="sub-env"
+          [class.active]="selectedSubEnvironment === 'local'"
+          (click)="switchSubEnvironment('local')"
+        >
+          🏠 Local
+        </button>
+        <button
+          class="sub-env"
+          [class.active]="selectedSubEnvironment === 'dev'"
+          (click)="switchSubEnvironment('dev')"
+        >
+          🔧 Desarrollo
+        </button>
+      </div>
+    }
 
-    <section class="users-content" *ngIf="getUsersByEnvironment().length > 0">
-      <article class="user-card" *ngFor="let user of getUsersByEnvironment()" [attr.data-user-id]="user.id" [attr.data-env]="user.environment">
-        <header>
-          <div>
-            <h3>{{ user.name }}</h3>
-            <span class="env-badge" [attr.data-env]="user.environment">
-              <ng-container *ngIf="user.environment === 'local-dev'">🏠🔧 LOCAL/DEV</ng-container>
-              <ng-container *ngIf="user.environment === 'pre'">🧪 PRE</ng-container>
-            </span>
-          </div>
-          <div class="card-actions">
-            <button class="ghost-btn" (click)="editUser(user)" title="Editar usuario">✏️</button>
-            <button class="ghost-btn danger" (click)="deleteUser(user.id)" title="Eliminar usuario">🗑️</button>
-          </div>
-        </header>
+    @if (getUsersByEnvironment().length > 0) {
+      <section class="users-content">
+        @for (user of getUsersByEnvironment(); track user.id) {
+          <article class="user-card" [attr.data-user-id]="user.id" [attr.data-env]="user.environment">
+            <header>
+              <div>
+                <h3>{{ user.name }}</h3>
+                <span class="env-badge" [attr.data-env]="user.environment">
+                  @if (user.environment === 'local-dev') {
+                    🏠🔧 LOCAL/DEV
+                  }
+                  @if (user.environment === 'pre') {
+                    🧪 PRE
+                  }
+                </span>
+              </div>
+              <div class="card-actions">
+                <button class="ghost-btn" (click)="editUser(user)" title="Editar usuario">✏️</button>
+                <button class="ghost-btn danger" (click)="deleteUser(user.id)" title="Eliminar usuario">🗑️</button>
+              </div>
+            </header>
 
-        <dl>
-          <div>
-            <dt>Grupo Emp</dt>
-            <dd>{{ user.companyID || 'SCNP' }}</dd>
-          </div>
-          <div>
-            <dt>Usuario</dt>
-            <dd>{{ user.username }}</dd>
-          </div>
-          <div *ngIf="user.description">
-            <dt>Descripción</dt>
-            <dd>{{ user.description }}</dd>
-          </div>
-          <div *ngIf="user.environment === 'local-dev'" class="url-indicator">
-            <dt>URL Activa</dt>
-            <dd>
-              <ng-container *ngIf="selectedSubEnvironment === 'local'">🏠 Local (localhost:8080)</ng-container>
-              <ng-container *ngIf="selectedSubEnvironment === 'dev'">🔧 Dev (isban.dev.corp)</ng-container>
-            </dd>
-          </div>
-        </dl>
+            <dl>
+              <div>
+                <dt>Grupo Emp</dt>
+                <dd>{{ user.companyID || 'SCNP' }}</dd>
+              </div>
+              <div>
+                <dt>Usuario</dt>
+                <dd>{{ user.username }}</dd>
+              </div>
+              @if (user.description) {
+                <div>
+                  <dt>Descripción</dt>
+                  <dd>{{ user.description }}</dd>
+                </div>
+              }
+              @if (user.environment === 'local-dev') {
+                <div class="url-indicator">
+                  <dt>URL Activa</dt>
+                  <dd>
+                    @if (selectedSubEnvironment === 'local') {
+                      🏠 Local (localhost:8080)
+                    }
+                    @if (selectedSubEnvironment === 'dev') {
+                      🔧 Dev (isban.dev.corp)
+                    }
+                  </dd>
+                </div>
+              }
+            </dl>
 
-        <div class="portal-actions">
-          <!-- UN SOLO BOTÓN: Abrir Chrome + Copiar código -->
-          <button 
-            class="auto-login-btn" 
-            (click)="openChromeWithCode(user)"
-            [disabled]="isProcessing"
-            title="Abre Chrome con el portal y copia código JavaScript específico para este usuario"
-          >
-            <span class="emoji">{{ isProcessing ? '⏳' : '🚀' }}</span>
-            {{ isProcessing ? 'Abriendo...' : 'CHROME + F12' }}
+            <div class="portal-actions">
+              <!-- Login automático con Puppeteer -->
+              <button 
+                class="auto-login-btn" 
+                (click)="loginWithUser(user)"
+                title="Abre Chrome y completa el login automáticamente con Puppeteer"
+              >
+                <span class="emoji">🚀</span>
+                Login
+              </button>
+            </div>
+          </article>
+        }
+      </section>
+    }
+
+    @if (getUsersByEnvironment().length === 0) {
+      <div class="empty-state">
+        <div class="empty-card">
+          <div class="icon">👤</div>
+          <h3>No hay usuarios configurados para {{ getCurrentEnvironment().name }}</h3>
+          <p>Añade usuarios para acceder rápidamente al portal en el entorno {{ getCurrentEnvironment().name }}</p>
+          <button class="primary-btn" (click)="showAddUserForm()">
+            <span class="emoji">➕</span>
+            Añadir usuario
           </button>
         </div>
-      </article>
-    </section>
-
-    <div class="empty-state" *ngIf="getUsersByEnvironment().length === 0">
-      <div class="empty-card">
-        <div class="icon">👤</div>
-        <h3>No hay usuarios configurados para {{ getCurrentEnvironment().name }}</h3>
-        <p>Añade usuarios para acceder rápidamente al portal en el entorno {{ getCurrentEnvironment().name }}</p>
-        <button class="primary-btn" (click)="showAddUserForm()">
-          <span class="emoji">➕</span>
-          Añadir usuario
-        </button>
       </div>
-    </div>
+    }
   </section>
 
-  <div class="form-overlay" *ngIf="showAddForm" (click)="cancelForm()">
-    <div class="user-form" (click)="$event.stopPropagation()">
-      <header>
-        <h2>{{ editingUser ? 'Editar Usuario' : 'Nuevo Usuario' }}</h2>
-        <button class="ghost-btn" type="button" (click)="cancelForm()">✖️</button>
-      </header>
+  @if (showAddForm) {
+    <div class="form-overlay" (click)="cancelForm()">
+      <div class="user-form" (click)="$event.stopPropagation()">
+        <header>
+          <h2>{{ editingUser ? 'Editar Usuario' : 'Nuevo Usuario' }}</h2>
+          <button class="ghost-btn" type="button" (click)="cancelForm()">✖️</button>
+        </header>
 
-      <div class="form-grid">
-        <label>
-          <span>Entorno</span>
-          <select [(ngModel)]="newUser.environment" [disabled]="!!editingUser">
-            <option *ngFor="let env of environments" [value]="env.key">{{ env.icon }} {{ env.name }}</option>
-          </select>
-          <small *ngIf="!!editingUser">No se puede cambiar el entorno de un usuario existente.</small>
-        </label>
+        <div class="form-grid">
+          <label>
+            <span>Entorno</span>
+            <select [(ngModel)]="newUser.environment" [disabled]="!!editingUser">
+              @for (env of environments; track env.key) {
+                <option [value]="env.key">{{ env.icon }} {{ env.name }}</option>
+              }
+            </select>
+            @if (!!editingUser) {
+              <small>No se puede cambiar el entorno de un usuario existente.</small>
+            }
+          </label>
 
-        <label>
-          <span>Nombre del Usuario</span>
-          <input 
-            type="text" 
-            [(ngModel)]="newUser.name" 
-            placeholder="Ej: Test Raul"
-            autocomplete="name"
-            name="userDisplayName"
-          />
-        </label>
+          <label>
+            <span>Nombre del Usuario</span>
+            <input 
+              type="text" 
+              [(ngModel)]="newUser.name" 
+              placeholder="Ej: Test Raul"
+              autocomplete="name"
+              name="userDisplayName"
+            />
+          </label>
 
-        <label>
-          <span>Grupo Empresarial</span>
-          <input 
-            type="text" 
-            [(ngModel)]="newUser.companyID" 
-            placeholder="Ej: SCNP, TESTPORTAL"
-            autocomplete="organization"
-            name="companyID"
-          />
-          <small>Requerido para todos los entornos.</small>
-        </label>
+          <label>
+            <span>Grupo Empresarial</span>
+            <input 
+              type="text" 
+              [(ngModel)]="newUser.companyID" 
+              placeholder="Ej: SCNP, TESTPORTAL"
+              autocomplete="organization"
+              name="companyID"
+            />
+            <small>Requerido para todos los entornos.</small>
+          </label>
 
-        <label>
-          <span>Usuario</span>
-          <input 
-            type="text" 
-            [(ngModel)]="newUser.username" 
-            placeholder="Ej: Testraul"
-            autocomplete="username"
-            name="username"
-          />
-        </label>
+          <label>
+            <span>Usuario</span>
+            <input 
+              type="text" 
+              [(ngModel)]="newUser.username" 
+              placeholder="Ej: Testraul"
+              autocomplete="username"
+              name="username"
+            />
+          </label>
 
-        <label>
-          <span>Contraseña</span>
-          <input 
-            type="password" 
-            [(ngModel)]="newUser.password" 
-            placeholder="Contraseña del usuario"
-            autocomplete="current-password"
-            name="password"
-          />
-        </label>
+          <label>
+            <span>Contraseña</span>
+            <input 
+              type="password" 
+              [(ngModel)]="newUser.password" 
+              placeholder="Contraseña del usuario"
+              autocomplete="current-password"
+              name="password"
+            />
+          </label>
 
-        <label>
-          <span>Descripción (opcional)</span>
-          <input 
-            type="text" 
-            [(ngModel)]="newUser.description" 
-            placeholder="Descripción del usuario"
-            autocomplete="off"
-            name="description"
-          />
-        </label>
+          <label>
+            <span>Descripción (opcional)</span>
+            <input 
+              type="text" 
+              [(ngModel)]="newUser.description" 
+              placeholder="Descripción del usuario"
+              autocomplete="off"
+              name="description"
+            />
+          </label>
+        </div>
+
+        <footer class="form-actions">
+          <button class="ghost-btn" type="button" (click)="cancelForm()">Cancelar</button>
+          <button class="primary-btn" type="button" (click)="saveUser()">
+            <span class="emoji">💾</span>
+            {{ editingUser ? 'Actualizar' : 'Guardar' }}
+          </button>
+        </footer>
       </div>
-
-      <footer class="form-actions">
-        <button class="ghost-btn" type="button" (click)="cancelForm()">Cancelar</button>
-        <button class="primary-btn" type="button" (click)="saveUser()">
-          <span class="emoji">💾</span>
-          {{ editingUser ? 'Actualizar' : 'Guardar' }}
-        </button>
-      </footer>
     </div>
-  </div>
+  }
 </div>

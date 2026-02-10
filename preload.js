@@ -18,6 +18,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // === CHROME CON URL ESPECÍFICA ===
   openChromeWithUrl: (url) => ipcRenderer.invoke('open-chrome-with-url', url),
+  
+  // === AUTO-LOGIN CON PUPPETEER ===
+  openPortalAutoLogin: (loginData) => ipcRenderer.invoke('open-portal-auto-login', loginData),
 
   // === GIT POR MICRO ===
   getGitInfo: (payload) => ipcRenderer.invoke('git-info', payload),

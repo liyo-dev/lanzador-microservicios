@@ -1,4 +1,4 @@
-import { Component, AfterViewInit } from '@angular/core';
+import { Component, AfterViewInit, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { gsap } from 'gsap';
 import packageJson from '../../../../package.json';
@@ -10,9 +10,10 @@ import packageJson from '../../../../package.json';
   standalone: true,
 })
 export class Home implements AfterViewInit {
+  private router = inject(Router);
   version = packageJson.version;
 
-  constructor(private router: Router) {}
+  constructor() {}
 
   ngAfterViewInit(): void {
     const tl = gsap.timeline();

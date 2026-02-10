@@ -1,4 +1,4 @@
-import { Component, ViewChild, ElementRef, NgZone, OnDestroy, OnInit } from '@angular/core';
+import { Component, ViewChild, ElementRef, NgZone, OnDestroy, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { SpinnerComponent } from '../../Components/spinner/spinner';
@@ -40,6 +40,7 @@ interface GitDialog {
   styleUrls: ['./launcher.scss'],
 })
 export class Launcher implements OnInit, OnDestroy {
+  private router = inject(Router);
   config: any = {};
   selectedTab: 'angular' | 'spring' = 'angular';
   angularMicros: MicroService[] = [];
@@ -69,7 +70,7 @@ export class Launcher implements OnInit, OnDestroy {
 
   @ViewChild('logBox') logBox!: ElementRef;
 
-  constructor(private ngZone: NgZone, private router: Router) {
+  constructor(private ngZone: NgZone) {
     this.loadConfiguration();
     this.setupElectronListeners();
     this.setupLogCleanup();
@@ -925,10 +926,15 @@ export class Launcher implements OnInit, OnDestroy {
       count: this.logs.length 
     }];
 
+    // Usar un Set para evitar duplicados
+    const processedKeys = new Set<string>();
+
     // Agregar pestañas para microservicios que tienen logs
     const allMicros = [...this.angularMicros, ...this.springMicros];
     allMicros.forEach(micro => {
-      if (this.microLogs[micro.key] && this.microLogs[micro.key].length > 0) {
+      // Solo procesar si no lo hemos visto antes y tiene logs
+      if (!processedKeys.has(micro.key) && this.microLogs[micro.key] && this.microLogs[micro.key].length > 0) {
+        processedKeys.add(micro.key);
         tabs.push({
           key: micro.key,
           label: micro.label,

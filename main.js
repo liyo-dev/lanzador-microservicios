@@ -5,6 +5,7 @@ const kill = require("tree-kill");
 const path = require("path");
 const fs = require("fs");
 const os = require("os");
+const puppeteer = require("puppeteer-core");
 
 // ----------------------------------------------
 // DETECCIÓN DEV vs PROD
@@ -693,3 +694,310 @@ ipcMain.handle('save-users', (event, users) => {
   return { success: true };
 });
 
+// ===== AUTOMATIZACIÓN DE LOGIN CON PUPPETEER =====
+
+// Función para encontrar la ruta de Chrome instalado
+function findChromePath() {
+  const possiblePaths = [
+    'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+    'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+    path.join(process.env.LOCALAPPDATA, 'Google\\Chrome\\Application\\chrome.exe'),
+    path.join(process.env.PROGRAMFILES, 'Google\\Chrome\\Application\\chrome.exe'),
+    path.join(process.env['PROGRAMFILES(X86)'] || '', 'Google\\Chrome\\Application\\chrome.exe'),
+  ];
+
+  for (const chromePath of possiblePaths) {
+    if (chromePath && fs.existsSync(chromePath)) {
+      console.log('✅ Chrome encontrado en:', chromePath);
+      return chromePath;
+    }
+  }
+
+  console.error('❌ No se encontró Chrome instalado');
+  return null;
+}
+
+// Handler para abrir portal con auto-login usando Chrome directamente
+ipcMain.handle('open-portal-auto-login', async (event, loginData) => {
+  console.log('🚀 Iniciando auto-login (método directo Chrome)');
+  console.log('📦 Datos recibidos completos:', JSON.stringify(loginData, null, 2));
+  
+  if (!loginData || !loginData.url) {
+    console.error('❌ loginData.url es undefined o null');
+    return {
+      success: false,
+      error: 'URL no proporcionada en loginData'
+    };
+  }
+
+  const chromePath = findChromePath();
+  
+  if (!chromePath) {
+    return {
+      success: false,
+      error: 'No se encontró Chrome instalado en el sistema'
+    };
+  }
+
+  try {
+    console.log('🌐 Creando archivo HTML temporal con auto-login');
+    
+    // Generar script de auto-login según el entorno
+    let autoScript = '';
+    
+    if (loginData.user.environment === 'local-dev') {
+      // Script para LOCAL
+      autoScript = `
+function autoLogin() {
+  console.log('🔍 [LOCAL] Buscando campos de login...');
+  const companyField = document.getElementsByName('companyID')[0];
+  const userField = document.getElementsByName('usuario')[0];
+  const passwordField = document.getElementsByName('password')[0];
+
+  if (companyField && userField && passwordField) {
+    console.log('✅ [LOCAL] Campos encontrados, rellenando...');
+    companyField.value = '${loginData.user.companyID}';
+    userField.value = '${loginData.user.username}';
+    passwordField.value = '${loginData.user.password}';
+    
+    companyField.dispatchEvent(new Event('input', { bubbles: true }));
+    companyField.dispatchEvent(new Event('change', { bubbles: true }));
+    userField.dispatchEvent(new Event('input', { bubbles: true }));
+    userField.dispatchEvent(new Event('change', { bubbles: true }));
+    passwordField.dispatchEvent(new Event('input', { bubbles: true }));
+    passwordField.dispatchEvent(new Event('change', { bubbles: true }));
+    
+    console.log('✅ [LOCAL] Campos rellenados automáticamente para ${loginData.user.name}');
+  } else {
+    console.log('⏳ [LOCAL] Campos no disponibles aún, reintentando...');
+    setTimeout(autoLogin, 500);
+  }
+}
+
+// Intentar login cuando la página cargue
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => setTimeout(autoLogin, 1000));
+} else {
+  setTimeout(autoLogin, 1000);
+}`;
+    } else if (loginData.user.environment === 'pre') {
+      // Script para PRE/DEV - más robusto con múltiples selectores
+      autoScript = `
+let intentos = 0;
+const maxIntentos = 20; // 10 segundos de reintentos
+
+function autoLogin() {
+  intentos++;
+  console.log('🔍 [DEV/PRE] Intento ' + intentos + '/' + maxIntentos + ' - Buscando campos de login...');
+  
+  // Probar múltiples selectores para cada campo
+  const grupoSelectors = [
+    '#txt_group input',
+    'input[name="grupoEmpresarial"]',
+    'input[placeholder*="Grupo"]',
+    'input[placeholder*="grupo"]',
+    'input[id*="group"]',
+    'input[id*="grupo"]'
+  ];
+  
+  const userSelectors = [
+    '#txt_usuario input',
+    'input[name="usuario"]',
+    'input[name="username"]',
+    'input[placeholder*="Usuario"]',
+    'input[placeholder*="usuario"]',
+    'input[id*="usuario"]',
+    'input[id*="user"]'
+  ];
+  
+  const passwordSelectors = [
+    '#txt_pass input',
+    'input[name="password"]',
+    'input[name="contrasena"]',
+    'input[type="password"]',
+    'input[placeholder*="Contraseña"]',
+    'input[placeholder*="contraseña"]',
+    'input[id*="pass"]'
+  ];
+  
+  let grupoField = null;
+  let userField = null;
+  let passwordField = null;
+  
+  // Buscar campo de grupo empresarial
+  for (let selector of grupoSelectors) {
+    try {
+      grupoField = document.querySelector(selector);
+      if (grupoField) {
+        console.log('✅ [DEV/PRE] Campo grupo encontrado con:', selector);
+        break;
+      }
+    } catch (e) {}
+  }
+  
+  // Buscar campo de usuario
+  for (let selector of userSelectors) {
+    try {
+      userField = document.querySelector(selector);
+      if (userField) {
+        console.log('✅ [DEV/PRE] Campo usuario encontrado con:', selector);
+        break;
+      }
+    } catch (e) {}
+  }
+  
+  // Buscar campo de contraseña
+  for (let selector of passwordSelectors) {
+    try {
+      passwordField = document.querySelector(selector);
+      if (passwordField) {
+        console.log('✅ [DEV/PRE] Campo password encontrado con:', selector);
+        break;
+      }
+    } catch (e) {}
+  }
+
+  if (grupoField && userField && passwordField) {
+    console.log('✅ [DEV/PRE] Todos los campos encontrados, rellenando...');
+    
+    // Rellenar campos
+    grupoField.value = '${loginData.user.companyID}';
+    userField.value = '${loginData.user.username}';
+    passwordField.value = '${loginData.user.password}';
+    
+    // Disparar todos los eventos posibles para que se registren los cambios
+    [grupoField, userField, passwordField].forEach(field => {
+      field.dispatchEvent(new Event('input', { bubbles: true }));
+      field.dispatchEvent(new Event('change', { bubbles: true }));
+      field.dispatchEvent(new Event('blur', { bubbles: true }));
+      field.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true }));
+      field.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true }));
+    });
+    
+    console.log('✅ [DEV/PRE] Campos rellenados automáticamente para ${loginData.user.name}');
+    console.log('📋 Valores:', {
+      grupo: grupoField.value,
+      usuario: userField.value,
+      password: '***'
+    });
+  } else {
+    console.log('⏳ [DEV/PRE] Campos no disponibles aún...');
+    console.log('   Grupo:', !!grupoField, 'Usuario:', !!userField, 'Password:', !!passwordField);
+    
+    if (intentos < maxIntentos) {
+      setTimeout(autoLogin, 500);
+    } else {
+      console.error('❌ [DEV/PRE] No se encontraron los campos después de ' + maxIntentos + ' intentos');
+      console.log('💡 Revisa la consola para ver la estructura de la página');
+    }
+  }
+}
+
+// Intentar login cuando la página cargue
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => setTimeout(autoLogin, 1500));
+} else {
+  setTimeout(autoLogin, 1500);
+}`;
+    }
+    
+    // Crear HTML temporal que redirige e inyecta el script
+    const tempHtmlContent = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Auto-Login - ${loginData.user.name}</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+    .loader {
+      text-align: center;
+    }
+    .spinner {
+      border: 4px solid rgba(255,255,255,0.3);
+      border-top: 4px solid white;
+      border-radius: 50%;
+      width: 50px;
+      height: 50px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 20px;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <div class="loader">
+    <div class="spinner"></div>
+    <h2>🚀 Cargando portal...</h2>
+    <p>Preparando auto-login para ${loginData.user.name}</p>
+  </div>
+  
+  <script>
+    // Redirigir inmediatamente al portal
+    setTimeout(() => {
+      window.location.href = '${loginData.url}';
+    }, 500);
+    
+    // Inyectar script de auto-login cuando se cargue el portal
+    window.addEventListener('load', () => {
+      ${autoScript}
+    });
+  </script>
+</body>
+</html>`;
+
+    // Guardar el HTML temporal
+    const tempDir = app.getPath('temp');
+    const tempHtmlPath = path.join(tempDir, `autologin-${Date.now()}.html`);
+    
+    fs.writeFileSync(tempHtmlPath, tempHtmlContent, 'utf-8');
+    console.log('📄 Archivo temporal creado:', tempHtmlPath);
+    
+    // Abrir Chrome con el archivo temporal
+    console.log('🌐 Abriendo Chrome con auto-login...');
+    const { spawn } = require('child_process');
+    spawn(chromePath, [tempHtmlPath], {
+      detached: true,
+      stdio: 'ignore'
+    }).unref();
+    
+    // Limpiar el archivo temporal después de 10 segundos
+    setTimeout(() => {
+      try {
+        if (fs.existsSync(tempHtmlPath)) {
+          fs.unlinkSync(tempHtmlPath);
+          console.log('🗑️ Archivo temporal eliminado');
+        }
+      } catch (e) {
+        console.warn('⚠️ No se pudo eliminar archivo temporal:', e.message);
+      }
+    }, 10000);
+    
+    console.log('✅ Chrome abierto correctamente con auto-login');
+    
+    return {
+      success: true,
+      message: 'Chrome abierto con auto-login automático',
+      userName: loginData.user.name,
+      environment: loginData.user.environment
+    };
+
+  } catch (error) {
+    console.error('❌ Error abriendo Chrome:', error);
+    return {
+      success: false,
+      error: error.message || 'Error desconocido al abrir Chrome'
+    };
+  }
+});
