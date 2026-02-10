@@ -224,15 +224,15 @@
       <div class="logs-header">
         <div>
           <h3>Logs recientes</h3>
-          @if (logs.length > 0) {
-            <small>{{ logs.length }} entradas | Límite: {{ MAX_LOGS }}</small>
+          @if (getActiveLogs().length > 0) {
+            <small>{{ getActiveLogs().length }} entradas | Límite: {{ MAX_LOGS }}</small>
           }
         </div>
         <div class="logs-actions">
           <button class="ghost-btn" (click)="toggleLogs()">
             {{ showLogs ? 'Ocultar logs' : 'Mostrar logs' }}
           </button>
-          @if (showLogs && logs.length > 1) {
+          @if (showLogs && getActiveLogs().length > 1) {
             <button class="danger-btn" (click)="clearLogs()" title="Limpiar logs manualmente">
               🗑️ Limpiar
             </button>
@@ -241,9 +241,26 @@
       </div>
 
       @if (showLogs) {
+        <!-- Pestañas de logs -->
+        <div class="log-tabs">
+          @for (tab of getLogTabs(); track tab.key) {
+            <button 
+              class="log-tab"
+              [class.active]="selectedLogTab === tab.key"
+              (click)="selectLogTab(tab.key)"
+            >
+              {{ tab.label }}
+              <span class="tab-badge">{{ tab.count }}</span>
+            </button>
+          }
+        </div>
+
         <div class="log-box" #logBox>
-          @for (log of logs; track $index) {
+          @for (log of getActiveLogs(); track $index) {
             <div class="log-line">{{ log }}</div>
+          }
+          @if (getActiveLogs().length === 0) {
+            <div class="log-line muted">No hay logs disponibles para esta pestaña</div>
           }
         </div>
       }

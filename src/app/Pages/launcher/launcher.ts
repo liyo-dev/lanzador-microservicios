@@ -46,6 +46,8 @@ export class Launcher implements OnInit, OnDestroy {
   springMicros: MicroService[] = [];
 
   logs: string[] = [];
+  microLogs: Record<string, string[]> = {}; // Logs separados por microservicio
+  selectedLogTab: string = 'all'; // 'all' o el key del microservicio
   loading = false;
   initialLoading = true;
   pendingGitOperations = 0;
@@ -552,11 +554,11 @@ export class Launcher implements OnInit, OnDestroy {
       }
 
       if (msg.status === 'starting' && !this.loading) {
-        this.pushLog(`[${type} ${msg.micro}] 🚀 Lanzando...`);
+        this.pushLog(`[${type} ${msg.micro}] 🚀 Lanzando...`, msg.micro);
       }
 
       if (msg.status === 'running') {
-        this.pushLog(`[${type} ${msg.micro}] ✅ Arrancado correctamente.`);
+        this.pushLog(`[${type} ${msg.micro}] ✅ Arrancado correctamente.`, msg.micro);
         
         // Solo desactivar el spinner si no hay más microservicios arrancando
         const hasStartingMicros = this.angularMicros.some(m => m.status === 'starting') || 
@@ -580,7 +582,7 @@ export class Launcher implements OnInit, OnDestroy {
       }
 
       if (msg.status === 'stopped') {
-        this.pushLog(`[${type} ${msg.micro}] 🛑 Detenido.`);
+        this.pushLog(`[${type} ${msg.micro}] 🛑 Detenido.`, msg.micro);
         
         // Solo desactivar el spinner si no hay más microservicios arrancando o parando
         const hasStartingMicros = this.angularMicros.some(m => m.status === 'starting') || 
@@ -594,14 +596,14 @@ export class Launcher implements OnInit, OnDestroy {
       }
 
       if (!msg.status) {
-        this.pushLog(`[${type} ${msg.micro}] ${msg.log}`);
+        this.pushLog(`[${type} ${msg.micro}] ${msg.log}`, msg.micro);
       }
 
       this.scrollToBottom();
     });
   }
 
-  pushLog(message: string) {
+  pushLog(message: string, microKey?: string) {
     // Agregar timestamp al mensaje
     const timestamp = new Date().toLocaleTimeString('es-ES', { 
       hour12: false, 
@@ -611,7 +613,21 @@ export class Launcher implements OnInit, OnDestroy {
     });
     const timestampedMessage = `[${timestamp}] ${message}`;
     
+    // Agregar al log general
     this.logs.push(timestampedMessage);
+    
+    // Si hay un microKey, agregar también al log específico
+    if (microKey) {
+      if (!this.microLogs[microKey]) {
+        this.microLogs[microKey] = [];
+      }
+      this.microLogs[microKey].push(timestampedMessage);
+      
+      // Limpiar logs viejos del microservicio también
+      if (this.microLogs[microKey].length > this.MAX_LOGS) {
+        this.microLogs[microKey] = this.microLogs[microKey].slice(-this.LOGS_TO_KEEP_AFTER_CLEAN);
+      }
+    }
     
     // Verificar si necesitamos limpiar logs inmediatamente
     if (this.logs.length > this.MAX_LOGS) {
@@ -832,16 +848,69 @@ export class Launcher implements OnInit, OnDestroy {
 
   // Método para limpiar logs manualmente
   clearLogs() {
-    const clearedCount = this.logs.length;
-    this.logs = [];
-    const timestamp = new Date().toLocaleTimeString('es-ES', { 
-      hour12: false, 
-      hour: '2-digit', 
-      minute: '2-digit', 
-      second: '2-digit' 
+    if (this.selectedLogTab === 'all') {
+      const clearedCount = this.logs.length;
+      this.logs = [];
+      // También limpiar todos los logs de microservicios
+      this.microLogs = {};
+      const timestamp = new Date().toLocaleTimeString('es-ES', { 
+        hour12: false, 
+        hour: '2-digit', 
+        minute: '2-digit', 
+        second: '2-digit' 
+      });
+      this.logs.push(`[${timestamp}] 🗑️ ${clearedCount} logs limpiados manualmente`);
+      console.log(`🗑️ Logs limpiados manualmente: ${clearedCount} logs eliminados`);
+    } else {
+      // Limpiar solo los logs del microservicio seleccionado
+      const clearedCount = this.microLogs[this.selectedLogTab]?.length || 0;
+      this.microLogs[this.selectedLogTab] = [];
+      const timestamp = new Date().toLocaleTimeString('es-ES', { 
+        hour12: false, 
+        hour: '2-digit', 
+        minute: '2-digit', 
+        second: '2-digit' 
+      });
+      this.microLogs[this.selectedLogTab].push(`[${timestamp}] 🗑️ ${clearedCount} logs limpiados manualmente`);
+      console.log(`🗑️ Logs de ${this.selectedLogTab} limpiados: ${clearedCount} logs eliminados`);
+    }
+  }
+
+  // Obtener los logs actualmente visibles
+  getActiveLogs(): string[] {
+    if (this.selectedLogTab === 'all') {
+      return this.logs;
+    }
+    return this.microLogs[this.selectedLogTab] || [];
+  }
+
+  // Obtener todas las pestañas de logs disponibles
+  getLogTabs(): Array<{ key: string; label: string; count: number }> {
+    const tabs = [{ 
+      key: 'all', 
+      label: 'Todos', 
+      count: this.logs.length 
+    }];
+
+    // Agregar pestañas para microservicios que tienen logs
+    const allMicros = [...this.angularMicros, ...this.springMicros];
+    allMicros.forEach(micro => {
+      if (this.microLogs[micro.key] && this.microLogs[micro.key].length > 0) {
+        tabs.push({
+          key: micro.key,
+          label: micro.label,
+          count: this.microLogs[micro.key].length
+        });
+      }
     });
-    this.logs.push(`[${timestamp}] 🗑️ ${clearedCount} logs limpiados manualmente`);
-    console.log(`🗑️ Logs limpiados manualmente: ${clearedCount} logs eliminados`);
+
+    return tabs;
+  }
+
+  // Cambiar la pestaña de logs activa
+  selectLogTab(tabKey: string) {
+    this.selectedLogTab = tabKey;
+    setTimeout(() => this.scrollToBottom(), 0);
   }
 
   // Limpiar timer al destruir el componente
