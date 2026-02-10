@@ -41,12 +41,7 @@ export class PortsComponent implements OnInit {
   // Puertos comunes para sugerencias
   commonPorts = [
     { port: '8080', name: 'Portal Local' },
-    { port: '8081', name: 'Microservicio común' },
-    { port: '9090', name: 'Spring Boot' },
     { port: '4200', name: 'Angular Dev' },
-    { port: '3000', name: 'Node/React' },
-    { port: '5432', name: 'PostgreSQL' },
-    { port: '27017', name: 'MongoDB' },
   ];
 
   ngOnInit() {
