@@ -889,93 +889,25 @@ setTimeout(autoLogin, 2000);
       environmentText = 'pre';
     }
     
-    // Crear HTML temporal que redirige e inyecta el script
+    // Crear HTML temporal simple que ejecuta el script y redirige
     const tempHtmlContent = `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Auto-Login - ${loginData.user.name}</title>
+  <meta http-equiv="refresh" content="1;url=${loginData.url}">
+  <title>Auto-Login</title>
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-      background: #ffffff;
-      color: #1e293b;
-    }
-    .loader {
-      text-align: center;
-      padding: 2rem;
-    }
-    .spinner {
-      width: 48px;
-      height: 48px;
-      margin: 0 auto 1.5rem;
-      border: 3px solid #e2e8f0;
-      border-top-color: #3b82f6;
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-    }
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
-    h2 {
-      font-size: 1.25rem;
-      font-weight: 600;
-      color: #334155;
-      margin-bottom: 0.5rem;
-    }
-    .environment {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5rem;
-      padding: 0.5rem 1rem;
-      background: #f1f5f9;
-      border-radius: 999px;
-      font-size: 0.95rem;
-      font-weight: 500;
-      color: #64748b;
-      margin-top: 1rem;
-    }
-    .env-badge {
-      display: inline-flex;
-      padding: 0.25rem 0.65rem;
-      background: #3b82f6;
-      color: white;
-      border-radius: 999px;
-      font-size: 0.85rem;
-      font-weight: 600;
-    }
+    body { margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; font-family: system-ui; background: #fff; color: #64748b; }
+    .spinner { width: 40px; height: 40px; margin: 0 auto 1rem; border: 3px solid #e2e8f0; border-top-color: #3b82f6; border-radius: 50%; animation: spin 0.6s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
   </style>
 </head>
 <body>
-  <div class="loader">
+  <div style="text-align: center;">
     <div class="spinner"></div>
-    <h2>Cargando portal</h2>
-    <div class="environment">
-      <span>Entorno:</span>
-      <span class="env-badge">${environmentText}</span>
-    </div>
+    <div>Cargando ${environmentText}...</div>
   </div>
-  
-  <script>
-    // Redirigir inmediatamente al portal
-    setTimeout(() => {
-      window.location.href = '${loginData.url}';
-    }, 500);
-    
-    // Inyectar script de auto-login cuando se cargue el portal
-    window.addEventListener('load', () => {
-      ${autoScript}
-    });
-  </script>
+  <script>${autoScript}</script>
 </body>
 </html>`;
 
@@ -984,39 +916,38 @@ setTimeout(autoLogin, 2000);
     const tempHtmlPath = path.join(tempDir, `autologin-${Date.now()}.html`);
     
     fs.writeFileSync(tempHtmlPath, tempHtmlContent, 'utf-8');
-    console.log('📄 Archivo temporal creado:', tempHtmlPath);
+    console.log('Archivo temporal creado:', tempHtmlPath);
     
     // Abrir Chrome con el archivo temporal
-    console.log('🌐 Abriendo Chrome con auto-login...');
     const { spawn } = require('child_process');
     spawn(chromePath, [tempHtmlPath], {
       detached: true,
       stdio: 'ignore'
     }).unref();
     
-    // Limpiar el archivo temporal después de 10 segundos
+    // Limpiar el archivo temporal despues de 15 segundos
     setTimeout(() => {
       try {
         if (fs.existsSync(tempHtmlPath)) {
           fs.unlinkSync(tempHtmlPath);
-          console.log('🗑️ Archivo temporal eliminado');
+          console.log('Archivo temporal eliminado');
         }
       } catch (e) {
-        console.warn('⚠️ No se pudo eliminar archivo temporal:', e.message);
+        console.warn('No se pudo eliminar archivo temporal:', e.message);
       }
-    }, 10000);
-    
-    console.log('✅ Chrome abierto correctamente con auto-login');
+    }, 15000);
+
+    console.log('Chrome abierto correctamente');
     
     return {
       success: true,
-      message: 'Chrome abierto con auto-login automático',
+      message: 'Chrome abierto con auto-login',
       userName: loginData.user.name,
       environment: loginData.user.environment
     };
 
   } catch (error) {
-    console.error('❌ Error abriendo Chrome:', error);
+    console.error('Error abriendo Chrome:', error);
     return {
       success: false,
       error: error.message || 'Error desconocido al abrir Chrome'

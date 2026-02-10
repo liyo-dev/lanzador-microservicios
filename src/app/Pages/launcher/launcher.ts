@@ -80,6 +80,14 @@ export class Launcher implements OnInit, OnDestroy {
     this.showSuccessMessage = false;
     this.loading = false;
     this.initialLoading = true;
+    
+    // Timeout de seguridad: ocultar spinner después de 5 segundos máximo
+    setTimeout(() => {
+      if (this.initialLoading) {
+        console.warn('⚠️ Timeout de carga inicial alcanzado, forzando ocultamiento del spinner');
+        this.initialLoading = false;
+      }
+    }, 5000);
   }
 
   private loadConfiguration() {
@@ -89,6 +97,10 @@ export class Launcher implements OnInit, OnDestroy {
       // Cargar el último estado guardado sin verificar puertos
       this.loadLastStatus();
       this.refreshAllGitInfo();
+    }).catch((error: any) => {
+      console.error('❌ Error cargando configuración:', error);
+      // Asegurar que se oculte el spinner incluso si hay error
+      this.initialLoading = false;
     });
   }
 
@@ -330,46 +342,50 @@ export class Launcher implements OnInit, OnDestroy {
       error: undefined,
     };
 
-    (window as any).electronAPI
-      .getGitInfo({ path })
-      .then((result: any) => {
-        this.ngZone.run(() => {
-          if (result.success) {
+    // Ejecutar operaciones Git FUERA de Angular Zone para no bloquear el spinner
+    this.ngZone.runOutsideAngular(() => {
+      (window as any).electronAPI
+        .getGitInfo({ path })
+        .then((result: any) => {
+          // Solo entrar a Angular Zone para actualizar la UI con el resultado
+          this.ngZone.run(() => {
+            if (result.success) {
+              this.gitState[key] = {
+                branch: result.branch,
+                branches: result.branches,
+                hasChanges: result.hasChanges,
+                loading: false,
+              };
+              this.gitSelections[key] = result.branch;
+            } else {
+              this.gitState[key] = {
+                loading: false,
+                error:
+                  result.error ||
+                  'No se pudo leer la información de Git para este microservicio',
+              };
+            }
+            // Solo decrementar si estamos en carga inicial
+            if (this.initialLoading) {
+              this.pendingGitOperations--;
+              this.checkAndHideInitialLoading();
+            }
+          });
+        })
+        .catch((error: any) => {
+          this.ngZone.run(() => {
             this.gitState[key] = {
-              branch: result.branch,
-              branches: result.branches,
-              hasChanges: result.hasChanges,
               loading: false,
+              error: error?.message || 'No se pudo obtener la información de Git',
             };
-            this.gitSelections[key] = result.branch;
-          } else {
-            this.gitState[key] = {
-              loading: false,
-              error:
-                result.error ||
-                'No se pudo leer la información de Git para este microservicio',
-            };
-          }
-          // Solo decrementar si estamos en carga inicial
-          if (this.initialLoading) {
-            this.pendingGitOperations--;
-            this.checkAndHideInitialLoading();
-          }
+            // Solo decrementar si estamos en carga inicial
+            if (this.initialLoading) {
+              this.pendingGitOperations--;
+              this.checkAndHideInitialLoading();
+            }
+          });
         });
-      })
-      .catch((error: any) => {
-        this.ngZone.run(() => {
-          this.gitState[key] = {
-            loading: false,
-            error: error?.message || 'No se pudo obtener la información de Git',
-          };
-          // Solo decrementar si estamos en carga inicial
-          if (this.initialLoading) {
-            this.pendingGitOperations--;
-            this.checkAndHideInitialLoading();
-          }
-        });
-      });
+    });
   }
 
   private showEmptyState() {
@@ -447,77 +463,81 @@ export class Launcher implements OnInit, OnDestroy {
 
     this.gitStatuses[repoKey] = { tone: 'loading', message: startMessage };
 
-    const api = (window as any).electronAPI;
-    const actionPromise =
-      action === 'fetch'
-        ? api.gitFetch({ path })
-        : action === 'pull'
-        ? api.gitPull({ path, force })
-        : api.gitCheckout({ path, branch: selectedBranch, force });
+    // Ejecutar operaciones Git FUERA de Angular Zone para mantener el spinner fluido
+    this.ngZone.runOutsideAngular(async () => {
+      const api = (window as any).electronAPI;
+      const actionPromise =
+        action === 'fetch'
+          ? api.gitFetch({ path })
+          : action === 'pull'
+          ? api.gitPull({ path, force })
+          : api.gitCheckout({ path, branch: selectedBranch, force });
 
-    try {
-      const result = await actionPromise;
-      this.ngZone.run(() => {
-        this.gitActions[repoKey] = null;
+      try {
+        const result = await actionPromise;
+        // Solo volver a Angular Zone para actualizar la UI
+        this.ngZone.run(() => {
+          this.gitActions[repoKey] = null;
 
-        if (result?.success) {
-          const successLabel =
-            action === 'fetch'
-              ? 'Fetch completado'
-              : action === 'pull'
-              ? 'Pull realizado correctamente'
-              : `Cambio a rama ${selectedBranch}`;
+          if (result?.success) {
+            const successLabel =
+              action === 'fetch'
+                ? 'Fetch completado'
+                : action === 'pull'
+                ? 'Pull realizado correctamente'
+                : `Cambio a rama ${selectedBranch}`;
 
-          this.gitStatuses[repoKey] = {
-            tone: 'success',
-            message: successLabel,
-          };
-          this.pushLog(`[${typeLabel} ${micro.label}] ${successLabel}`);
-          this.refreshGitInfo(micro, type);
-        } else {
-          // Detectar si el error es por cambios locales
-          if (result?.error === 'HasLocalChanges') {
-            delete this.gitStatuses[repoKey];
-            
-            // Mostrar popup de confirmación
-            const confirmMessage = action === 'checkout'
-              ? `Tienes cambios locales en ${micro.label}. ¿Quieres descartarlos y cambiar a la rama ${selectedBranch}?`
-              : `Tienes cambios locales en ${micro.label}. ¿Quieres descartarlos y hacer pull?`;
-            
-            const confirmTitle = 'Cambios locales detectados';
-            
-            this.showGitDialog(
-              confirmTitle,
-              confirmMessage,
-              'warning',
-              action === 'checkout' ? 'confirm-checkout' : 'confirm-pull',
-              () => {
-                // Volver a ejecutar la acción con force=true
-                this.runGitAction(action, micro, type, true);
-              }
-            );
+            this.gitStatuses[repoKey] = {
+              tone: 'success',
+              message: successLabel,
+            };
+            this.pushLog(`[${typeLabel} ${micro.label}] ${successLabel}`);
+            this.refreshGitInfo(micro, type);
           } else {
-            const errorMessage = result?.error || result?.details || 'La operación no pudo completarse.';
-            this.showGitDialog(
-              'Git devolvió un error',
-              errorMessage,
-              'danger'
-            );
-            delete this.gitStatuses[repoKey];
+            // Detectar si el error es por cambios locales
+            if (result?.error === 'HasLocalChanges') {
+              delete this.gitStatuses[repoKey];
+              
+              // Mostrar popup de confirmación
+              const confirmMessage = action === 'checkout'
+                ? `Tienes cambios locales en ${micro.label}. ¿Quieres descartarlos y cambiar a la rama ${selectedBranch}?`
+                : `Tienes cambios locales en ${micro.label}. ¿Quieres descartarlos y hacer pull?`;
+              
+              const confirmTitle = 'Cambios locales detectados';
+              
+              this.showGitDialog(
+                confirmTitle,
+                confirmMessage,
+                'warning',
+                action === 'checkout' ? 'confirm-checkout' : 'confirm-pull',
+                () => {
+                  // Volver a ejecutar la acción con force=true
+                  this.runGitAction(action, micro, type, true);
+                }
+              );
+            } else {
+              const errorMessage = result?.error || result?.details || 'La operación no pudo completarse.';
+              this.showGitDialog(
+                'Git devolvió un error',
+                errorMessage,
+                'danger'
+              );
+              delete this.gitStatuses[repoKey];
+            }
           }
-        }
-      });
-    } catch (error: any) {
-      this.ngZone.run(() => {
-        this.gitActions[repoKey] = null;
-        this.showGitDialog(
-          'Git devolvió un error',
-          error?.message || 'Se produjo un error inesperado al ejecutar Git.',
-          'danger'
-        );
-        delete this.gitStatuses[repoKey];
-      });
-    }
+        });
+      } catch (error: any) {
+        this.ngZone.run(() => {
+          this.gitActions[repoKey] = null;
+          this.showGitDialog(
+            'Git devolvió un error',
+            error?.message || 'Se produjo un error inesperado al ejecutar Git.',
+            'danger'
+          );
+          delete this.gitStatuses[repoKey];
+        });
+      }
+    });
   }
 
   private setupElectronListeners() {
