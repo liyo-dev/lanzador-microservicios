@@ -27,7 +27,9 @@ interface GitDialog {
   open: boolean;
   title: string;
   message: string;
-  tone: 'danger' | 'success';
+  tone: 'danger' | 'success' | 'warning';
+  type?: 'error' | 'confirm-checkout' | 'confirm-pull';
+  confirmCallback?: () => void;
 }
 
 @Component({
@@ -379,12 +381,14 @@ export class Launcher implements OnInit, OnDestroy {
     }, 100);
   }
 
-  private showGitDialog(title: string, message: string, tone: 'danger' | 'success') {
+  private showGitDialog(title: string, message: string, tone: 'danger' | 'success' | 'warning', type: 'error' | 'confirm-checkout' | 'confirm-pull' = 'error', confirmCallback?: () => void) {
     this.gitDialog = {
       open: true,
       title,
       message,
       tone,
+      type,
+      confirmCallback,
     };
   }
 
@@ -392,10 +396,18 @@ export class Launcher implements OnInit, OnDestroy {
     this.gitDialog = null;
   }
 
+  confirmGitDialog() {
+    if (this.gitDialog?.confirmCallback) {
+      this.gitDialog.confirmCallback();
+    }
+    this.gitDialog = null;
+  }
+
   async runGitAction(
     action: 'fetch' | 'pull' | 'checkout',
     micro: MicroService,
-    type: 'angular' | 'spring'
+    type: 'angular' | 'spring',
+    force: boolean = false
   ) {
     const repoKey = this.repoKey(type, micro.key);
     const path = this.getPathFor(type, micro.key);
@@ -426,7 +438,7 @@ export class Launcher implements OnInit, OnDestroy {
       action === 'fetch'
         ? 'Actualizando referencias remotas...'
         : action === 'pull'
-        ? 'Ejecutando pull, comprobaremos si hay conflictos...'
+        ? 'Ejecutando pull...'
         : `Cambiando a la rama ${selectedBranch}...`;
 
     this.gitStatuses[repoKey] = { tone: 'loading', message: startMessage };
@@ -436,8 +448,8 @@ export class Launcher implements OnInit, OnDestroy {
       action === 'fetch'
         ? api.gitFetch({ path })
         : action === 'pull'
-        ? api.gitPull({ path })
-        : api.gitCheckout({ path, branch: selectedBranch });
+        ? api.gitPull({ path, force })
+        : api.gitCheckout({ path, branch: selectedBranch, force });
 
     try {
       const result = await actionPromise;
@@ -449,7 +461,7 @@ export class Launcher implements OnInit, OnDestroy {
             action === 'fetch'
               ? 'Fetch completado'
               : action === 'pull'
-              ? 'Pull realizado sin conflictos'
+              ? 'Pull realizado correctamente'
               : `Cambio a rama ${selectedBranch}`;
 
           this.gitStatuses[repoKey] = {
@@ -459,13 +471,36 @@ export class Launcher implements OnInit, OnDestroy {
           this.pushLog(`[${typeLabel} ${micro.label}] ${successLabel}`);
           this.refreshGitInfo(micro, type);
         } else {
-          const errorMessage = result?.error || result?.details || 'La operación no pudo completarse.';
-          this.showGitDialog(
-            'Git devolvió un error',
-            errorMessage,
-            'danger'
-          );
-          delete this.gitStatuses[repoKey];
+          // Detectar si el error es por cambios locales
+          if (result?.error === 'HasLocalChanges') {
+            delete this.gitStatuses[repoKey];
+            
+            // Mostrar popup de confirmación
+            const confirmMessage = action === 'checkout'
+              ? `Tienes cambios locales en ${micro.label}. ¿Quieres descartarlos y cambiar a la rama ${selectedBranch}?`
+              : `Tienes cambios locales en ${micro.label}. ¿Quieres descartarlos y hacer pull?`;
+            
+            const confirmTitle = 'Cambios locales detectados';
+            
+            this.showGitDialog(
+              confirmTitle,
+              confirmMessage,
+              'warning',
+              action === 'checkout' ? 'confirm-checkout' : 'confirm-pull',
+              () => {
+                // Volver a ejecutar la acción con force=true
+                this.runGitAction(action, micro, type, true);
+              }
+            );
+          } else {
+            const errorMessage = result?.error || result?.details || 'La operación no pudo completarse.';
+            this.showGitDialog(
+              'Git devolvió un error',
+              errorMessage,
+              'danger'
+            );
+            delete this.gitStatuses[repoKey];
+          }
         }
       });
     } catch (error: any) {

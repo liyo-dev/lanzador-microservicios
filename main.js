@@ -550,19 +550,29 @@ const getGitStatus = async (cwd) => {
   const validation = await ensureGitRepo(cwd);
   if (!validation.success) return validation;
 
-  const [branch, branchesRaw, changes] = await Promise.all([
+  const [branch, localBranches, remoteBranches, changes] = await Promise.all([
     runGitCommand("git rev-parse --abbrev-ref HEAD", cwd),
     runGitCommand('git branch --format="%(refname:short)"', cwd),
+    runGitCommand('git branch -r --format="%(refname:short)"', cwd),
     runGitCommand("git status --porcelain", cwd),
   ]);
 
   if (!branch.success) return branch;
-  if (!branchesRaw.success) return branchesRaw;
+  if (!localBranches.success) return localBranches;
+
+  // Combinar ramas locales y remotas
+  const localBranchList = localBranches.stdout.split(/\r?\n/).filter(Boolean);
+  const remoteBranchList = remoteBranches.success 
+    ? remoteBranches.stdout.split(/\r?\n/).filter(Boolean).map(b => b.replace(/^origin\//, ''))
+    : [];
+
+  // Unir y eliminar duplicados, manteniendo el orden: primero locales, luego remotas
+  const allBranches = [...new Set([...localBranchList, ...remoteBranchList])];
 
   return {
     success: true,
     branch: branch.stdout.trim(),
-    branches: branchesRaw.stdout.split(/\r?\n/).filter(Boolean),
+    branches: allBranches,
     hasChanges: !!changes.stdout?.trim(),
   };
 };
@@ -592,11 +602,30 @@ ipcMain.handle("git-fetch", async (event, data) => {
 
 ipcMain.handle("git-pull", async (event, data) => {
   const repoPath = data?.path;
+  const force = data?.force || false;
   const validation = await ensureGitRepo(repoPath);
   if (!validation.success) return validation;
 
   if (!acquireGitLock(repoPath)) {
     return { success: false, error: "Ya hay una operación Git en curso" };
+  }
+
+  // Si force es true, primero descartar cambios locales
+  if (force) {
+    await runGitCommand("git checkout .", repoPath);
+  }
+
+  // Verificar si hay cambios locales (solo si no se forzó)
+  if (!force) {
+    const status = await runGitCommand("git status --porcelain", repoPath);
+    if (status.success && status.stdout.trim()) {
+      releaseGitLock(repoPath);
+      return {
+        success: false,
+        error: "HasLocalChanges",
+        details: "Hay cambios locales sin commitear.",
+      };
+    }
   }
 
   const result = await runGitCommand("git pull", repoPath);
@@ -612,6 +641,7 @@ ipcMain.handle("git-pull", async (event, data) => {
 ipcMain.handle("git-checkout", async (event, data) => {
   const repoPath = data?.path;
   const branch = data?.branch;
+  const force = data?.force || false;
   const validation = await ensureGitRepo(repoPath);
   if (!validation.success) return validation;
 
@@ -619,13 +649,21 @@ ipcMain.handle("git-checkout", async (event, data) => {
     return { success: false, error: "Debes seleccionar una rama" };
   }
 
-  const status = await runGitCommand("git status --porcelain", repoPath);
-  if (status.success && status.stdout.trim()) {
-    return {
-      success: false,
-      error:
-        "Hay cambios locales sin commitear. Limpia o guarda los cambios antes de cambiar de rama.",
-    };
+  // Si force es true, primero descartar cambios locales
+  if (force) {
+    await runGitCommand("git checkout .", repoPath);
+  }
+
+  // Verificar si hay cambios locales (solo si no se forzó)
+  if (!force) {
+    const status = await runGitCommand("git status --porcelain", repoPath);
+    if (status.success && status.stdout.trim()) {
+      return {
+        success: false,
+        error: "HasLocalChanges",
+        details: "Hay cambios locales sin commitear.",
+      };
+    }
   }
 
   if (!acquireGitLock(repoPath)) {

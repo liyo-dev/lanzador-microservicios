@@ -189,7 +189,7 @@
 
                 @if (getGitState(selectedTab, micro.key).hasChanges && !getGitState(selectedTab, micro.key).error) {
                   <div class="git-hint">
-                    ⚠️ Tienes cambios locales. Continuaremos siempre que Git no devuelva conflictos.
+                    ⚠️ Tienes cambios locales. Se te pedirá confirmación antes de descartarlos.
                   </div>
                 }
 
@@ -252,13 +252,27 @@
 
   @if (gitDialog?.open) {
     <div class="git-dialog-backdrop">
-      <div class="git-dialog" [class.danger]="gitDialog?.tone === 'danger'" [class.success]="gitDialog?.tone === 'success'">
-        <div class="dialog-icon">{{ gitDialog?.tone === 'danger' ? '⚠️' : '✅' }}</div>
+      <div class="git-dialog" 
+           [class.danger]="gitDialog?.tone === 'danger'" 
+           [class.success]="gitDialog?.tone === 'success'"
+           [class.warning]="gitDialog?.tone === 'warning'">
+        <div class="dialog-icon">
+          {{ gitDialog?.tone === 'danger' ? '⚠️' : gitDialog?.tone === 'warning' ? '⚠️' : '✅' }}
+        </div>
         <div class="dialog-copy">
           <h4>{{ gitDialog?.title }}</h4>
           <p>{{ gitDialog?.message }}</p>
         </div>
-        <button class="primary-btn" (click)="closeGitDialog()">Entendido</button>
+        @if (gitDialog?.type === 'confirm-checkout' || gitDialog?.type === 'confirm-pull') {
+          <div class="dialog-actions">
+            <button class="ghost-btn" (click)="closeGitDialog()">Cancelar</button>
+            <button class="danger-btn" (click)="confirmGitDialog()">
+              Descartar cambios y continuar
+            </button>
+          </div>
+        } @else {
+          <button class="primary-btn" (click)="closeGitDialog()">Entendido</button>
+        }
       </div>
     </div>
   }

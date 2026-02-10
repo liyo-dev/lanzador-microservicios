@@ -58,8 +58,4 @@ export class Home implements AfterViewInit {
   goToLauncher() {
     this.router.navigate(['/launcher']);
   }
-
-  goToOffice() {
-    this.router.navigate(['/office']);
-  }
 }

@@ -716,6 +716,10 @@
   border-color: rgba(16, 185, 129, 0.4);
 }
 
+.git-dialog.warning {
+  border-color: rgba(251, 191, 36, 0.4);
+}
+
 .dialog-icon {
   font-size: 2rem;
 }
@@ -727,6 +731,14 @@
 .dialog-copy p {
   margin: 0;
   color: var(--color-muted);
+}
+
+.dialog-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+  margin-top: 0.5rem;
 }
 
 .primary-btn,
