@@ -1,0 +1,142 @@
+<div class="ports-page">
+  <section class="ports-shell app-surface">
+    <header class="ports-header">
+      <div class="title-block">
+        <h1 class="page-title">
+          🔌 Gestión de Puertos
+        </h1>
+        <p class="page-subtitle">
+          Encuentra y libera puertos ocupados en tu sistema
+        </p>
+      </div>
+
+      <div class="header-actions">
+        <button class="ghost-btn" (click)="goToHome()" title="Ir al inicio">🏠</button>
+        <button class="ghost-btn" (click)="goToLauncher()" title="Ir al launcher">🚀</button>
+        <button class="ghost-btn" (click)="goToUsers()" title="Usuarios Portal">👥</button>
+        <button class="ghost-btn" (click)="goToConfig()" title="Ir a configuración">⚙️</button>
+      </div>
+    </header>
+
+    <div class="search-section">
+      <div class="search-box">
+        <label for="portInput">
+          <span class="label-text">Puerto a buscar</span>
+          <div class="input-group">
+            <span class="input-prefix">:</span>
+            <input
+              id="portInput"
+              type="text"
+              [(ngModel)]="searchPort"
+              placeholder="Ej: 8081"
+              (keyup.enter)="searchProcesses()"
+              [disabled]="isSearching"
+            />
+            <button 
+              class="search-btn" 
+              (click)="searchProcesses()"
+              [disabled]="isSearching"
+            >
+              @if (isSearching) {
+                <span class="spinner">⏳</span>
+              } @else {
+                <span>🔍 Buscar</span>
+              }
+            </button>
+          </div>
+        </label>
+      </div>
+
+      <div class="common-ports">
+        <span class="helper-text">Puertos comunes:</span>
+        <div class="port-chips">
+          @for (common of commonPorts; track common.port) {
+            <button 
+              class="port-chip" 
+              (click)="setPort(common.port)"
+              [disabled]="isSearching"
+            >
+              <span class="port-number">:{{ common.port }}</span>
+              <span class="port-name">{{ common.name }}</span>
+            </button>
+          }
+        </div>
+      </div>
+    </div>
+
+    @if (errorMessage) {
+      <div class="message error-message">
+        {{ errorMessage }}
+      </div>
+    }
+
+    @if (successMessage) {
+      <div class="message success-message">
+        {{ successMessage }}
+      </div>
+    }
+
+    @if (processes.length > 0) {
+      <section class="results-section">
+        <h2 class="results-title">Procesos encontrados</h2>
+        
+        <div class="results-table">
+          <div class="table-header">
+            <div class="col-protocol">Protocolo</div>
+            <div class="col-address">Dirección</div>
+            <div class="col-state">Estado</div>
+            <div class="col-pid">PID</div>
+            <div class="col-action">Acción</div>
+          </div>
+
+          @for (process of processes; track process.pid) {
+            <div class="process-row" [attr.data-pid]="process.pid">
+              <div class="col-protocol">
+                <span class="protocol-badge">{{ process.protocol }}</span>
+              </div>
+              <div class="col-address">
+                <div class="address-info">
+                  <span class="address-label">Local:</span>
+                  <span class="address-value">{{ process.localAddress }}:{{ process.port }}</span>
+                </div>
+                @if (process.foreignAddress && process.foreignAddress !== '0.0.0.0:0' && process.foreignAddress !== '*:*') {
+                  <div class="address-info">
+                    <span class="address-label">Remoto:</span>
+                    <span class="address-value">{{ process.foreignAddress }}</span>
+                  </div>
+                }
+              </div>
+              <div class="col-state">
+                <span class="state-badge" [attr.data-state]="process.state">
+                  {{ process.state }}
+                </span>
+              </div>
+              <div class="col-pid">
+                <span class="pid-badge">{{ process.pid }}</span>
+              </div>
+              <div class="col-action">
+                <button 
+                  class="kill-btn" 
+                  (click)="killProcess(process.pid)"
+                  title="Terminar proceso"
+                >
+                  ⛔ Parar
+                </button>
+              </div>
+            </div>
+          }
+        </div>
+      </section>
+    }
+
+    @if (processes.length === 0 && !isSearching && !errorMessage && !successMessage) {
+      <div class="empty-state">
+        <div class="empty-card">
+          <div class="icon">🔍</div>
+          <h3>Introduce un puerto para buscar</h3>
+          <p>Escribe el número de puerto que quieres verificar o selecciona uno de los puertos comunes de arriba.</p>
+        </div>
+      </div>
+    }
+  </section>
+</div>

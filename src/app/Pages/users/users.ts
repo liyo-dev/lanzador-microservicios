@@ -864,6 +864,10 @@ Contraseña: ${user.password}
     this.router.navigate(['']);
   }
 
+  goToPorts() {
+    this.router.navigate(['/ports']);
+  }
+
   private showAutoLoginInstructions(script: string, userName: string, environment: string) {
     const envName = environment === 'local-dev' ? 'LOCAL' : environment.toUpperCase();
     

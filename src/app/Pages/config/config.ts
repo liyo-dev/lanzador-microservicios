@@ -1,4 +1,4 @@
-import { AfterViewInit, Component } from '@angular/core';
+import { AfterViewInit, Component, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -20,6 +20,8 @@ interface CustomMicroservice {
   styleUrls: ['./config.scss'],
 })
 export class ConfigComponent {
+  private router = inject(Router);
+  
   //#region Variables
   loading = true;
   guardadoOK = false;
@@ -55,7 +57,8 @@ export class ConfigComponent {
 
   selectedTab: 'angular' | 'spring' = 'angular';
   //#endregion
-  constructor(private router: Router) {
+  
+  constructor() {
     (window as any).electronAPI.getConfig().then((cfg: any) => {
       this.config = cfg;
       
@@ -187,6 +190,14 @@ export class ConfigComponent {
 
   goToHome() {
     this.router.navigate(['']);
+  }
+
+  goToUsers() {
+    this.router.navigate(['/users']);
+  }
+
+  goToPorts() {
+    this.router.navigate(['/ports']);
   }
 
   clear() {

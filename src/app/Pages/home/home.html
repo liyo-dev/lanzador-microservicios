@@ -32,6 +32,10 @@
             <span class="feature-icon">👥</span>
             <strong>Usuarios Portal:</strong> Administra credenciales de acceso organizadas por entorno para acceder directamente a los portales sin necesidad de recordar contraseñas.
           </li>
+          <li>
+            <span class="feature-icon">🔌</span>
+            <strong>Gestión de Puertos:</strong> Encuentra y libera puertos ocupados que puedan estar bloqueando el arranque de tus servicios.
+          </li>
         </ul>
       </div>
 
@@ -60,6 +64,15 @@
           <button class="btn" (click)="goToUsers()">
             <span>Gestionar usuarios</span>
             <span class="emoji">👥</span>
+          </button>
+        </article>
+
+        <article class="action-card">
+          <h3>Gestión de Puertos</h3>
+          <p>Encuentra y libera puertos ocupados. Identifica procesos que bloquean el arranque de servicios y termínalos fácilmente.</p>
+          <button class="btn" (click)="goToPorts()">
+            <span>Gestionar puertos</span>
+            <span class="emoji">🔌</span>
           </button>
         </article>
       </nav>

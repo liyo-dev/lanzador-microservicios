@@ -26,5 +26,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getGitInfo: (payload) => ipcRenderer.invoke('git-info', payload),
   gitFetch: (payload) => ipcRenderer.invoke('git-fetch', payload),
   gitPull: (payload) => ipcRenderer.invoke('git-pull', payload),
-  gitCheckout: (payload) => ipcRenderer.invoke('git-checkout', payload)
+  gitCheckout: (payload) => ipcRenderer.invoke('git-checkout', payload),
+
+  // === GESTIÓN DE PUERTOS ===
+  findProcessByPort: (port) => ipcRenderer.invoke('find-process-by-port', port),
+  killProcess: (pid) => ipcRenderer.invoke('kill-process', pid)
 });

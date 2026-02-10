@@ -851,6 +851,10 @@ export class Launcher implements OnInit, OnDestroy {
     this.router.navigate(['']);
   }
 
+  goToPorts() {
+    this.router.navigate(['/ports']);
+  }
+
   private setupLogCleanup() {
     // Limpiar logs antiguos al iniciar
     this.cleanOldLogs();

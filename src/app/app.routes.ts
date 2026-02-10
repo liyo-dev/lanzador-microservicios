@@ -3,6 +3,7 @@ import { ConfigComponent } from './Pages/config/config';
 import { Launcher } from './Pages/launcher/launcher';
 import { Home } from './Pages/home/home';
 import { UsersComponent } from './Pages/users/users';
+import { PortsComponent } from './Pages/ports/ports';
 // import { OfficeComponent } from './Pages/office/office';
 
 export const routes: Routes = [
@@ -10,6 +11,7 @@ export const routes: Routes = [
   { path: 'config', component: ConfigComponent },
   { path: 'launcher', component: Launcher },
   { path: 'users', component: UsersComponent },
+  { path: 'ports', component: PortsComponent },
   // { path: 'office', component: OfficeComponent },
   { path: '**', redirectTo: '' },
 ];

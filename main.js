@@ -881,6 +881,14 @@ setTimeout(autoLogin, 2000);
 `;
     }
     
+    // Determinar el texto del entorno para mostrar
+    let environmentText = '';
+    if (loginData.user.environment === 'local-dev') {
+      environmentText = loginData.url.includes('localhost') ? 'localhost' : 'dev';
+    } else if (loginData.user.environment === 'pre') {
+      environmentText = 'pre';
+    }
+    
     // Crear HTML temporal que redirige e inyecta el script
     const tempHtmlContent = `<!DOCTYPE html>
 <html>
@@ -888,39 +896,73 @@ setTimeout(autoLogin, 2000);
   <meta charset="UTF-8">
   <title>Auto-Login - ${loginData.user.name}</title>
   <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
     body {
-      font-family: Arial, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
       display: flex;
       justify-content: center;
       align-items: center;
       height: 100vh;
-      margin: 0;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
+      background: #ffffff;
+      color: #1e293b;
     }
     .loader {
       text-align: center;
+      padding: 2rem;
     }
     .spinner {
-      border: 4px solid rgba(255,255,255,0.3);
-      border-top: 4px solid white;
+      width: 48px;
+      height: 48px;
+      margin: 0 auto 1.5rem;
+      border: 3px solid #e2e8f0;
+      border-top-color: #3b82f6;
       border-radius: 50%;
-      width: 50px;
-      height: 50px;
-      animation: spin 1s linear infinite;
-      margin: 0 auto 20px;
+      animation: spin 0.8s linear infinite;
     }
     @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
+      to { transform: rotate(360deg); }
+    }
+    h2 {
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: #334155;
+      margin-bottom: 0.5rem;
+    }
+    .environment {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 1rem;
+      background: #f1f5f9;
+      border-radius: 999px;
+      font-size: 0.95rem;
+      font-weight: 500;
+      color: #64748b;
+      margin-top: 1rem;
+    }
+    .env-badge {
+      display: inline-flex;
+      padding: 0.25rem 0.65rem;
+      background: #3b82f6;
+      color: white;
+      border-radius: 999px;
+      font-size: 0.85rem;
+      font-weight: 600;
     }
   </style>
 </head>
 <body>
   <div class="loader">
     <div class="spinner"></div>
-    <h2>🚀 Cargando portal...</h2>
-    <p>Preparando auto-login para ${loginData.user.name}</p>
+    <h2>Cargando portal</h2>
+    <div class="environment">
+      <span>Entorno:</span>
+      <span class="env-badge">${environmentText}</span>
+    </div>
   </div>
   
   <script>
@@ -979,5 +1021,99 @@ setTimeout(autoLogin, 2000);
       success: false,
       error: error.message || 'Error desconocido al abrir Chrome'
     };
+  }
+});
+
+// ========================================
+// GESTIÓN DE PUERTOS
+// ========================================
+
+// Handler para buscar procesos por puerto
+ipcMain.handle('find-process-by-port', async (event, port) => {
+  try {
+    console.log(`🔍 Buscando procesos en puerto ${port}...`);
+    
+    const { exec } = require('child_process');
+    const util = require('util');
+    const execPromise = util.promisify(exec);
+    
+    // Ejecutar netstat para buscar el puerto
+    const { stdout, stderr } = await execPromise(`netstat -ano | findstr :${port}`);
+    
+    if (stderr) {
+      console.error('❌ Error en netstat:', stderr);
+      return { success: false, processes: [], error: stderr };
+    }
+    
+    // Parsear la salida de netstat
+    const lines = stdout.trim().split('\n');
+    const processes = [];
+    
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      
+      // Ejemplo de línea: TCP    0.0.0.0:8081           0.0.0.0:0              LISTENING       3128
+      const parts = line.trim().split(/\s+/);
+      
+      if (parts.length >= 5) {
+        const protocol = parts[0];
+        const localAddress = parts[1];
+        const foreignAddress = parts[2];
+        const state = parts[3];
+        const pid = parts[4];
+        
+        // Extraer puerto de la dirección local
+        const portMatch = localAddress.match(/:(\d+)$/);
+        if (portMatch) {
+          const foundPort = portMatch[1];
+          
+          // Solo añadir si coincide con el puerto buscado
+          if (foundPort === port) {
+            processes.push({
+              protocol,
+              localAddress: localAddress.split(':')[0],
+              port: foundPort,
+              foreignAddress,
+              state,
+              pid
+            });
+          }
+        }
+      }
+    }
+    
+    console.log(`✅ Encontrados ${processes.length} proceso(s) en puerto ${port}`);
+    return { success: true, processes };
+    
+  } catch (error) {
+    // Si no hay resultados, netstat devuelve error - esto es normal
+    if (error.code === 1) {
+      console.log(`✅ Puerto ${port} está libre`);
+      return { success: true, processes: [] };
+    }
+    
+    console.error('❌ Error buscando procesos:', error);
+    return { success: false, processes: [], error: error.message };
+  }
+});
+
+// Handler para terminar un proceso
+ipcMain.handle('kill-process', async (event, pid) => {
+  try {
+    console.log(`⛔ Terminando proceso ${pid}...`);
+    
+    const { exec } = require('child_process');
+    const util = require('util');
+    const execPromise = util.promisify(exec);
+    
+    // Ejecutar taskkill para terminar el proceso
+    await execPromise(`taskkill /pid ${pid} /F`);
+    
+    console.log(`✅ Proceso ${pid} terminado correctamente`);
+    return { success: true };
+    
+  } catch (error) {
+    console.error(`❌ Error terminando proceso ${pid}:`, error);
+    return { success: false, error: error.message };
   }
 });

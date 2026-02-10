@@ -124,8 +124,13 @@
   gap: 1.25rem;
   align-content: start;
 
+  // Grid que se adapta a 2x2 en pantallas grandes
   @media (min-width: 520px) {
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  @media (max-width: 519px) {
+    grid-template-columns: 1fr;
   }
 }
 
