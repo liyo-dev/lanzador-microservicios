@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, Input, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
 @Component({
@@ -6,19 +6,23 @@ import { CommonModule } from '@angular/common';
   standalone: true,
   imports: [CommonModule],
   template: `
-    <div class="spinner-overlay">
-      <div class="spinner-content">
-        <div class="spinner-container">
-          <div class="spinner">
-            <div class="spinner-ring"></div>
-            <div class="spinner-ring"></div>
-            <div class="spinner-ring"></div>
-          </div>
-        </div>
-        <p class="spinner-text">Procesando...</p>
+    <div class="floating-activity-indicator">
+      <div class="activity-pulse"></div>
+      <div class="activity-content">
+        <div class="activity-spinner"></div>
+        <span class="activity-text">{{ message }}</span>
       </div>
     </div>
   `,
   styleUrls: ['./spinner.scss']
 })
-export class SpinnerComponent {}
+export class SpinnerComponent implements OnInit {
+  @Input() message: string = 'Procesando...';
+
+  ngOnInit() {
+    // Mensaje por defecto si no se proporciona uno
+    if (!this.message) {
+      this.message = 'Procesando...';
+    }
+  }
+}

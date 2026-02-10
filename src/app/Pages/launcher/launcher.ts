@@ -49,6 +49,7 @@ export class Launcher implements OnInit, OnDestroy {
   microLogs: Record<string, string[]> = {}; // Logs separados por microservicio
   selectedLogTab: string = 'all'; // 'all' o el key del microservicio
   loading = false;
+  loadingMessage = 'Procesando microservicios...';
   initialLoading = true;
   pendingGitOperations = 0;
   showLogs = true;
@@ -578,6 +579,9 @@ export class Launcher implements OnInit, OnDestroy {
               );
             }
           }, 0);
+        } else {
+          // Actualizar mensaje con los microservicios que aún están arrancando
+          this.updateLoadingMessage();
         }
       }
 
@@ -592,6 +596,9 @@ export class Launcher implements OnInit, OnDestroy {
         
         if (!hasStartingMicros && !hasStoppingMicros) {
           this.loading = false;
+        } else {
+          // Actualizar mensaje con los microservicios que aún están parando
+          this.updateLoadingMessage();
         }
       }
 
@@ -646,6 +653,30 @@ export class Launcher implements OnInit, OnDestroy {
     }, 0);
   }
 
+  updateLoadingMessage() {
+    const startingMicros = [
+      ...this.angularMicros.filter(m => m.status === 'starting'),
+      ...this.springMicros.filter(m => m.status === 'starting')
+    ];
+    
+    const stoppingMicros = [
+      ...this.angularMicros.filter(m => m.status === 'stopping'),
+      ...this.springMicros.filter(m => m.status === 'stopping')
+    ];
+
+    if (startingMicros.length > 0) {
+      const names = startingMicros.map(m => m.label).join(', ');
+      this.loadingMessage = startingMicros.length === 1 
+        ? `Arrancando ${names}...`
+        : `Arrancando ${startingMicros.length} microservicios...`;
+    } else if (stoppingMicros.length > 0) {
+      const names = stoppingMicros.map(m => m.label).join(', ');
+      this.loadingMessage = stoppingMicros.length === 1 
+        ? `Deteniendo ${names}...`
+        : `Deteniendo ${stoppingMicros.length} microservicios...`;
+    }
+  }
+
   animateMicroCard(microKey: string, status: string) {
     const card = document.querySelector(`.micro-card[data-key="${microKey}"]`);
     if (!card) return;
@@ -661,6 +692,7 @@ export class Launcher implements OnInit, OnDestroy {
   startSelected() {
     this.pushLog('Verificando puertos y arrancando micros seleccionados...');
     this.loading = true;
+    this.loadingMessage = 'Arrancando microservicios...';
     this.showSuccessMessage = false;
 
     this.startSelectedMicros();
@@ -746,7 +778,8 @@ export class Launcher implements OnInit, OnDestroy {
 
   stopSelected() {
     this.pushLog('Parando micros seleccionados...');
-    this.loading = true; // Activar spinner cuando se comienza a parar microservicios
+    this.loading = true;
+    this.loadingMessage = 'Deteniendo microservicios...';
 
     let anyMicroStopped = false;
 
