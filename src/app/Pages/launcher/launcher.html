@@ -12,7 +12,7 @@
       <div>
         <h1 class="page-title">Lanzador de Microservicios</h1>
         <p class="page-subtitle">
-          Selecciona los servicios que necesitas y arráncalos en segundos.
+          Selecciona los servicios que necesitas y arráncalos.
         </p>
       </div>
       <div class="header-actions">
@@ -185,9 +185,10 @@
 
               @if (selectedTab === 'angular') {
                 <div class="legacy-toggle">
-                  <label>
+                  <label class="toggle-switch">
                     <input type="checkbox" [(ngModel)]="micro.useLegacyProvider" />
-                    <span>Compatibilidad Node</span>
+                    <span class="toggle-slider"></span>
+                    <span class="toggle-label">Compatibilidad Node</span>
                   </label>
                 </div>
               }
