@@ -47,8 +47,10 @@ export class Launcher implements OnInit, OnDestroy {
   springMicros: MicroService[] = [];
 
   logs: string[] = [];
-  microLogs: Record<string, string[]> = {}; // Logs separados por microservicio
-  selectedLogTab: string = 'all'; // 'all' o el key del microservicio
+  microLogs: Record<string, string[]> = {}; // Logs separados por microservicio (con prefijo angular-key o spring-key)
+  selectedLogTab: string = 'all'; // 'all', 'angular-all', 'spring-all', o 'angular-key'/'spring-key'
+  logSearchTerm: string = ''; // Término de búsqueda en logs
+  filteredLogs: string[] = []; // Logs filtrados por búsqueda
   loading = false;
   loadingMessage = 'Procesando microservicios...';
   initialLoading = true;
@@ -88,6 +90,97 @@ export class Launcher implements OnInit, OnDestroy {
         this.initialLoading = false;
       }
     }, 5000);
+    
+    // Verificar estado actual de los microservicios cuando volvemos a la página
+    this.checkCurrentStatus();
+  }
+  
+  private checkCurrentStatus() {
+    // Verificar si hay microservicios en estado 'starting'
+    const hasStartingMicros = this.angularMicros.some(m => m.status === 'starting') || 
+                             this.springMicros.some(m => m.status === 'starting');
+    
+    if (hasStartingMicros) {
+      console.log('🔄 Detectados microservicios arrancando, solicitando estado actual...');
+      this.loading = true;
+      this.loadingMessage = 'Verificando estado de microservicios...';
+      
+      // Solicitar actualización de estado desde el proceso principal
+      (window as any).electronAPI.requestStatusUpdate?.().then((statuses: any) => {
+        console.log('📊 Estados recibidos:', statuses);
+        this.ngZone.run(() => {
+          if (statuses) {
+            // Actualizar estados
+            Object.keys(statuses).forEach(key => {
+              const angularMicro = this.angularMicros.find(m => m.key === key);
+              const springMicro = this.springMicros.find(m => m.key === key);
+              const micro = angularMicro || springMicro;
+              
+              if (micro) {
+                micro.status = statuses[key];
+              }
+            });
+          }
+          
+          // Verificar de nuevo si hay microservicios arrancando
+          const stillStarting = this.angularMicros.some(m => m.status === 'starting') || 
+                               this.springMicros.some(m => m.status === 'starting');
+          
+          if (!stillStarting) {
+            this.loading = false;
+          }
+        });
+      }).catch((err: any) => {
+        console.warn('⚠️ No se pudo obtener estado actualizado:', err);
+        // Fallback: verificar puertos después de un delay
+        setTimeout(() => {
+          this.verifyPortsForRunningServices();
+        }, 2000);
+      });
+    }
+  }
+  
+  private verifyPortsForRunningServices() {
+    // Verificar puertos de todos los microservicios que están "starting"
+    const allMicros = [...this.angularMicros, ...this.springMicros];
+    const startingMicros = allMicros.filter(m => m.status === 'starting');
+    
+    if (startingMicros.length === 0) {
+      this.loading = false;
+      return;
+    }
+    
+    console.log(`🔍 Verificando puertos de ${startingMicros.length} microservicios...`);
+    
+    startingMicros.forEach(micro => {
+      const port = this.getMicroPort(micro.key);
+      if (port) {
+        (window as any).electronAPI.checkPort(port).then((isOccupied: boolean) => {
+          this.ngZone.run(() => {
+            if (isOccupied) {
+              micro.status = 'running';
+              this.pushLog(`[${micro.key}] ✅ Verificado como arrancado (puerto ${port} ocupado)`, micro.key);
+            }
+            
+            // Si ya no hay microservicios "starting", desactivar loading
+            const stillStarting = this.angularMicros.some(m => m.status === 'starting') || 
+                                 this.springMicros.some(m => m.status === 'starting');
+            if (!stillStarting) {
+              this.loading = false;
+            }
+          });
+        });
+      }
+    });
+  }
+  
+  private getMicroPort(key: string): number | null {
+    // Obtener puerto desde la configuración
+    const angularMicro = this.config.angularMicroservices?.find((m: any) => m.key === key);
+    const springMicro = this.config.springMicroservices?.find((m: any) => m.key === key);
+    const micro = angularMicro || springMicro;
+    
+    return micro?.port || null;
   }
 
   private loadConfiguration() {
@@ -576,11 +669,11 @@ export class Launcher implements OnInit, OnDestroy {
       }
 
       if (msg.status === 'starting' && !this.loading) {
-        this.pushLog(`[${type} ${msg.micro}] 🚀 Lanzando...`, msg.micro);
+        this.pushLog(`[${type} ${msg.micro}] 🚀 Lanzando...`, msg.micro, type);
       }
 
       if (msg.status === 'running') {
-        this.pushLog(`[${type} ${msg.micro}] ✅ Arrancado correctamente.`, msg.micro);
+        this.pushLog(`[${type} ${msg.micro}] ✅ Arrancado correctamente.`, msg.micro, type);
         
         // Solo desactivar el spinner si no hay más microservicios arrancando
         const hasStartingMicros = this.angularMicros.some(m => m.status === 'starting') || 
@@ -607,7 +700,7 @@ export class Launcher implements OnInit, OnDestroy {
       }
 
       if (msg.status === 'stopped') {
-        this.pushLog(`[${type} ${msg.micro}] 🛑 Detenido.`, msg.micro);
+        this.pushLog(`[${type} ${msg.micro}] 🛑 Detenido.`, msg.micro, type);
         
         // Solo desactivar el spinner si no hay más microservicios arrancando o parando
         const hasStartingMicros = this.angularMicros.some(m => m.status === 'starting') || 
@@ -624,14 +717,14 @@ export class Launcher implements OnInit, OnDestroy {
       }
 
       if (!msg.status) {
-        this.pushLog(`[${type} ${msg.micro}] ${msg.log}`, msg.micro);
+        this.pushLog(`[${type} ${msg.micro}] ${msg.log}`, msg.micro, type);
       }
 
       this.scrollToBottom();
     });
   }
 
-  pushLog(message: string, microKey?: string) {
+  pushLog(message: string, microKey?: string, type?: 'Angular' | 'Spring') {
     // Agregar timestamp al mensaje
     const timestamp = new Date().toLocaleTimeString('es-ES', { 
       hour12: false, 
@@ -645,21 +738,29 @@ export class Launcher implements OnInit, OnDestroy {
     this.logs.push(timestampedMessage);
     
     // Si hay un microKey, agregar también al log específico
-    if (microKey) {
-      if (!this.microLogs[microKey]) {
-        this.microLogs[microKey] = [];
+    if (microKey && type) {
+      // Crear una key única combinando tipo y microKey (ej: 'angular-notifica', 'spring-notifica')
+      const uniqueKey = `${type.toLowerCase()}-${microKey}`;
+      
+      if (!this.microLogs[uniqueKey]) {
+        this.microLogs[uniqueKey] = [];
       }
-      this.microLogs[microKey].push(timestampedMessage);
+      this.microLogs[uniqueKey].push(timestampedMessage);
       
       // Limpiar logs viejos del microservicio también
-      if (this.microLogs[microKey].length > this.MAX_LOGS) {
-        this.microLogs[microKey] = this.microLogs[microKey].slice(-this.LOGS_TO_KEEP_AFTER_CLEAN);
+      if (this.microLogs[uniqueKey].length > this.MAX_LOGS) {
+        this.microLogs[uniqueKey] = this.microLogs[uniqueKey].slice(-this.LOGS_TO_KEEP_AFTER_CLEAN);
       }
     }
     
     // Verificar si necesitamos limpiar logs inmediatamente
     if (this.logs.length > this.MAX_LOGS) {
       this.cleanOldLogs();
+    }
+    
+    // Actualizar logs filtrados si hay búsqueda activa
+    if (this.logSearchTerm) {
+      this.filterLogs();
     }
     
     setTimeout(() => {
@@ -935,13 +1036,6 @@ export class Launcher implements OnInit, OnDestroy {
   }
 
   // Obtener los logs actualmente visibles
-  getActiveLogs(): string[] {
-    if (this.selectedLogTab === 'all') {
-      return this.logs;
-    }
-    return this.microLogs[this.selectedLogTab] || [];
-  }
-
   // Obtener todas las pestañas de logs disponibles
   getLogTabs(): Array<{ key: string; label: string; count: number }> {
     const tabs = [{ 
@@ -950,19 +1044,41 @@ export class Launcher implements OnInit, OnDestroy {
       count: this.logs.length 
     }];
 
+    // Agregar pestañas para Angular (todos) y Spring (todos)
+    const angularLogs = this.logs.filter(log => log.includes('[Angular '));
+    const springLogs = this.logs.filter(log => log.includes('[Spring '));
+    
+    if (angularLogs.length > 0) {
+      tabs.push({
+        key: 'angular-all',
+        label: '🅰️ Angular (todos)',
+        count: angularLogs.length
+      });
+    }
+    
+    if (springLogs.length > 0) {
+      tabs.push({
+        key: 'spring-all',
+        label: '🍃 Spring (todos)',
+        count: springLogs.length
+      });
+    }
+
     // Usar un Set para evitar duplicados
     const processedKeys = new Set<string>();
 
-    // Agregar pestañas para microservicios que tienen logs
-    const allMicros = [...this.angularMicros, ...this.springMicros];
-    allMicros.forEach(micro => {
-      // Solo procesar si no lo hemos visto antes y tiene logs
-      if (!processedKeys.has(micro.key) && this.microLogs[micro.key] && this.microLogs[micro.key].length > 0) {
-        processedKeys.add(micro.key);
+    // Agregar pestañas para microservicios individuales que tienen logs
+    Object.keys(this.microLogs).forEach(uniqueKey => {
+      if (this.microLogs[uniqueKey].length > 0) {
+        // Extraer el nombre del microservicio y el tipo (ej: 'angular-notifica' -> 'notifica')
+        const [type, ...nameParts] = uniqueKey.split('-');
+        const microName = nameParts.join('-');
+        const label = type === 'angular' ? `🅰️ ${microName}` : `🍃 ${microName}`;
+        
         tabs.push({
-          key: micro.key,
-          label: micro.label,
-          count: this.microLogs[micro.key].length
+          key: uniqueKey,
+          label: label,
+          count: this.microLogs[uniqueKey].length
         });
       }
     });
@@ -973,7 +1089,91 @@ export class Launcher implements OnInit, OnDestroy {
   // Cambiar la pestaña de logs activa
   selectLogTab(tabKey: string) {
     this.selectedLogTab = tabKey;
+    this.logSearchTerm = ''; // Limpiar búsqueda al cambiar de tab
+    this.filteredLogs = [];
     setTimeout(() => this.scrollToBottom(), 0);
+  }
+
+  // Filtrar logs por término de búsqueda
+  filterLogs() {
+    if (!this.logSearchTerm.trim()) {
+      this.filteredLogs = [];
+      return;
+    }
+
+    const searchTerm = this.logSearchTerm.toLowerCase();
+    const logsToFilter = this.getDisplayedLogs();
+    
+    this.filteredLogs = logsToFilter.filter(log => 
+      log.toLowerCase().includes(searchTerm)
+    );
+  }
+
+  // Limpiar búsqueda
+  clearSearch() {
+    this.logSearchTerm = '';
+    this.filteredLogs = [];
+  }
+
+  // Exportar logs a archivo TXT
+  exportLogs() {
+    const logsToExport = this.logSearchTerm.trim() 
+      ? this.filteredLogs 
+      : this.getDisplayedLogs();
+
+    if (logsToExport.length === 0) {
+      alert('No hay logs para exportar');
+      return;
+    }
+
+    // Crear contenido del archivo
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+    const tabName = this.selectedLogTab === 'all' 
+      ? 'todos' 
+      : this.selectedLogTab === 'angular-all'
+      ? 'angular'
+      : this.selectedLogTab === 'spring-all'
+      ? 'spring'
+      : this.selectedLogTab.replace('-', '_');
+    
+    const filename = `logs_${tabName}_${timestamp}.txt`;
+    const content = logsToExport.join('\n');
+
+    // Crear blob y descargar
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    this.pushLog(`📥 Logs exportados: ${filename} (${logsToExport.length} líneas)`);
+  }
+
+  // Obtener logs para mostrar según la pestaña seleccionada y la búsqueda
+  getDisplayedLogs(): string[] {
+    // Si hay búsqueda activa, mostrar logs filtrados
+    if (this.logSearchTerm.trim() && this.filteredLogs.length > 0) {
+      return this.filteredLogs;
+    }
+
+    // Si no hay búsqueda, mostrar según la pestaña
+    if (this.selectedLogTab === 'all') {
+      return this.logs;
+    } else if (this.selectedLogTab === 'angular-all') {
+      // Todos los logs de microservicios Angular
+      return this.logs.filter(log => log.includes('[Angular '));
+    } else if (this.selectedLogTab === 'spring-all') {
+      // Todos los logs de microservicios Spring
+      return this.logs.filter(log => log.includes('[Spring '));
+    } else if (this.microLogs[this.selectedLogTab]) {
+      return this.microLogs[this.selectedLogTab];
+    }
+    
+    return [];
   }
 
   // Limpiar timer al destruir el componente

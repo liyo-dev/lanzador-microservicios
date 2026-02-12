@@ -211,15 +211,15 @@
       <div class="logs-header">
         <div>
           <h3>Logs recientes</h3>
-          @if (getActiveLogs().length > 0) {
-            <small>{{ getActiveLogs().length }} entradas | Límite: {{ MAX_LOGS }}</small>
+          @if (logs.length > 0) {
+            <small>{{ logs.length }} entradas | Límite: {{ MAX_LOGS }}</small>
           }
         </div>
         <div class="logs-actions">
           <button class="ghost-btn" (click)="toggleLogs()">
             {{ showLogs ? 'Ocultar logs' : 'Mostrar logs' }}
           </button>
-          @if (showLogs && getActiveLogs().length > 1) {
+          @if (showLogs && logs.length > 1) {
             <button class="danger-btn" (click)="clearLogs()" title="Limpiar logs manualmente">
               🗑️ Limpiar
             </button>
@@ -228,6 +228,32 @@
       </div>
 
       @if (showLogs) {
+        <!-- Buscador y exportador de logs -->
+        <div class="log-actions">
+          <div class="log-search">
+            <input 
+              type="text" 
+              [(ngModel)]="logSearchTerm"
+              (input)="filterLogs()"
+              placeholder="🔍 Buscar en logs..."
+              class="search-input"
+            />
+            @if (logSearchTerm) {
+              <button class="clear-search-btn" (click)="clearSearch()" title="Limpiar búsqueda">
+                ✕
+              </button>
+            }
+            @if (filteredLogs.length > 0) {
+              <span class="search-results">
+                {{ filteredLogs.length }} resultado{{ filteredLogs.length === 1 ? '' : 's' }}
+              </span>
+            }
+          </div>
+          <button class="export-btn" (click)="exportLogs()" title="Exportar logs a archivo TXT">
+            📥 Exportar
+          </button>
+        </div>
+
         <!-- Pestañas de logs -->
         <div class="log-tabs">
           @for (tab of getLogTabs(); track tab.key) {
@@ -243,11 +269,14 @@
         </div>
 
         <div class="log-box" #logBox>
-          @for (log of getActiveLogs(); track $index) {
+          @for (log of getDisplayedLogs(); track $index) {
             <div class="log-line">{{ log }}</div>
           }
-          @if (getActiveLogs().length === 0) {
+          @if (getDisplayedLogs().length === 0 && !logSearchTerm) {
             <div class="log-line muted">No hay logs disponibles para esta pestaña</div>
+          }
+          @if (getDisplayedLogs().length === 0 && logSearchTerm) {
+            <div class="log-line muted">No se encontraron resultados para "{{ logSearchTerm }}"</div>
           }
         </div>
       }
