@@ -1,11 +1,11 @@
-const { app, BrowserWindow, ipcMain, shell, dialog } = require("electron");
+const { app, BrowserWindow, ipcMain, shell, dialog, clipboard } = require("electron");
 const { spawn, exec } = require("child_process");
 const stripAnsi = require("strip-ansi");
 const kill = require("tree-kill");
 const path = require("path");
 const fs = require("fs");
 const os = require("os");
-const puppeteer = require("puppeteer-core");
+// const puppeteer = require("puppeteer-core"); // No se usa - bloqueado por políticas del sistema
 
 // ----------------------------------------------
 // DETECCIÓN DEV vs PROD
@@ -719,11 +719,11 @@ function findChromePath() {
 
 // Handler para abrir portal con auto-login usando Chrome directamente
 ipcMain.handle('open-portal-auto-login', async (event, loginData) => {
-  console.log('🚀 Iniciando auto-login (método directo Chrome)');
-  console.log('📦 Datos recibidos completos:', JSON.stringify(loginData, null, 2));
+  console.log('Iniciando auto-login con extensión Chrome');
+  console.log('Datos recibidos:', JSON.stringify(loginData, null, 2));
   
   if (!loginData || !loginData.url) {
-    console.error('❌ loginData.url es undefined o null');
+    console.error('loginData.url es undefined o null');
     return {
       success: false,
       error: 'URL no proporcionada en loginData'
@@ -740,208 +740,72 @@ ipcMain.handle('open-portal-auto-login', async (event, loginData) => {
   }
 
   try {
-    console.log('🌐 Creando archivo HTML temporal con auto-login');
+    // Preparar credenciales para pasar en el hash
+    const credentialsData = {
+      companyID: loginData.user.companyID,
+      username: loginData.user.username,
+      password: loginData.user.password
+    };
     
-    // Generar script de auto-login según el entorno
-    let autoScript = '';
+    const encodedCredentials = encodeURIComponent(JSON.stringify(credentialsData));
     
-    if (loginData.user.environment === 'local-dev') {
-      // Script para LOCAL
-      autoScript = `
-function autoLogin() {
-  console.log('🔍 [LOCAL] Buscando campos de login...');
-  const companyField = document.getElementsByName('companyID')[0];
-  const userField = document.getElementsByName('usuario')[0];
-  const passwordField = document.getElementsByName('password')[0];
-
-  if (companyField && userField && passwordField) {
-    console.log('✅ [LOCAL] Campos encontrados, rellenando...');
-    companyField.value = '${loginData.user.companyID}';
-    userField.value = '${loginData.user.username}';
-    passwordField.value = '${loginData.user.password}';
+    // Agregar las credenciales al hash de la URL
+    const urlWithCredentials = `${loginData.url}#autologin=${encodedCredentials}`;
     
-    companyField.dispatchEvent(new Event('input', { bubbles: true }));
-    companyField.dispatchEvent(new Event('change', { bubbles: true }));
-    userField.dispatchEvent(new Event('input', { bubbles: true }));
-    userField.dispatchEvent(new Event('change', { bubbles: true }));
-    passwordField.dispatchEvent(new Event('input', { bubbles: true }));
-    passwordField.dispatchEvent(new Event('change', { bubbles: true }));
+    console.log('URL con credenciales preparada');
     
-    console.log('✅ [LOCAL] Campos rellenados automáticamente para ${loginData.user.name}');
-  } else {
-    console.log('⏳ [LOCAL] Campos no disponibles aún, reintentando...');
-    setTimeout(autoLogin, 500);
-  }
-}
-
-setTimeout(autoLogin, 1000);
-`;
-    } else if (loginData.user.environment === 'pre') {
-      // Script para PRE/DEV - usar intervalo para detectar cuando Angular termine de cargar
-      autoScript = `
-let intentos = 0;
-const maxIntentos = 40; // 20 segundos
-
-function debugDOM() {
-  console.log('🔍 [DEBUG] Analizando estructura de la página...');
-  const allInputs = document.querySelectorAll('input');
-  console.log('📋 [DEBUG] Total de inputs:', allInputs.length);
-  
-  allInputs.forEach((input, index) => {
-    if (input.offsetParent !== null) { // Solo inputs visibles
-      console.log('Input visible ' + index + ':', {
-        type: input.type,
-        name: input.name,
-        id: input.id,
-        placeholder: input.placeholder
+    // Ruta a la extensión
+    const extensionPath = path.join(__dirname, 'chrome-extension');
+    
+    // Verificar que la extensión existe
+    if (!fs.existsSync(extensionPath)) {
+      console.error('No se encontró la carpeta chrome-extension');
+      
+      // Fallback: copiar credenciales al portapapeles
+      const credentialsText = `CompanyID: ${loginData.user.companyID}
+Usuario: ${loginData.user.username}
+Password: ${loginData.user.password}`;
+      
+      clipboard.writeText(credentialsText);
+      
+      const { spawn } = require('child_process');
+      spawn(chromePath, [loginData.url], {
+        detached: true,
+        stdio: 'ignore'
+      }).unref();
+      
+      dialog.showMessageBox({
+        type: 'info',
+        title: 'Auto-Login - Credenciales Copiadas',
+        message: `Chrome se ha abierto con el portal.\n\nLas credenciales han sido copiadas al portapapeles:\n\n${credentialsText}\n\nPuedes pegarlas en los campos de login (Ctrl+V).`,
+        buttons: ['Entendido']
       });
-    }
-  });
-}
-
-function autoLogin() {
-  intentos++;
-  console.log('🔍 [DEV/PRE] Intento ' + intentos + '/' + maxIntentos);
-  
-  if (intentos === 3) {
-    debugDOM();
-  }
-  
-  // Esperar a que Angular termine de renderizar
-  const appRoot = document.querySelector('app-root');
-  if (!appRoot || !appRoot.children.length) {
-    console.log('⏳ Esperando que Angular cargue...');
-    if (intentos < maxIntentos) {
-      setTimeout(autoLogin, 500);
-    }
-    return;
-  }
-  
-  // Buscar todos los inputs visibles de tipo texto y password
-  const textInputs = Array.from(document.querySelectorAll('input[type="text"]')).filter(i => i.offsetParent !== null);
-  const passInputs = Array.from(document.querySelectorAll('input[type="password"]')).filter(i => i.offsetParent !== null);
-  
-  console.log('📋 Inputs texto visibles:', textInputs.length, 'Password:', passInputs.length);
-  
-  let grupoField = null;
-  let userField = null;
-  let passwordField = passInputs[0] || null;
-  
-  // Intentar identificar campos por orden (normalmente: grupo, usuario, password)
-  if (textInputs.length >= 2) {
-    grupoField = textInputs[0];
-    userField = textInputs[1];
-  } else if (textInputs.length === 1) {
-    userField = textInputs[0];
-  }
-  
-  // Si encontramos los campos, rellenar
-  if (grupoField && userField && passwordField) {
-    console.log('✅ [DEV/PRE] Campos encontrados, rellenando...');
-    
-    // Función auxiliar para rellenar un campo
-    function fillField(field, value, name) {
-      field.focus();
-      field.click();
-      field.value = '';
       
-      // Simular escritura carácter por carácter
-      for (let i = 0; i < value.length; i++) {
-        field.value = value.substring(0, i + 1);
-        field.dispatchEvent(new Event('input', { bubbles: true }));
-      }
-      
-      field.dispatchEvent(new Event('change', { bubbles: true }));
-      field.dispatchEvent(new Event('blur', { bubbles: true }));
-      console.log('  ✓', name, 'rellenado');
+      return {
+        success: true,
+        message: 'Chrome abierto (modo fallback)',
+        userName: loginData.user.name,
+        environment: loginData.user.environment
+      };
     }
-    
-    fillField(grupoField, '${loginData.user.companyID}', 'Grupo');
-    setTimeout(() => {
-      fillField(userField, '${loginData.user.username}', 'Usuario');
-      setTimeout(() => {
-        fillField(passwordField, '${loginData.user.password}', 'Password');
-        console.log('✅ [DEV/PRE] AUTO-LOGIN COMPLETADO para ${loginData.user.name}');
-      }, 300);
-    }, 300);
-    
-  } else {
-    console.log('⏳ [DEV/PRE] Campos no encontrados:', {grupo: !!grupoField, user: !!userField, pass: !!passwordField});
-    if (intentos < maxIntentos) {
-      setTimeout(autoLogin, 500);
-    } else {
-      console.error('❌ Timeout esperando campos');
-      debugDOM();
-    }
-  }
-}
 
-// Esperar a que la página cargue completamente
-setTimeout(autoLogin, 2000);
-`;
-    }
-    
-    // Determinar el texto del entorno para mostrar
-    let environmentText = '';
-    if (loginData.user.environment === 'local-dev') {
-      environmentText = loginData.url.includes('localhost') ? 'localhost' : 'dev';
-    } else if (loginData.user.environment === 'pre') {
-      environmentText = 'pre';
-    }
-    
-    // Crear HTML temporal simple que ejecuta el script y redirige
-    const tempHtmlContent = `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <meta http-equiv="refresh" content="1;url=${loginData.url}">
-  <title>Auto-Login</title>
-  <style>
-    body { margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; font-family: system-ui; background: #fff; color: #64748b; }
-    .spinner { width: 40px; height: 40px; margin: 0 auto 1rem; border: 3px solid #e2e8f0; border-top-color: #3b82f6; border-radius: 50%; animation: spin 0.6s linear infinite; }
-    @keyframes spin { to { transform: rotate(360deg); } }
-  </style>
-</head>
-<body>
-  <div style="text-align: center;">
-    <div class="spinner"></div>
-    <div>Cargando ${environmentText}...</div>
-  </div>
-  <script>${autoScript}</script>
-</body>
-</html>`;
-
-    // Guardar el HTML temporal
-    const tempDir = app.getPath('temp');
-    const tempHtmlPath = path.join(tempDir, `autologin-${Date.now()}.html`);
-    
-    fs.writeFileSync(tempHtmlPath, tempHtmlContent, 'utf-8');
-    console.log('Archivo temporal creado:', tempHtmlPath);
-    
-    // Abrir Chrome con el archivo temporal
+    // Abrir Chrome con la extensión cargada
     const { spawn } = require('child_process');
-    spawn(chromePath, [tempHtmlPath], {
+    spawn(chromePath, [
+      `--load-extension=${extensionPath}`,
+      '--no-first-run',
+      '--no-default-browser-check',
+      urlWithCredentials
+    ], {
       detached: true,
       stdio: 'ignore'
     }).unref();
-    
-    // Limpiar el archivo temporal despues de 15 segundos
-    setTimeout(() => {
-      try {
-        if (fs.existsSync(tempHtmlPath)) {
-          fs.unlinkSync(tempHtmlPath);
-          console.log('Archivo temporal eliminado');
-        }
-      } catch (e) {
-        console.warn('No se pudo eliminar archivo temporal:', e.message);
-      }
-    }, 15000);
 
-    console.log('Chrome abierto correctamente');
-    
+    console.log('Chrome abierto con extension y auto-login');
+
     return {
       success: true,
-      message: 'Chrome abierto con auto-login',
+      message: 'Chrome abierto con auto-login automático',
       userName: loginData.user.name,
       environment: loginData.user.environment
     };

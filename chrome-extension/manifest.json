@@ -1,0 +1,14 @@
+{
+  "manifest_version": 3,
+  "name": "Portal Auto-Login",
+  "version": "1.0",
+  "description": "Auto-rellena credenciales del portal",
+  "permissions": ["storage"],
+  "content_scripts": [
+    {
+      "matches": ["http://localhost:*/*", "http://127.0.0.1:*/*", "https://*/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
