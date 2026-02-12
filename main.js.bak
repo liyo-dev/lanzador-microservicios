@@ -753,18 +753,10 @@ ipcMain.handle('open-portal-auto-login', async (event, loginData) => {
     const isLocal = loginData.url.includes('localhost') || loginData.url.includes('127.0.0.1');
     const environment = loginData.user.environment;
     
-    console.log('🔍 Detectando entorno:', {
-      url: loginData.url,
-      isLocal: isLocal,
-      environment: environment,
-      userName: loginData.user.name
-    });
-    
     // Script de auto-login que se copiará al portapapeles
     let autoLoginScript = '';
     
-    if (isLocal) {
-      console.log('✅ Generando script para LOCAL');
+    if (isLocal || environment === 'local-dev') {
       // Script para LOCAL
       autoLoginScript = `
 // Auto-Login Script - LOCAL
@@ -826,13 +818,12 @@ ipcMain.handle('open-portal-auto-login', async (event, loginData) => {
 })();
 `.trim();
     } else {
-      console.log('✅ Generando script para DEV/PRE');
       // Script para DEV/PRE (Angular - Santander Nexus)
       autoLoginScript = `
 // Auto-Login Script - DEV/PRE (Santander Nexus)
 (function() {
   const credentials = ${JSON.stringify(credentials)};
-  console.log('Iniciando auto-login para DEV/PRE');
+  console.log('🚀 Script de auto-login iniciado para DEV/PRE');
   
   function fillField(field, value) {
     field.focus();
@@ -846,19 +837,23 @@ ipcMain.handle('open-portal-auto-login', async (event, loginData) => {
     field.dispatchEvent(new Event('blur', { bubbles: true }));
   }
   
+  function debugDOM() {
+    console.log('🔍 DEBUG DOM:');
+    console.log('  - txt_group:', document.getElementById('txt_group'));
+    console.log('  - txt_usuario:', document.getElementById('txt_usuario'));
+    console.log('  - txt_pass:', document.getElementById('txt_pass'));
+    console.log('  - btn_entrar:', document.getElementById('btn_entrar'));
+    console.log('  - .lab_entrar:', document.querySelector('.lab_entrar'));
+  }
+  
   function fillFields() {
-    // Los inputs estan DENTRO de los app-input-data con esos IDs
-    const grupoContainer = document.getElementById('txt_group');
-    const userContainer = document.getElementById('txt_usuario');
-    const passContainer = document.getElementById('txt_pass');
+    // Los inputs tienen IDs directamente en DEV/PRE
+    const grupoField = document.getElementById('txt_group');
+    const userField = document.getElementById('txt_usuario');
+    const passField = document.getElementById('txt_pass');
+    const submitButton = document.getElementById('btn_entrar') || document.querySelector('.lab_entrar, button[type="submit"]');
     
-    const grupoField = grupoContainer ? grupoContainer.querySelector('input') : null;
-    const userField = userContainer ? userContainer.querySelector('input') : null;
-    const passField = passContainer ? passContainer.querySelector('input') : null;
-    
-    const submitButton = document.getElementById('btn_entrar') || document.querySelector('.lab_entrar');
-    
-    console.log('Campos encontrados:', {
+    console.log('🔍 Búsqueda de campos:', {
       grupo: !!grupoField,
       usuario: !!userField, 
       password: !!passField,
@@ -866,21 +861,21 @@ ipcMain.handle('open-portal-auto-login', async (event, loginData) => {
     });
     
     if (grupoField && userField && passField) {
-      console.log('OK - Rellenando campos...');
+      console.log('✅ Campos encontrados, rellenando...');
       fillField(grupoField, credentials.companyID);
       setTimeout(() => {
         fillField(userField, credentials.username);
         setTimeout(() => {
           fillField(passField, credentials.password);
-          console.log('OK - Campos rellenados');
+          console.log('✅ Campos rellenados correctamente');
           
-          // Hacer submit automaticamente
+          // Hacer submit automáticamente
           setTimeout(() => {
             if (submitButton) {
               submitButton.click();
-              console.log('OK - Formulario enviado');
+              console.log('🚀 Formulario enviado automáticamente');
             } else {
-              console.log('Boton no encontrado - Haz clic manualmente en Login');
+              console.log('⚠️ Botón no encontrado. Intenta hacer clic manualmente en Login');
             }
           }, 500);
         }, 300);
@@ -891,32 +886,38 @@ ipcMain.handle('open-portal-auto-login', async (event, loginData) => {
     return false;
   }
   
-  // Intentar rellenar
+  // Primer intento inmediato
+  console.log('⏳ Esperando que la página cargue...');
+  
   let attempts = 0;
   const interval = setInterval(() => {
     attempts++;
-    console.log('Intento ' + attempts + '/20...');
+    console.log(\`🔄 Intento \${attempts}/20...\`);
     
     if (fillFields()) {
       clearInterval(interval);
-      console.log('Auto-login completado!');
+      console.log('✅ Auto-login completado!');
     } else if (attempts > 20) {
       clearInterval(interval);
-      console.error('ERROR: Timeout - No se encontraron los campos');
-      console.log('IDs buscados: txt_group, txt_usuario, txt_pass, btn_entrar');
+      console.error('❌ Timeout: No se encontraron los campos después de 20 intentos (10 segundos)');
+      debugDOM();
+      console.log('');
+      console.log('� Selectores probados:');
+      console.log('  1. #txt_group input[placeholder="Grupo empresarial"]');
+      console.log('  2. #txt_usuario input[placeholder="Usuario"]');
+      console.log('  3. #txt_pass input[placeholder="Contraseña"]');
+      console.log('');
+      console.log('💡 Copia y pega este comando para inspeccionar:');
+      console.log('   document.querySelectorAll("input")');
     }
   }, 500);
 })();
 `.trim();
     }
+
     // Copiar script al portapapeles
     clipboard.writeText(autoLoginScript);
     console.log('📋 Script de auto-login copiado al portapapeles');
-    console.log('📝 Longitud del script:', autoLoginScript.length, 'caracteres');
-    
-    // Debug: mostrar primeras líneas del script
-    const firstLines = autoLoginScript.split('\n').slice(0, 5).join('\n');
-    console.log('📄 Primeras líneas:\n', firstLines);
 
     // Abrir Chrome con DevTools automáticamente abierto
     const { spawn } = require('child_process');

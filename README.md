@@ -67,6 +67,22 @@ Para que el lanzador funcione correctamente es necesario tener instaladas alguna
 
 ---
 
+## 🔐 Auto-Login en Portales
+
+La aplicación incluye una función de **auto-login semi-automático** para abrir portales rápidamente.
+
+### Cómo usar:
+1. Haz clic en **"Abrir Portal"** para un usuario
+2. Chrome se abre con **DevTools ya abierto**
+3. En la consola de Chrome:
+   - **Ctrl+V** (pegar el script)
+   - **Enter** (ejecutar)
+4. 🎉 Los campos se rellenan automáticamente
+
+**Ver más detalles en:** [AUTO-LOGIN.md](AUTO-LOGIN.md)
+
+---
+
 ## 🛠️ Resolución de errores comunes
 
 ### ❌ No se encuentra el comando `ng`
