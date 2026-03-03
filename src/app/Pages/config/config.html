@@ -155,22 +155,48 @@
               </button>
             </header>
             <div class="spring-form" *ngIf="showSpringConfig">
-              <label>
-                <span>JAVA_HOME</span>
-                <input [(ngModel)]="config.spring.javaHome" type="text" placeholder="Ej: C:\\Java\\jdk1.8" />
-              </label>
-              <label>
-                <span>MAVEN_HOME</span>
-                <input [(ngModel)]="config.spring.mavenHome" type="text" placeholder="Ej: C:\\Herramientas\\apache-maven" />
-              </label>
-              <label>
-                <span>settings.xml</span>
-                <input [(ngModel)]="config.spring.settingsXml" type="text" placeholder="Ej: C:\\.m2\\settings.xml" />
-              </label>
-              <label>
-                <span>Repositorio .m2</span>
-                <input [(ngModel)]="config.spring.m2RepoPath" type="text" placeholder="Ej: C:\\Users\\usuario\\.m2\\repository" />
-              </label>
+              <div class="global-config">
+                <label>
+                  <span>MAVEN_HOME</span>
+                  <input [(ngModel)]="config.spring.mavenHome" type="text" placeholder="Ej: C:\\Herramientas\\apache-maven" />
+                </label>
+              </div>
+
+              <div class="java-profiles">
+                <h4>Perfiles de Java</h4>
+                <div class="profile-grid">
+                  <div class="profile-card">
+                    <span class="profile-badge java8">Java 8</span>
+                    <label>
+                      <span>JAVA_HOME</span>
+                      <input [(ngModel)]="config.spring.profiles.java8.javaHome" type="text" placeholder="Ej: C:\\Java\\jdk1.8.0_211" />
+                    </label>
+                    <label>
+                      <span>settings.xml</span>
+                      <input [(ngModel)]="config.spring.profiles.java8.settingsXml" type="text" placeholder="Ej: C:\\.m2\\settings.xml" />
+                    </label>
+                    <label>
+                      <span>Repositorio .m2</span>
+                      <input [(ngModel)]="config.spring.profiles.java8.m2RepoPath" type="text" placeholder="Ej: C:\\Users\\usuario\\.m2\\repository" />
+                    </label>
+                  </div>
+                  <div class="profile-card">
+                    <span class="profile-badge java17">Java 17</span>
+                    <label>
+                      <span>JAVA_HOME</span>
+                      <input [(ngModel)]="config.spring.profiles.java17.javaHome" type="text" placeholder="Ej: C:\\Java\\jdk-17" />
+                    </label>
+                    <label>
+                      <span>settings.xml</span>
+                      <input [(ngModel)]="config.spring.profiles.java17.settingsXml" type="text" placeholder="Ej: C:\\.m2\\settings.xml" />
+                    </label>
+                    <label>
+                      <span>Repositorio .m2</span>
+                      <input [(ngModel)]="config.spring.profiles.java17.m2RepoPath" type="text" placeholder="Ej: C:\\JAVA\\.m2\\repositoryEuropes" />
+                    </label>
+                  </div>
+                </div>
+              </div>
             </div>
           </article>
 
@@ -190,6 +216,12 @@
               <label>
                 <span>Ruta del microservicio</span>
                 <input [(ngModel)]="config.spring[micro.key].path" type="text" placeholder="Ruta del microservicio" />
+              </label>
+              <label>
+                <span>Perfil de Java</span>
+                <select [(ngModel)]="config.spring[micro.key].javaProfile">
+                  <option *ngFor="let profile of javaProfiles" [value]="profile.key">{{ profile.label }}</option>
+                </select>
               </label>
             </article>
           </div>

@@ -38,11 +38,13 @@ export class ConfigComponent {
       // Eliminar microservicios predefinidos - ahora inicia vacío
     },
     spring: {
-      // Eliminar microservicios predefinidos - ahora inicia vacío
-      javaHome: '',
+      // Configuración global compartida
       mavenHome: '',
-      settingsXml: '',
-      m2RepoPath: '',
+      // Perfiles de Java
+      profiles: {
+        java8: { javaHome: '', settingsXml: '', m2RepoPath: '' },
+        java17: { javaHome: '', settingsXml: '', m2RepoPath: '' }
+      }
     },
     // Configuración para microservicios personalizados
     customMicros: {
@@ -50,6 +52,12 @@ export class ConfigComponent {
       spring: []
     }
   };
+
+  // Opciones para el desplegable de perfiles Java
+  javaProfiles = [
+    { key: 'java8', label: 'Java 8' },
+    { key: 'java17', label: 'Java 17' }
+  ];
 
   // Eliminar listas predefinidas - ahora todo es dinámico
   angularMicros: CustomMicroservice[] = [];
@@ -128,10 +136,61 @@ export class ConfigComponent {
           this.springMicros.push({ ...micro, isCustom: true });
           // Asegurar que la configuración exista
           if (!this.config.spring[micro.key]) {
-            this.config.spring[micro.key] = { path: '' };
+            this.config.spring[micro.key] = { path: '', javaProfile: 'java8' };
+          } else {
+            // Asegurar que exista el campo javaProfile
+            if (this.config.spring[micro.key].javaProfile === undefined) {
+              this.config.spring[micro.key].javaProfile = 'java8';
+            }
           }
         }
       });
+    }
+    
+    // Asegurar que existan los perfiles
+    this.ensureProfiles();
+  }
+
+  // Asegurar que la estructura de perfiles exista
+  ensureProfiles() {
+    if (!this.config.spring.profiles) {
+      this.config.spring.profiles = {
+        java8: { javaHome: '', settingsXml: '', m2RepoPath: '' },
+        java17: { javaHome: '', settingsXml: '', m2RepoPath: '' }
+      };
+    }
+    if (!this.config.spring.profiles.java8) {
+      this.config.spring.profiles.java8 = { javaHome: '', settingsXml: '', m2RepoPath: '' };
+    }
+    if (!this.config.spring.profiles.java17) {
+      this.config.spring.profiles.java17 = { javaHome: '', settingsXml: '', m2RepoPath: '' };
+    }
+    
+    // Asegurar que m2RepoPath exista en perfiles existentes
+    if (this.config.spring.profiles.java8.m2RepoPath === undefined) {
+      this.config.spring.profiles.java8.m2RepoPath = '';
+    }
+    if (this.config.spring.profiles.java17.m2RepoPath === undefined) {
+      this.config.spring.profiles.java17.m2RepoPath = '';
+    }
+    
+    // Migrar configuración antigua si existe
+    if (this.config.spring.javaHome && !this.config.spring.profiles.java8.javaHome) {
+      this.config.spring.profiles.java8.javaHome = this.config.spring.javaHome;
+      delete this.config.spring.javaHome;
+    }
+    if (this.config.spring.settingsXml && !this.config.spring.profiles.java8.settingsXml) {
+      this.config.spring.profiles.java8.settingsXml = this.config.spring.settingsXml;
+      delete this.config.spring.settingsXml;
+    }
+    // Migrar m2RepoPath global a java8 si existe
+    if (this.config.spring.m2RepoPath && !this.config.spring.profiles.java8.m2RepoPath) {
+      this.config.spring.profiles.java8.m2RepoPath = this.config.spring.m2RepoPath;
+      delete this.config.spring.m2RepoPath;
+    }
+    // Eliminar toolchains si existe
+    if (this.config.spring.toolchains !== undefined) {
+      delete this.config.spring.toolchains;
     }
   }
 
@@ -319,7 +378,7 @@ export class ConfigComponent {
       this.config.customMicros.angular.push(newMicro);
     } else {
       this.springMicros.push(newMicro);
-      this.config.spring[key] = { path: '' };
+      this.config.spring[key] = { path: '', javaProfile: 'java8' };
       
       // Guardar en customMicros
       if (!this.config.customMicros.spring) {

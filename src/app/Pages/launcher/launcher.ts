@@ -884,15 +884,26 @@ export class Launcher implements OnInit, OnDestroy {
       });
       this.pushLog(`→ Arrancando Angular ${micro.label} en puerto ${config.port}...`);
     } else {
+      // Obtener el perfil de Java seleccionado para este micro (java8 o java17)
+      const microConfig = this.config.spring[micro.key] || {};
+      const profileKey = microConfig.javaProfile || 'java8';
+      const profile = this.config.spring.profiles?.[profileKey] || {};
+      
+      const javaHome = profile.javaHome || '';
+      const settingsXml = profile.settingsXml || '';
+      
       (window as any).electronAPI.startSpring({
         micro: micro.key,
         path: config.path,
-        javaHome: this.config.spring.javaHome,
+        javaHome: javaHome,
         mavenHome: this.config.spring.mavenHome,
-        settingsXml: this.config.spring.settingsXml,
-        m2RepoPath: this.config.spring.m2RepoPath,
+        settingsXml: settingsXml,
+        m2RepoPath: profile.m2RepoPath || '',
       });
-      this.pushLog(`→ Arrancando Spring ${micro.label}...`);
+      
+      // Indicar qué perfil se está usando
+      const profileLabel = profileKey === 'java17' ? 'Java 17' : 'Java 8';
+      this.pushLog(`→ Arrancando Spring ${micro.label} con ${profileLabel}...`);
     }
     
     micro.status = 'starting';

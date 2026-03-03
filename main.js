@@ -361,19 +361,20 @@ ipcMain.on("start-spring", (event, data) => {
   const mavenHome = (data.mavenHome || "").replace(/^"+|"+$/g, "");
   const mvnCmd = path.join(mavenHome, "bin", "mvn.cmd");
 
-  const args = ["spring-boot:run"];
-  if (data.settingsXml) args.push("-s", data.settingsXml);
-  if (data.m2RepoPath) args.push('-Dmaven.repo.local=' + data.m2RepoPath);
+  // Función para escapar rutas con espacios
+  const quotePath = (p) => p ? `"${p}"` : '';
+  
+  // Construir comando como string para manejar espacios correctamente
+  let cmdParts = [quotePath(mvnCmd), "spring-boot:run"];
+  if (data.settingsXml) cmdParts.push("-s", quotePath(data.settingsXml));
+  if (data.m2RepoPath) cmdParts.push(`"-Dmaven.repo.local=${data.m2RepoPath}"`);
+  
+  const fullCommand = cmdParts.join(" ");
 
-  // Comillas solo si hay espacios
-  const finalArgs = [
-    "/c",
-    [mvnCmd, ...args.map((arg) => (arg.includes(" ") ? '"' + arg + '"' : arg))].join(
-      " "
-    ),
-  ];
-
-  console.log("CMD.exe final:", finalArgs.join(" "));
+  console.log("Comando completo:", fullCommand);
+  console.log("CWD:", data.path);
+  console.log("JAVA_HOME:", javaHome);
+  console.log("MAVEN_HOME:", mavenHome);
 
   mainWindow.webContents.send("log-spring", {
     micro,
@@ -383,19 +384,9 @@ ipcMain.on("start-spring", (event, data) => {
 
   springStatus[micro] = "starting";
 
-  console.log("RUTA mvn:", mvnCmd);
-  console.log("ARGS:", args);
-  console.log("CWD:", data.path);
-  console.log("JAVA_HOME:", javaHome);
-  console.log("MAVEN_HOME:", mavenHome);
-  console.log("ENV:", {
-    JAVA_HOME: javaHome,
-    PATH: path.join(javaHome, "bin") + ";" + path.join(mavenHome, "bin") + ";" + process.env.PATH,
-  });
-
-  const springProcess = spawn("cmd.exe", finalArgs, {
+  const springProcess = spawn(fullCommand, [], {
     cwd: data.path,
-    shell: false,
+    shell: true,
     env: {
       ...process.env,
       JAVA_HOME: javaHome,
