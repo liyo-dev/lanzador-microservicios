@@ -57,6 +57,7 @@ export class Launcher implements OnInit, OnDestroy {
   pendingGitOperations = 0;
   showLogs = true;
   showSuccessMessage = false;
+  gitEnabled: Record<string, boolean> = {}; // Control de conexión Git por microservicio
 
   gitState: Record<string, GitInfo> = {};
   gitSelections: Record<string, string> = {};
@@ -189,7 +190,9 @@ export class Launcher implements OnInit, OnDestroy {
       this.buildMicroServiceLists();
       // Cargar el último estado guardado sin verificar puertos
       this.loadLastStatus();
-      this.refreshAllGitInfo();
+      // NO cargar Git automáticamente - esperar a que el usuario active el switch
+      // this.refreshAllGitInfo();
+      this.initialLoading = false; // Ocultar spinner inmediatamente
     }).catch((error: any) => {
       console.error('❌ Error cargando configuración:', error);
       // Asegurar que se oculte el spinner incluso si hay error
@@ -213,6 +216,28 @@ export class Launcher implements OnInit, OnDestroy {
   getGitState(type: 'angular' | 'spring', microKey: string): GitInfo {
     const key = this.repoKey(type, microKey);
     return this.gitState[key] || {};
+  }
+
+  isGitEnabled(type: 'angular' | 'spring', microKey: string): boolean {
+    const key = this.repoKey(type, microKey);
+    return this.gitEnabled[key] || false;
+  }
+
+  toggleGit(micro: MicroService, type: 'angular' | 'spring') {
+    const key = this.repoKey(type, micro.key);
+    this.gitEnabled[key] = !this.gitEnabled[key];
+    
+    if (this.gitEnabled[key]) {
+      console.log(`🔌 Conectando Git para ${micro.label}...`);
+      this.refreshGitInfo(micro, type);
+    } else {
+      console.log(`🔌 Desconectando Git para ${micro.label}...`);
+      // Limpiar estado de Git para este micro
+      delete this.gitState[key];
+      delete this.gitSelections[key];
+      delete this.gitActions[key];
+      delete this.gitStatuses[key];
+    }
   }
 
   private getPathFor(type: 'angular' | 'spring', microKey: string) {
@@ -414,6 +439,16 @@ export class Launcher implements OnInit, OnDestroy {
 
   refreshGitInfo(micro: MicroService, type: 'angular' | 'spring') {
     const key = this.repoKey(type, micro.key);
+    
+    // No hacer nada si Git no está habilitado para este micro
+    if (!this.gitEnabled[key]) {
+      if (this.initialLoading) {
+        this.pendingGitOperations--;
+        this.checkAndHideInitialLoading();
+      }
+      return;
+    }
+    
     const path = this.getPathFor(type, micro.key);
 
     if (!path) {

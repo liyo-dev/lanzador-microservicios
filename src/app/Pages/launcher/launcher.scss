@@ -25,6 +25,7 @@
 .header-actions {
   display: flex;
   gap: 0.75rem;
+  align-items: center;
 }
 
 .launcher-tabs {
@@ -159,6 +160,77 @@
   min-width: 0;
 }
 
+.micro-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+// Switch Git individual por microservicio
+.git-toggle-micro {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  cursor: pointer;
+  flex-shrink: 0;
+
+  svg {
+    color: var(--color-muted);
+    transition: color 0.3s ease;
+    flex-shrink: 0;
+  }
+
+  input[type="checkbox"] {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+
+  .slider-micro {
+    position: relative;
+    display: inline-block;
+    width: 36px;
+    height: 20px;
+    background: var(--color-surface-alt);
+    border: 1.5px solid var(--color-border);
+    border-radius: 20px;
+    transition: all 0.3s ease;
+    flex-shrink: 0;
+
+    &::before {
+      content: '';
+      position: absolute;
+      height: 14px;
+      width: 14px;
+      left: 2px;
+      bottom: 2px;
+      background: var(--color-muted);
+      border-radius: 50%;
+      transition: all 0.3s ease;
+    }
+  }
+
+  input:checked + .slider-micro {
+    background: linear-gradient(135deg, rgba(63, 114, 255, 0.2), rgba(59, 130, 246, 0.2));
+    border-color: var(--color-primary);
+  }
+
+  input:checked + .slider-micro::before {
+    transform: translateX(16px);
+    background: var(--color-primary);
+  }
+
+  input:checked ~ svg {
+    color: var(--color-primary);
+  }
+
+  &:hover .slider-micro {
+    border-color: var(--color-primary);
+  }
+}
+
 .git-panel {
   background: rgba(241, 245, 249, 0.75);
   border: 1px solid rgba(148, 163, 184, 0.35);
@@ -169,6 +241,25 @@
   width: 100%;
   box-sizing: border-box;
   min-width: 0;
+
+  &.git-disabled {
+    background: rgba(148, 163, 184, 0.08);
+    border-color: rgba(148, 163, 184, 0.15);
+  }
+}
+
+.git-disabled-message {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--color-muted);
+  font-size: 0.875rem;
+  font-weight: 600;
+  padding: 0.25rem 0;
+
+  svg {
+    opacity: 0.5;
+  }
 }
 
 .git-header {
@@ -383,6 +474,14 @@
   gap: 0.75rem;
   font-weight: 600;
   color: var(--color-text);
+  flex: 1;
+  min-width: 0;
+
+  .label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
 
   input {
     display: none;

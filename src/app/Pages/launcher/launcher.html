@@ -89,102 +89,124 @@
         <div class="micro-grid">
           @for (micro of getDisplayedMicros(); track micro.key) {
             <article class="micro-card" [attr.data-key]="micro.key">
-              <label class="micro-checkbox">
-                <input type="checkbox" [(ngModel)]="micro.selected" />
-                <span class="checkmark"></span>
-                <span class="label">{{ micro.label }}</span>
-              </label>
+              <div class="micro-card-header">
+                <label class="micro-checkbox">
+                  <input type="checkbox" [(ngModel)]="micro.selected" />
+                  <span class="checkmark"></span>
+                  <span class="label">{{ micro.label }}</span>
+                </label>
+
+                <!-- Switch Git individual -->
+                <label class="git-toggle-micro" [title]="isGitEnabled(selectedTab, micro.key) ? 'Desconectar Git' : 'Conectar Git'">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M23.546 10.93L13.067.452c-.604-.603-1.582-.603-2.188 0L8.708 2.627l2.76 2.76c.645-.215 1.379-.07 1.889.441.516.515.658 1.258.438 1.9l2.658 2.66c.645-.223 1.387-.078 1.9.435.721.72.721 1.884 0 2.604-.719.719-1.881.719-2.6 0-.539-.541-.674-1.337-.404-1.996L12.86 8.955v6.525c.176.086.342.203.488.348.713.721.713 1.883 0 2.6-.719.721-1.889.721-2.609 0-.719-.719-.719-1.879 0-2.598.182-.18.387-.316.605-.406V8.835c-.217-.091-.424-.222-.6-.401-.545-.545-.676-1.342-.396-2.009L7.636 3.7.45 10.881c-.6.605-.6 1.584 0 2.189l10.48 10.477c.604.604 1.582.604 2.186 0l10.43-10.43c.605-.603.605-1.582 0-2.187"/>
+                  </svg>
+                  <input type="checkbox" [checked]="isGitEnabled(selectedTab, micro.key)" (change)="toggleGit(micro, selectedTab)" />
+                  <span class="slider-micro"></span>
+                </label>
+              </div>
 
               <div class="status" [class.running]="micro.status === 'running'" [class.stopped]="micro.status === 'stopped'">
                 {{ micro.status }}
               </div>
 
-              <div class="git-panel">
-                <div class="git-header">
-                  @if (getGitState(selectedTab, micro.key).error) {
-                    <div class="branch-pill muted">
-                      ⚠️ {{ getGitState(selectedTab, micro.key).error }}
-                    </div>
-                  } @else if (getGitState(selectedTab, micro.key).branch) {
-                    <div
-                      class="branch-pill"
-                      [class.warn]="getGitState(selectedTab, micro.key).hasChanges"
+              @if (isGitEnabled(selectedTab, micro.key)) {
+                <div class="git-panel">
+                  <div class="git-header">
+                    @if (getGitState(selectedTab, micro.key).error) {
+                      <div class="branch-pill muted">
+                        ⚠️ {{ getGitState(selectedTab, micro.key).error }}
+                      </div>
+                    } @else if (getGitState(selectedTab, micro.key).branch) {
+                      <div
+                        class="branch-pill"
+                        [class.warn]="getGitState(selectedTab, micro.key).hasChanges"
+                      >
+                        <span class="dot"></span>
+                        {{ getGitState(selectedTab, micro.key).branch }}
+                        @if (getGitState(selectedTab, micro.key).hasChanges) {
+                          <span class="badge">Cambios locales</span>
+                        }
+                      </div>
+                    } @else {
+                      <div class="branch-pill muted">
+                        <span class="dot"></span>
+                        Sin información Git
+                      </div>
+                    }
+                    <button
+                      class="ghost-btn small"
+                      (click)="refreshGitInfo(micro, selectedTab)"
+                      [disabled]="getGitState(selectedTab, micro.key).loading ?? false"
                     >
-                      <span class="dot"></span>
-                      {{ getGitState(selectedTab, micro.key).branch }}
-                      @if (getGitState(selectedTab, micro.key).hasChanges) {
-                        <span class="badge">Cambios locales</span>
-                      }
-                    </div>
-                  } @else {
-                    <div class="branch-pill muted">
-                      <span class="dot"></span>
-                      Sin información Git
+                      🔄 Actualizar Git
+                    </button>
+                  </div>
+
+                  @if (!getGitState(selectedTab, micro.key).error) {
+                    <div class="git-controls">
+                      <label class="branch-select">
+                        <span>Rama</span>
+                        <select
+                          [(ngModel)]="gitSelections[repoKey(selectedTab, micro.key)]"
+                          [disabled]="getGitState(selectedTab, micro.key).loading ?? false"
+                        >
+                          @for (branch of getGitState(selectedTab, micro.key).branches; track branch) {
+                            <option [value]="branch">
+                              {{ branch }}
+                            </option>
+                          }
+                        </select>
+                      </label>
+
+                      <div class="git-buttons">
+                        <button
+                          class="ghost-btn"
+                          (click)="runGitAction('fetch', micro, selectedTab)"
+                          [disabled]="(getGitState(selectedTab, micro.key).loading ?? false) || gitActions[repoKey(selectedTab, micro.key)]"
+                        >
+                          Fetch
+                        </button>
+                        <button
+                          class="ghost-btn"
+                          (click)="runGitAction('checkout', micro, selectedTab)"
+                          [disabled]="(getGitState(selectedTab, micro.key).loading ?? false) || gitActions[repoKey(selectedTab, micro.key)]"
+                        >
+                          Cambiar rama
+                        </button>
+                        <button
+                          class="primary-btn"
+                          (click)="runGitAction('pull', micro, selectedTab)"
+                          [disabled]="(getGitState(selectedTab, micro.key).loading ?? false) || gitActions[repoKey(selectedTab, micro.key)]"
+                        >
+                          Pull
+                        </button>
+                      </div>
                     </div>
                   }
-                  <button
-                    class="ghost-btn small"
-                    (click)="refreshGitInfo(micro, selectedTab)"
-                    [disabled]="getGitState(selectedTab, micro.key).loading ?? false"
-                  >
-                    🔄 Actualizar Git
-                  </button>
-                </div>
 
-                @if (!getGitState(selectedTab, micro.key).error) {
-                  <div class="git-controls">
-                    <label class="branch-select">
-                      <span>Rama</span>
-                      <select
-                        [(ngModel)]="gitSelections[repoKey(selectedTab, micro.key)]"
-                        [disabled]="getGitState(selectedTab, micro.key).loading ?? false"
-                      >
-                        @for (branch of getGitState(selectedTab, micro.key).branches; track branch) {
-                          <option [value]="branch">
-                            {{ branch }}
-                          </option>
-                        }
-                      </select>
-                    </label>
-
-                    <div class="git-buttons">
-                      <button
-                        class="ghost-btn"
-                        (click)="runGitAction('fetch', micro, selectedTab)"
-                        [disabled]="(getGitState(selectedTab, micro.key).loading ?? false) || gitActions[repoKey(selectedTab, micro.key)]"
-                      >
-                        Fetch
-                      </button>
-                      <button
-                        class="ghost-btn"
-                        (click)="runGitAction('checkout', micro, selectedTab)"
-                        [disabled]="(getGitState(selectedTab, micro.key).loading ?? false) || gitActions[repoKey(selectedTab, micro.key)]"
-                      >
-                        Cambiar rama
-                      </button>
-                      <button
-                        class="primary-btn"
-                        (click)="runGitAction('pull', micro, selectedTab)"
-                        [disabled]="(getGitState(selectedTab, micro.key).loading ?? false) || gitActions[repoKey(selectedTab, micro.key)]"
-                      >
-                        Pull
-                      </button>
+                  @if (getGitState(selectedTab, micro.key).hasChanges && !getGitState(selectedTab, micro.key).error) {
+                    <div class="git-hint">
+                      ⚠️ Tienes cambios locales. Se te pedirá confirmación antes de descartarlos.
                     </div>
-                  </div>
-                }
+                  }
 
-                @if (getGitState(selectedTab, micro.key).hasChanges && !getGitState(selectedTab, micro.key).error) {
-                  <div class="git-hint">
-                    ⚠️ Tienes cambios locales. Se te pedirá confirmación antes de descartarlos.
+                  @if (getGitState(selectedTab, micro.key).loading) {
+                    <div class="git-loading">
+                      <span class="dot"></span> Consultando Git...
+                    </div>
+                  }
+                </div>
+              } @else {
+                <div class="git-panel git-disabled">
+                  <div class="git-disabled-message">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M23.546 10.93L13.067.452c-.604-.603-1.582-.603-2.188 0L8.708 2.627l2.76 2.76c.645-.215 1.379-.07 1.889.441.516.515.658 1.258.438 1.9l2.658 2.66c.645-.223 1.387-.078 1.9.435.721.72.721 1.884 0 2.604-.719.719-1.881.719-2.6 0-.539-.541-.674-1.337-.404-1.996L12.86 8.955v6.525c.176.086.342.203.488.348.713.721.713 1.883 0 2.6-.719.721-1.889.721-2.609 0-.719-.719-.719-1.879 0-2.598.182-.18.387-.316.605-.406V8.835c-.217-.091-.424-.222-.6-.401-.545-.545-.676-1.342-.396-2.009L7.636 3.7.45 10.881c-.6.605-.6 1.584 0 2.189l10.48 10.477c.604.604 1.582.604 2.186 0l10.43-10.43c.605-.603.605-1.582 0-2.187"/>
+                    </svg>
+                    <span>Git desconectado</span>
                   </div>
-                }
-
-                @if (getGitState(selectedTab, micro.key).loading) {
-                  <div class="git-loading">
-                    <span class="dot"></span> Consultando Git...
-                  </div>
-                }
-              </div>
+                </div>
+              }
 
               @if (selectedTab === 'angular') {
                 <div class="legacy-toggle">
