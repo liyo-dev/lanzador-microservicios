@@ -57,68 +57,113 @@
       </div>
     }
 
+    <aside class="autologin-disclaimer" role="note">
+      <span class="disclaimer-icon">⚠️</span>
+      <div class="disclaimer-body">
+        <strong>Cómo usar Auto-Login</strong>
+        <p>
+          Al pulsar <span class="inline-badge">🚀 Auto-Login</span> se abre el navegador en la página del portal
+          y se copia automáticamente al portapapeles el script de inicio de sesión.
+          Una vez cargado el portal, abre las <strong>Herramientas de desarrollo</strong>
+          (<span class="inline-badge">F12</span>), ve a la pestaña <strong>Console</strong>,
+          pega con <span class="inline-badge">Ctrl + V</span> y pulsa <strong>Enter</strong>
+          para completar el login.
+        </p>
+      </div>
+    </aside>
+
     @if (getUsersByEnvironment().length > 0) {
-      <section class="users-content">
+      <section class="users-content address-book">
+        <header class="address-row address-head" aria-hidden="true">
+          <span class="col col-user">Usuario</span>
+          <span class="col col-company">Grupo Emp.</span>
+          <span class="col col-login">Login</span>
+          <span class="col col-pass">Contraseña</span>
+          <span class="col col-url">URL del portal</span>
+          <span class="col col-actions">Acciones</span>
+        </header>
+
         @for (user of getUsersByEnvironment(); track user.id) {
-          <article class="user-card" [attr.data-user-id]="user.id" [attr.data-env]="user.environment">
-            <header>
-              <div>
-                <h3>{{ user.name }}</h3>
-                <span class="env-badge" [attr.data-env]="user.environment">
-                  @if (user.environment === 'local-dev') {
-                    🏠🔧 LOCAL/DEV
-                  }
-                  @if (user.environment === 'pre') {
-                    🧪 PRE
-                  }
-                </span>
-              </div>
-              <div class="card-actions">
-                <button class="ghost-btn" (click)="editUser(user)" title="Editar usuario">✏️</button>
-                <button class="ghost-btn danger" (click)="deleteUser(user.id)" title="Eliminar usuario">🗑️</button>
-              </div>
-            </header>
-
-            <dl>
-              <div>
-                <dt>Grupo Emp</dt>
-                <dd>{{ user.companyID || 'SCNP' }}</dd>
-              </div>
-              <div>
-                <dt>Usuario</dt>
-                <dd>{{ user.username }}</dd>
-              </div>
+          <article class="address-row" [attr.data-user-id]="user.id" [attr.data-env]="user.environment">
+            <div class="col col-user">
+              <div class="user-name">{{ user.name }}</div>
               @if (user.description) {
-                <div>
-                  <dt>Descripción</dt>
-                  <dd>{{ user.description }}</dd>
-                </div>
+                <div class="user-desc">{{ user.description }}</div>
               }
-              @if (user.environment === 'local-dev') {
-                <div class="url-indicator">
-                  <dt>URL Activa</dt>
-                  <dd>
-                    @if (selectedSubEnvironment === 'local') {
-                      🏠 Local (localhost:8080)
-                    }
-                    @if (selectedSubEnvironment === 'dev') {
-                      🔧 Dev (isban.dev.corp)
-                    }
-                  </dd>
-                </div>
-              }
-            </dl>
+              <span class="env-badge" [attr.data-env]="user.environment">
+                @if (user.environment === 'local-dev') { 🏠🔧 LOCAL/DEV }
+                @if (user.environment === 'pre') { 🧪 PRE }
+              </span>
+            </div>
 
-            <div class="portal-actions">
-              <!-- Login automático con Puppeteer -->
-              <button 
-                class="auto-login-btn" 
+            <div class="col col-company copyable">
+              <span class="value" [title]="user.companyID || 'SCNP'">{{ user.companyID || 'SCNP' }}</span>
+              <button
+                class="copy-btn"
+                [class.copied]="copiedKey === 'company-' + user.id"
+                (click)="copyToClipboard(user.companyID || 'SCNP', 'company-' + user.id)"
+                [title]="copiedKey === 'company-' + user.id ? '¡Copiado!' : 'Copiar grupo empresarial'"
+              >
+                {{ copiedKey === 'company-' + user.id ? '✅' : '📋' }}
+              </button>
+            </div>
+
+            <div class="col col-login copyable">
+              <span class="value" [title]="user.username">{{ user.username }}</span>
+              <button
+                class="copy-btn"
+                [class.copied]="copiedKey === 'user-' + user.id"
+                (click)="copyToClipboard(user.username, 'user-' + user.id)"
+                [title]="copiedKey === 'user-' + user.id ? '¡Copiado!' : 'Copiar usuario'"
+              >
+                {{ copiedKey === 'user-' + user.id ? '✅' : '📋' }}
+              </button>
+            </div>
+
+            <div class="col col-pass copyable">
+              <span class="value password-value" [title]="isPasswordVisible(user.id) ? user.password : '••••••••'">
+                {{ isPasswordVisible(user.id) ? user.password : '••••••••' }}
+              </span>
+              <button
+                class="copy-btn"
+                (click)="toggleUserPasswordVisibility(user.id)"
+                [title]="isPasswordVisible(user.id) ? 'Ocultar contraseña' : 'Mostrar contraseña'"
+              >
+                {{ isPasswordVisible(user.id) ? '🙈' : '👁️' }}
+              </button>
+              <button
+                class="copy-btn"
+                [class.copied]="copiedKey === 'pw-' + user.id"
+                (click)="copyToClipboard(user.password, 'pw-' + user.id)"
+                [title]="copiedKey === 'pw-' + user.id ? '¡Copiado!' : 'Copiar contraseña'"
+              >
+                {{ copiedKey === 'pw-' + user.id ? '✅' : '📋' }}
+              </button>
+            </div>
+
+            <div class="col col-url copyable">
+              <span class="value url-value" [title]="getEnvironmentUrl(user)">{{ getEnvironmentUrl(user) }}</span>
+              <button
+                class="copy-btn"
+                [class.copied]="copiedKey === 'url-' + user.id"
+                (click)="copyToClipboard(getEnvironmentUrl(user), 'url-' + user.id)"
+                [title]="copiedKey === 'url-' + user.id ? '¡Copiado!' : 'Copiar URL del portal'"
+              >
+                {{ copiedKey === 'url-' + user.id ? '✅' : '📋' }}
+              </button>
+            </div>
+
+            <div class="col col-actions">
+              <button
+                class="auto-login-btn compact"
                 (click)="loginWithUser(user)"
-                title="Abre Chrome y completa el login automáticamente con Puppeteer"
+                title="Abre Chrome y completa el login automáticamente"
               >
                 <span class="emoji">🚀</span>
-                Login
+                <span class="label">Auto-Login</span>
               </button>
+              <button class="ghost-btn icon-only" (click)="editUser(user)" title="Editar usuario">✏️</button>
+              <button class="ghost-btn icon-only danger" (click)="deleteUser(user.id)" title="Eliminar usuario">🗑️</button>
             </div>
           </article>
         }

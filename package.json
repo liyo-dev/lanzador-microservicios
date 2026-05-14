@@ -1,7 +1,7 @@
 {
   "name": "launcher",
   "main": "main.js",
-  "version": "1.0.9",
+  "version": "1.0.10",
   "type": "commonjs",
   "scripts": {
     "ng": "ng serve",

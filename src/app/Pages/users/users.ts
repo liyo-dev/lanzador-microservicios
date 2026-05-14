@@ -36,6 +36,11 @@ export class UsersComponent implements OnInit {
   selectedEnvironment: 'local-dev' | 'pre' = 'local-dev';
   selectedSubEnvironment: 'local' | 'dev' = 'local'; // Para saber si mostrar local o dev cuando esté en local-dev
   showPassword = false; // Para toggle de contraseña
+
+  // Estado de la libreta de direcciones
+  copiedKey: string | null = null;
+  private copiedTimer: any = null;
+  visiblePasswords: Record<string, boolean> = {};
   
   environments: Environment[] = [
     {
@@ -409,6 +414,57 @@ export class UsersComponent implements OnInit {
     this.showPassword = !this.showPassword;
   }
 
+  // ------- Libreta de direcciones -------
+  isPasswordVisible(userId: string): boolean {
+    return !!this.visiblePasswords[userId];
+  }
+
+  toggleUserPasswordVisibility(userId: string) {
+    this.visiblePasswords[userId] = !this.visiblePasswords[userId];
+  }
+
+  copyToClipboard(value: string, key: string) {
+    if (!value) return;
+    const markCopied = () => {
+      this.copiedKey = key;
+      if (this.copiedTimer) clearTimeout(this.copiedTimer);
+      this.copiedTimer = setTimeout(() => {
+        this.copiedKey = null;
+        this.copiedTimer = null;
+      }, 1200);
+    };
+
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(value).then(markCopied).catch(() => {
+          this.fallbackCopy(value);
+          markCopied();
+        });
+      } else {
+        this.fallbackCopy(value);
+        markCopied();
+      }
+    } catch {
+      this.fallbackCopy(value);
+      markCopied();
+    }
+  }
+
+  private fallbackCopy(value: string) {
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = value;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    } catch (e) {
+      console.warn('No se pudo copiar al portapapeles', e);
+    }
+  }
+
   private resetNewUser() {
     this.newUser = {
       id: '',
@@ -441,16 +497,10 @@ export class UsersComponent implements OnInit {
       
     } catch (error) {
       console.error('❌ Error general al abrir portal:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
-      const portalUrl = this.getEnvironmentUrl(user);
-      alert(`❌ Error al abrir el portal: ${errorMessage}\n\nURL: ${portalUrl}\n\nVerifica que la URL sea correcta y que el servidor esté funcionando.`);
     }
   }
 
   private loginWithElectron(user: User) {
-    // Mostrar mensaje de inicio
-    this.showLoginConfirmation(user.name);
-    
     try {
       const electronAPI = (window as any).electronAPI;
       
@@ -463,12 +513,9 @@ export class UsersComponent implements OnInit {
       
       const portalUrl = this.getEnvironmentUrl(user);
       console.log('🔗 URL del portal generada:', portalUrl);
-      console.log('🔍 Tipo de URL:', typeof portalUrl);
-      console.log('📏 Longitud de URL:', portalUrl?.length);
       
       if (!portalUrl || portalUrl === '') {
         console.error('❌ URL vacía o undefined');
-        alert('❌ Error: No se pudo obtener la URL del portal');
         return;
       }
       
@@ -484,8 +531,6 @@ export class UsersComponent implements OnInit {
         }
       };
 
-      console.log('📦 Datos de login preparados:', JSON.stringify(loginData, null, 2));
-
       // Usar la nueva función de auto-login con Puppeteer
       if (electronAPI.openPortalAutoLogin) {
         console.log('✅ Llamando a openPortalAutoLogin...');
@@ -493,21 +538,14 @@ export class UsersComponent implements OnInit {
         electronAPI.openPortalAutoLogin(loginData)
           .then((result: any) => {
             console.log('📨 Respuesta recibida:', result);
-            
-            if (result.success) {
+            if (result?.success) {
               console.log('✅ Chrome abierto con auto-login automático');
-              
-              // Mostrar notificación simple
-              this.showLoginConfirmation(`✅ ${user.name} - Auto-login activado`);
-              
             } else {
-              console.error('❌ Error en auto-login:', result.error);
-              alert(`❌ Error: ${result.error}\n\nIntenta el login manual.`);
+              console.error('❌ Error en auto-login:', result?.error);
             }
           })
           .catch((error: any) => {
             console.error('❌ Error ejecutando auto-login:', error);
-            alert(`❌ Error: ${error}\n\nIntenta el login manual.`);
           });
       } else {
         console.error('❌ Función openPortalAutoLogin no disponible');
@@ -516,8 +554,6 @@ export class UsersComponent implements OnInit {
 
     } catch (error) {
       console.error('❌ Error al ejecutar login:', error);
-      const portalUrl = this.getEnvironmentUrl(user);
-      alert(`❌ Error: ${error}\n\nURL del portal: ${portalUrl}`);
     }
   }
 
