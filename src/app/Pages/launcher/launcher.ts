@@ -1,4 +1,4 @@
-import { Component, ViewChild, ElementRef, NgZone, OnDestroy, OnInit, inject } from '@angular/core';
+import { Component, ViewChild, ElementRef, NgZone, OnDestroy, OnInit, inject, HostListener } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { SpinnerComponent } from '../../Components/spinner/spinner';
@@ -68,6 +68,21 @@ export class Launcher implements OnInit, OnDestroy {
   selectedLogTab: string = 'all'; // 'all', 'angular-all', 'spring-all', o 'angular-key'/'spring-key'
   logSearchTerm: string = ''; // Término de búsqueda en logs
   filteredLogs: string[] = []; // Logs filtrados por búsqueda
+
+  // Filtro por nivel del log (error/warn/info/debug)
+  selectedLogLevel: 'all' | 'error' | 'warn' | 'info' | 'debug' = 'all';
+  // Auto-scroll inteligente: el usuario puede desactivarlo y al hacer scroll arriba se pausa
+  autoScrollEnabled = true;
+  userScrolledUp = false;
+  pendingNewLogs = 0; // Logs nuevos no vistos cuando el auto-scroll está pausado
+  private readonly LOG_PREFS_KEY = 'launcher-log-prefs';
+
+  // Patrones para detectar nivel de log. Orden importa: primero error, luego warn, luego debug.
+  private static readonly LEVEL_PATTERNS: Array<{ level: 'error' | 'warn' | 'debug'; re: RegExp }> = [
+    { level: 'error', re: /\b(ERROR|ERR!|FATAL|SEVERE|Exception|Traceback|EADDRINUSE|ECONN|failed|FAIL\b|✖|❌|💥)\b|\b5\d{2}\b\s/i },
+    { level: 'warn',  re: /\b(WARN(ING)?|WARN!|deprecated|deprecation)\b|\b4\d{2}\b\s|⚠️/i },
+    { level: 'debug', re: /\b(DEBUG|TRACE|VERBOSE)\b/i },
+  ];
   loading = false;
   loadingMessage = 'Procesando microservicios...';
   initialLoading = true;
@@ -89,9 +104,11 @@ export class Launcher implements OnInit, OnDestroy {
   private logCleanTimer: any = null;
 
   @ViewChild('logBox') logBox!: ElementRef;
+  @ViewChild('logSearchInput') logSearchInput?: ElementRef<HTMLInputElement>;
 
   constructor(private ngZone: NgZone) {
     this.loadViewModePreference();
+    this.loadLogPreferences();
     this.loadConfiguration();
     this.setupElectronListeners();
     this.setupLogCleanup();
@@ -229,6 +246,16 @@ export class Launcher implements OnInit, OnDestroy {
 
   repoKey(type: 'angular' | 'spring', microKey: string) {
     return `${type}-${microKey}`;
+  }
+
+  /** Etiqueta legible mostrada junto al spinner mientras se ejecuta una acción Git. */
+  gitActionLabel(action: string | null | undefined): string {
+    switch (action) {
+      case 'fetch':    return 'Haciendo fetch…';
+      case 'pull':     return 'Haciendo pull…';
+      case 'checkout': return 'Cambiando rama…';
+      default:         return 'Procesando…';
+    }
   }
 
   getGitState(type: 'angular' | 'spring', microKey: string): GitInfo {
@@ -1062,13 +1089,47 @@ export class Launcher implements OnInit, OnDestroy {
 
   scrollToBottom() {
     try {
-      if (this.logBox) {
-        setTimeout(() => {
-          this.logBox.nativeElement.scrollTop =
-            this.logBox.nativeElement.scrollHeight;
-        }, 0);
+      if (!this.logBox) return;
+      // Si el usuario ha desactivado o ha hecho scroll arriba, no forzamos
+      if (!this.autoScrollEnabled || this.userScrolledUp) {
+        this.pendingNewLogs++;
+        return;
       }
+      setTimeout(() => {
+        this.logBox.nativeElement.scrollTop =
+          this.logBox.nativeElement.scrollHeight;
+      }, 0);
     } catch {}
+  }
+
+  /** El usuario hace scroll dentro del log-box: detectamos si está leyendo arriba. */
+  onLogsScroll() {
+    if (!this.logBox) return;
+    const el = this.logBox.nativeElement as HTMLElement;
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    // Más de 60px del fondo -> está leyendo arriba, pausamos auto-scroll
+    const wasUp = this.userScrolledUp;
+    this.userScrolledUp = distanceFromBottom > 60;
+    if (wasUp && !this.userScrolledUp) {
+      this.pendingNewLogs = 0; // volvió al fondo
+    }
+  }
+
+  /** Vuelve al fondo de los logs y reactiva el auto-scroll. */
+  jumpToLatestLogs() {
+    this.userScrolledUp = false;
+    this.pendingNewLogs = 0;
+    if (this.logBox) {
+      this.logBox.nativeElement.scrollTop = this.logBox.nativeElement.scrollHeight;
+    }
+  }
+
+  toggleAutoScroll() {
+    this.autoScrollEnabled = !this.autoScrollEnabled;
+    if (this.autoScrollEnabled) {
+      this.jumpToLatestLogs();
+    }
+    this.saveLogPreferences();
   }
 
   toggleLogs() {
@@ -1294,6 +1355,139 @@ export class Launcher implements OnInit, OnDestroy {
     }
     
     return [];
+  }
+
+  // ============================================================
+  // Nivel del log, filtro y highlight de búsqueda
+  // ============================================================
+
+  /** Detecta el nivel de un log a partir de patrones. Por defecto 'info'. */
+  getLogLevel(line: string): 'error' | 'warn' | 'info' | 'debug' {
+    for (const { level, re } of Launcher.LEVEL_PATTERNS) {
+      if (re.test(line)) return level;
+    }
+    return 'info';
+  }
+
+  setLogLevel(level: 'all' | 'error' | 'warn' | 'info' | 'debug') {
+    this.selectedLogLevel = level;
+    this.saveLogPreferences();
+    // Reaplica filtro de búsqueda si lo hubiera, sobre el nuevo conjunto
+    if (this.logSearchTerm.trim()) {
+      this.filterLogs();
+    }
+    setTimeout(() => this.scrollToBottom(), 0);
+  }
+
+  /** Devuelve los logs visibles aplicando además el filtro por nivel. */
+  getVisibleLogs(): string[] {
+    const base = this.getDisplayedLogs();
+    if (this.selectedLogLevel === 'all') return base;
+    return base.filter(l => this.getLogLevel(l) === this.selectedLogLevel);
+  }
+
+  /** Cuenta de niveles del log para la pestaña activa (sin filtro de nivel, sin búsqueda). */
+  getLevelCounts(): { error: number; warn: number; info: number; debug: number; total: number } {
+    // Saltamos getDisplayedLogs para no respetar la búsqueda: queremos el panorama de la pestaña.
+    let source: string[];
+    if (this.selectedLogTab === 'all') source = this.logs;
+    else if (this.selectedLogTab === 'angular-all') source = this.logs.filter(l => l.includes('[Angular '));
+    else if (this.selectedLogTab === 'spring-all')  source = this.logs.filter(l => l.includes('[Spring '));
+    else source = this.microLogs[this.selectedLogTab] || [];
+
+    const counts = { error: 0, warn: 0, info: 0, debug: 0, total: source.length };
+    for (const l of source) {
+      const lv = this.getLogLevel(l);
+      counts[lv]++;
+    }
+    return counts;
+  }
+
+  /** Devuelve cuántos errores tiene una pestaña concreta (para badge en el tab). */
+  getTabErrorCount(tabKey: string): number {
+    let source: string[];
+    if (tabKey === 'all') source = this.logs;
+    else if (tabKey === 'angular-all') source = this.logs.filter(l => l.includes('[Angular '));
+    else if (tabKey === 'spring-all')  source = this.logs.filter(l => l.includes('[Spring '));
+    else source = this.microLogs[tabKey] || [];
+    let n = 0;
+    for (const l of source) if (this.getLogLevel(l) === 'error') n++;
+    return n;
+  }
+
+  getTabWarnCount(tabKey: string): number {
+    let source: string[];
+    if (tabKey === 'all') source = this.logs;
+    else if (tabKey === 'angular-all') source = this.logs.filter(l => l.includes('[Angular '));
+    else if (tabKey === 'spring-all')  source = this.logs.filter(l => l.includes('[Spring '));
+    else source = this.microLogs[tabKey] || [];
+    let n = 0;
+    for (const l of source) if (this.getLogLevel(l) === 'warn') n++;
+    return n;
+  }
+
+  /** Devuelve el HTML seguro de una línea: escapado + búsqueda resaltada. */
+  getLogHtml(line: string): string {
+    const escaped = this.escapeHtml(line);
+    const term = this.logSearchTerm.trim();
+    if (!term) return escaped;
+    const safeTerm = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const re = new RegExp(`(${safeTerm})`, 'gi');
+    return escaped.replace(re, '<mark>$1</mark>');
+  }
+
+  private escapeHtml(s: string): string {
+    return s
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  // ============================================================
+  // Persistencia de preferencias de logs
+  // ============================================================
+  private loadLogPreferences() {
+    try {
+      const raw = localStorage.getItem(this.LOG_PREFS_KEY);
+      if (!raw) return;
+      const prefs = JSON.parse(raw);
+      if (typeof prefs.autoScrollEnabled === 'boolean') this.autoScrollEnabled = prefs.autoScrollEnabled;
+      if (typeof prefs.selectedLogLevel === 'string') this.selectedLogLevel = prefs.selectedLogLevel;
+    } catch {}
+  }
+
+  private saveLogPreferences() {
+    try {
+      localStorage.setItem(this.LOG_PREFS_KEY, JSON.stringify({
+        autoScrollEnabled: this.autoScrollEnabled,
+        selectedLogLevel: this.selectedLogLevel,
+      }));
+    } catch {}
+  }
+
+  // ============================================================
+  // Atajos de teclado
+  //  - Ctrl/Cmd + F : foco al buscador de logs (si están visibles)
+  //  - Esc          : limpiar búsqueda
+  // ============================================================
+  @HostListener('document:keydown', ['$event'])
+  handleLogShortcuts(ev: KeyboardEvent) {
+    const isFind = (ev.ctrlKey || ev.metaKey) && (ev.key === 'f' || ev.key === 'F');
+    if (isFind && this.showLogs) {
+      ev.preventDefault();
+      setTimeout(() => this.logSearchInput?.nativeElement.focus(), 0);
+      return;
+    }
+    if (ev.key === 'Escape' && this.logSearchTerm) {
+      const active = document.activeElement as HTMLElement | null;
+      // Solo si el foco está en el input de búsqueda de logs
+      if (active && active === this.logSearchInput?.nativeElement) {
+        ev.preventDefault();
+        this.clearSearch();
+      }
+    }
   }
 
   // Limpiar timer al destruir el componente

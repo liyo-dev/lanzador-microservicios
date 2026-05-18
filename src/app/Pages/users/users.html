@@ -15,6 +15,17 @@
         <button class="ghost-btn" (click)="goBack()" title="Volver al launcher" aria-label="Volver al launcher">🚀</button>
         <button class="ghost-btn" (click)="goToPorts()" title="Gestión de Puertos" aria-label="Gestión de puertos">🔌</button>
         <button class="ghost-btn" (click)="goToConfig()" title="Ir a configuración" aria-label="Ir a configuración">⚙️</button>
+        <button
+          class="ghost-btn incognito-toggle"
+          [class.active]="incognitoMode"
+          (click)="toggleIncognito()"
+          [title]="incognitoMode ? 'Modo incógnito ACTIVADO: sesión efímera, sin cookies' : 'Activar modo incógnito (sesión efímera)'"
+          [attr.aria-pressed]="incognitoMode"
+          aria-label="Alternar modo incógnito"
+        >
+          🕵️
+          <span class="incognito-label">{{ incognitoMode ? 'Incógnito ON' : 'Incógnito' }}</span>
+        </button>
         <button class="primary-btn" (click)="showAddUserForm()">
           <span class="emoji" aria-hidden="true">➕</span>
           Añadir usuario
@@ -61,6 +72,29 @@
             >✕</button>
           }
         </div>
+
+        <label class="address-filter">
+          <span class="filter-label">Grupo:</span>
+          <select
+            [(ngModel)]="companyFilter"
+            class="filter-select"
+            aria-label="Filtrar por grupo empresarial"
+          >
+            <option value="">Todos</option>
+            @for (group of getCompanyGroups(); track group) {
+              <option [value]="group">{{ group }}</option>
+            }
+          </select>
+          @if (companyFilter) {
+            <button
+              class="clear-search-btn"
+              (click)="clearCompanyFilter()"
+              title="Quitar filtro de grupo"
+              aria-label="Quitar filtro de grupo"
+            >✕</button>
+          }
+        </label>
+
         <span class="address-count" aria-live="polite">
           {{ getFilteredUsers().length }} / {{ getUsersByEnvironment().length }}
           {{ getUsersByEnvironment().length === 1 ? 'usuario' : 'usuarios' }}
@@ -69,11 +103,10 @@
 
       <section class="users-content address-book">
         <header class="address-row address-head" aria-hidden="true">
-          <span class="col col-user">Usuario</span>
+          <span class="col col-user">Nombre</span>
           <span class="col col-company">Grupo Emp.</span>
-          <span class="col col-login">Login</span>
+          <span class="col col-login">Usuario</span>
           <span class="col col-pass">Contraseña</span>
-          <span class="col col-url">URL del portal</span>
           <span class="col col-actions">Acciones</span>
         </header>
 
@@ -140,28 +173,15 @@
               </button>
             </div>
 
-            <div class="col col-url copyable">
-              <span class="value url-value" [title]="getEnvironmentUrl(user)">{{ getEnvironmentUrl(user) }}</span>
-              <button
-                class="copy-btn"
-                [class.copied]="copiedKey === 'url-' + user.id"
-                (click)="copyToClipboard(getEnvironmentUrl(user), 'url-' + user.id)"
-                [title]="copiedKey === 'url-' + user.id ? '¡Copiado!' : 'Copiar URL del portal'"
-                [attr.aria-label]="copiedKey === 'url-' + user.id ? 'Copiado al portapapeles' : 'Copiar URL del portal'"
-              >
-                {{ copiedKey === 'url-' + user.id ? '✅' : '📋' }}
-              </button>
-            </div>
-
             <div class="col col-actions">
               <button
                 class="auto-login-btn compact"
                 (click)="loginWithUser(user)"
-                title="Abre Chrome y completa el login automáticamente"
-                [attr.aria-label]="'Iniciar Auto-Login para ' + user.name"
+                title="Abre el portal y completa el login automáticamente"
+                [attr.aria-label]="'Iniciar login para ' + user.name"
               >
                 <span class="emoji" aria-hidden="true">🚀</span>
-                <span class="label">Auto-Login</span>
+                <span class="label">Login</span>
               </button>
               <button class="ghost-btn icon-only" (click)="editUser(user)" title="Editar usuario" [attr.aria-label]="'Editar usuario ' + user.name">✏️</button>
               <button class="ghost-btn icon-only danger" (click)="deleteUser(user.id)" title="Eliminar usuario" [attr.aria-label]="'Eliminar usuario ' + user.name">🗑️</button>

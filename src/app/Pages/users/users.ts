@@ -70,6 +70,14 @@ export class UsersComponent implements OnInit {
 
   // Buscador de la agenda
   searchTerm = '';
+
+  // Filtro por grupo empresarial (vacío = todos)
+  companyFilter = '';
+
+  // Modo incógnito: abre el portal en una sesión efímera (sin cookies persistentes).
+  // Persistido en localStorage para que recuerde la preferencia.
+  incognitoMode = false;
+  private readonly INCOGNITO_LS_KEY = 'users.incognitoMode';
   
   environments: Environment[] = [
     {
@@ -120,6 +128,9 @@ export class UsersComponent implements OnInit {
   /** Cambia la vista activa. */
   switchView(view: PortalView) {
     this.selectedView = view;
+    // Al cambiar de entorno, el filtro por grupo puede dejar de tener sentido
+    // (el grupo seleccionado quizá no exista en el nuevo entorno).
+    this.companyFilter = '';
   }
 
   /**
@@ -166,17 +177,48 @@ export class UsersComponent implements OnInit {
   getFilteredUsers(): User[] {
     const base = this.getUsersByEnvironment();
     const term = this.searchTerm.trim().toLowerCase();
-    if (!term) return base;
-    return base.filter(u =>
-      u.name?.toLowerCase().includes(term) ||
-      u.username?.toLowerCase().includes(term) ||
-      u.companyID?.toLowerCase().includes(term) ||
-      (u.description ?? '').toLowerCase().includes(term)
-    );
+    const company = this.companyFilter.trim();
+
+    return base.filter(u => {
+      // Filtro por grupo empresarial (exacto)
+      if (company) {
+        const userGroup = (u.companyID || 'SCNP').trim();
+        if (userGroup !== company) return false;
+      }
+      // Filtro por término de búsqueda
+      if (term) {
+        const matches =
+          u.name?.toLowerCase().includes(term) ||
+          u.username?.toLowerCase().includes(term) ||
+          u.companyID?.toLowerCase().includes(term) ||
+          (u.description ?? '').toLowerCase().includes(term);
+        if (!matches) return false;
+      }
+      return true;
+    });
+  }
+
+  /**
+   * Devuelve la lista única (ordenada alfabéticamente) de grupos empresariales
+   * existentes entre los usuarios del entorno actualmente seleccionado.
+   * Si un usuario no tiene companyID, se considera 'SCNP' (valor por defecto).
+   */
+  getCompanyGroups(): string[] {
+    const base = this.getUsersByEnvironment();
+    const set = new Set<string>();
+    for (const u of base) {
+      const g = (u.companyID || 'SCNP').trim();
+      if (g) set.add(g);
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'es'));
   }
 
   clearSearch() {
     this.searchTerm = '';
+  }
+
+  clearCompanyFilter() {
+    this.companyFilter = '';
   }
 
   getUserCountByEnvironment(env: 'local-dev' | 'pre'): number {
@@ -185,9 +227,30 @@ export class UsersComponent implements OnInit {
 
   ngOnInit() {
     this.loadUsers();
+    this.loadIncognitoPreference();
     this.animateEntrance();
-    
+
     // Event listener removido para evitar modales
+  }
+
+  private loadIncognitoPreference() {
+    try {
+      this.incognitoMode = localStorage.getItem(this.INCOGNITO_LS_KEY) === '1';
+    } catch {
+      this.incognitoMode = false;
+    }
+  }
+
+  toggleIncognito() {
+    this.incognitoMode = !this.incognitoMode;
+    try {
+      localStorage.setItem(this.INCOGNITO_LS_KEY, this.incognitoMode ? '1' : '0');
+    } catch { /* noop */ }
+    if (this.incognitoMode) {
+      this.notify.info('Modo incógnito activado: sesión efímera, sin cookies persistentes.', { title: '🕵️ Incógnito ON', duration: 2500 });
+    } else {
+      this.notify.info('Modo incógnito desactivado.', { duration: 1800 });
+    }
   }
 
   private animateEntrance() {
@@ -439,6 +502,7 @@ export class UsersComponent implements OnInit {
 
       const loginData = {
         url: portalUrl,
+        incognito: this.incognitoMode,
         user: {
           name: user.name,
           companyID: user.companyID,
@@ -448,7 +512,7 @@ export class UsersComponent implements OnInit {
         }
       };
 
-      this.notify.info(`Lanzando Auto-Login para ${user.name}…`, { duration: 2500 });
+      this.notify.info(`Lanzando Auto-Login${this.incognitoMode ? ' 🕵️ (incógnito)' : ''} para ${user.name}…`, { duration: 2500 });
 
       electronAPI.openPortalAutoLogin(loginData)
         .then((result: any) => {
