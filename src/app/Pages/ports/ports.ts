@@ -3,6 +3,8 @@ import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import gsap from 'gsap';
+import { NotificationService } from '../../services/notification.service';
+import { ConfirmService } from '../../services/confirm.service';
 
 interface PortProcess {
   protocol: string;
@@ -31,6 +33,8 @@ declare global {
 })
 export class PortsComponent implements OnInit {
   private router = inject(Router);
+  private notify = inject(NotificationService);
+  private confirm = inject(ConfirmService);
   
   searchPort = '';
   isSearching = false;
@@ -109,16 +113,22 @@ export class PortsComponent implements OnInit {
   }
 
   async killProcess(pid: string) {
-    if (!confirm(`¿Estás seguro de que quieres terminar el proceso con PID ${pid}?`)) {
-      return;
-    }
+    const ok = await this.confirm.ask({
+      title: 'Terminar proceso',
+      message: `¿Seguro que quieres terminar el proceso con PID ${pid}? Se cerrará inmediatamente.`,
+      confirmLabel: 'Terminar',
+      cancelLabel: 'Cancelar',
+      tone: 'danger'
+    });
+    if (!ok) return;
 
     try {
       const result = await window.electronAPI!.killProcess(pid);
-      
+
       if (result.success) {
         this.successMessage = `✅ Proceso ${pid} terminado correctamente`;
-        
+        this.notify.success(`Proceso ${pid} terminado.`);
+
         // Animar salida del proceso eliminado
         const row = document.querySelector(`[data-pid="${pid}"]`);
         if (row) {
@@ -135,9 +145,11 @@ export class PortsComponent implements OnInit {
         }
       } else {
         this.errorMessage = `❌ Error al terminar proceso: ${result.error}`;
+        this.notify.error(result.error || `No se pudo terminar el proceso ${pid}.`, { title: 'Error' });
       }
     } catch (error) {
       this.errorMessage = `❌ Error: ${error}`;
+      this.notify.error(`Error inesperado al terminar el proceso ${pid}.`, { title: 'Error' });
       console.error('Error killing process:', error);
     } finally {
       this.clearMessagesAfterDelay();

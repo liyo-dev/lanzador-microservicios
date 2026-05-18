@@ -4,6 +4,7 @@ import { CommonModule } from '@angular/common';
 import { SpinnerComponent } from '../../Components/spinner/spinner';
 import { Router } from '@angular/router';
 import gsap from 'gsap';
+import { NotificationService } from '../../services/notification.service';
 
 // Interface para microservicios
 interface MicroService {
@@ -41,6 +42,7 @@ interface GitDialog {
 })
 export class Launcher implements OnInit, OnDestroy {
   private router = inject(Router);
+  private notify = inject(NotificationService);
   config: any = {};
   selectedTab: 'angular' | 'spring' = 'angular';
   angularMicros: MicroService[] = [];
@@ -864,7 +866,7 @@ export class Launcher implements OnInit, OnDestroy {
       const port = this.config.angular[micro.key]?.port;
 
       if (!path || path.trim() === '') {
-        alert(`El micro Angular ${micro.label} no tiene ruta configurada.`);
+        this.notify.warning(`El micro Angular ${micro.label} no tiene ruta configurada.`, { title: 'Configuración incompleta' });
         continue;
       }
 
@@ -884,7 +886,7 @@ export class Launcher implements OnInit, OnDestroy {
       const path = this.config.spring[micro.key]?.path;
 
       if (!path || path.trim() === '') {
-        alert(`El micro Spring ${micro.label} no tiene ruta configurada.`);
+        this.notify.warning(`El micro Spring ${micro.label} no tiene ruta configurada.`, { title: 'Configuración incompleta' });
         continue;
       }
 
@@ -1168,7 +1170,7 @@ export class Launcher implements OnInit, OnDestroy {
       : this.getDisplayedLogs();
 
     if (logsToExport.length === 0) {
-      alert('No hay logs para exportar');
+      this.notify.info('No hay logs para exportar.');
       return;
     }
 

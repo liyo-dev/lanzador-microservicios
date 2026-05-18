@@ -4,6 +4,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { SpinnerComponent } from '../../Components/spinner/spinner';
 import gsap from 'gsap';
+import { NotificationService } from '../../services/notification.service';
+import { ConfirmService } from '../../services/confirm.service';
 
 // Añadir interface para microservicios personalizados
 interface CustomMicroservice {
@@ -21,6 +23,8 @@ interface CustomMicroservice {
 })
 export class ConfigComponent {
   private router = inject(Router);
+  private notify = inject(NotificationService);
+  private confirm = inject(ConfirmService);
   
   //#region Variables
   loading = true;
@@ -338,7 +342,7 @@ export class ConfigComponent {
   // Método para agregar un nuevo microservicio
   addCustomMicroservice() {
     if (!this.newMicroName.trim()) {
-      alert('⚠️ El nombre del microservicio no puede estar vacío.');
+      this.notify.warning('El nombre del microservicio no puede estar vacío.', { title: 'Nombre requerido' });
       return;
     }
 
@@ -348,14 +352,14 @@ export class ConfigComponent {
       .substring(0, 20);
 
     if (!key) {
-      alert('⚠️ El nombre debe contener al menos una letra o número.');
+      this.notify.warning('El nombre debe contener al menos una letra o número.', { title: 'Nombre no válido' });
       return;
     }
 
     // Verificar que no exista ya
     const existingMicros = this.newMicroType === 'angular' ? this.angularMicros : this.springMicros;
     if (existingMicros.find(m => m.key === key)) {
-      alert('⚠️ Ya existe un microservicio con ese nombre.');
+      this.notify.warning('Ya existe un microservicio con ese nombre.', { title: 'Duplicado' });
       return;
     }
 
@@ -390,6 +394,7 @@ export class ConfigComponent {
     // Limpiar formulario
     this.newMicroName = '';
     this.showAddMicroForm = false;
+    this.notify.success(`Microservicio "${newMicro.label}" añadido.`);
 
     // Animar la nueva card
     setTimeout(() => {
@@ -404,21 +409,33 @@ export class ConfigComponent {
   }
 
   // Método para eliminar microservicio personalizado
-  removeCustomMicroservice(microKey: string, type: 'angular' | 'spring') {
-    if (confirm('¿Estás seguro de que quieres eliminar este microservicio personalizado?')) {
-      if (type === 'angular') {
-        this.angularMicros = this.angularMicros.filter(m => m.key !== microKey);
-        delete this.config.angular[microKey];
-        if (this.config.customMicros?.angular) {
-          this.config.customMicros.angular = this.config.customMicros.angular.filter((m: any) => m.key !== microKey);
-        }
-      } else {
-        this.springMicros = this.springMicros.filter(m => m.key !== microKey);
-        delete this.config.spring[microKey];
-        if (this.config.customMicros?.spring) {
-          this.config.customMicros.spring = this.config.customMicros.spring.filter((m: any) => m.key !== microKey);
-        }
+  async removeCustomMicroservice(microKey: string, type: 'angular' | 'spring') {
+    const list = type === 'angular' ? this.angularMicros : this.springMicros;
+    const micro = list.find(m => m.key === microKey);
+    const ok = await this.confirm.ask({
+      title: 'Eliminar microservicio',
+      message: micro
+        ? `¿Seguro que quieres eliminar el microservicio "${micro.label}"? Se borrará su configuración.`
+        : '¿Seguro que quieres eliminar este microservicio personalizado?',
+      confirmLabel: 'Eliminar',
+      cancelLabel: 'Cancelar',
+      tone: 'danger'
+    });
+    if (!ok) return;
+
+    if (type === 'angular') {
+      this.angularMicros = this.angularMicros.filter(m => m.key !== microKey);
+      delete this.config.angular[microKey];
+      if (this.config.customMicros?.angular) {
+        this.config.customMicros.angular = this.config.customMicros.angular.filter((m: any) => m.key !== microKey);
+      }
+    } else {
+      this.springMicros = this.springMicros.filter(m => m.key !== microKey);
+      delete this.config.spring[microKey];
+      if (this.config.customMicros?.spring) {
+        this.config.customMicros.spring = this.config.customMicros.spring.filter((m: any) => m.key !== microKey);
       }
     }
+    this.notify.info(micro ? `Microservicio "${micro.label}" eliminado.` : 'Microservicio eliminado.');
   }
 }
