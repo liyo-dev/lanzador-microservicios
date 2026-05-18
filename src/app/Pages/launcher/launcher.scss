@@ -1360,3 +1360,212 @@
   }
 }
 
+// ============================================================
+// Modo oscuro: cards de microservicios (.micro-card y derivados)
+// Reemplaza los colores translúcidos claros y los textos oscuros
+// hardcodeados que en dark mode quedaban ilegibles.
+// ============================================================
+:root[data-theme='dark'] {
+  .micro-card {
+    background: var(--color-surface);
+    border-color: rgba(255, 255, 255, 0.08);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  }
+
+  // Panel Git dentro de la card
+  .git-panel {
+    background: rgba(255, 255, 255, 0.03);
+    border-color: rgba(255, 255, 255, 0.08);
+
+    &.git-disabled {
+      background: rgba(255, 255, 255, 0.02);
+      border-color: rgba(255, 255, 255, 0.05);
+    }
+  }
+
+  .git-disabled-message {
+    color: rgba(226, 232, 240, 0.55);
+  }
+
+  // Branch pill principal
+  .branch-pill {
+    background: rgba(96, 165, 250, 0.15);
+    border-color: rgba(96, 165, 250, 0.35);
+    color: #93c5fd;
+
+    .dot {
+      background: #60a5fa;
+    }
+
+    .badge {
+      background: rgba(244, 63, 94, 0.25);
+      color: #fda4af;
+    }
+
+    &.warn {
+      background: rgba(234, 179, 8, 0.18);
+      border-color: rgba(234, 179, 8, 0.4);
+      color: #fcd34d;
+
+      .dot {
+        background: #fbbf24;
+      }
+    }
+
+    &.muted {
+      background: rgba(148, 163, 184, 0.12);
+      border-color: rgba(148, 163, 184, 0.25);
+      color: rgba(226, 232, 240, 0.6);
+    }
+  }
+
+  // Select de branches
+  .branch-select span {
+    color: rgba(226, 232, 240, 0.6);
+  }
+
+  .branch-select select {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.1);
+    color: #e2e8f0;
+
+    &:focus {
+      border-color: #60a5fa;
+      outline: none;
+    }
+
+    option {
+      background: #1e293b;
+      color: #e2e8f0;
+    }
+  }
+
+  // Banners de estado Git (warning, loading, success)
+  .git-status-banner {
+    &,
+    &.warning {
+      background: rgba(234, 179, 8, 0.12);
+      border-color: rgba(234, 179, 8, 0.3);
+      color: #fcd34d;
+    }
+
+    &.loading {
+      background: rgba(96, 165, 250, 0.1);
+      border-color: rgba(96, 165, 250, 0.3);
+      color: #93c5fd;
+    }
+
+    &.success {
+      background: rgba(16, 185, 129, 0.14);
+      border-color: rgba(16, 185, 129, 0.35);
+      color: #6ee7b7;
+    }
+  }
+
+  .status-icon {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+
+  .git-loading {
+    color: rgba(226, 232, 240, 0.65);
+  }
+
+  .git-hint {
+    color: #fcd34d;
+  }
+
+  // Estados (running / stopped)
+  .status {
+    &.running {
+      background: rgba(20, 184, 166, 0.2);
+      color: #5eead4;
+    }
+
+    &.stopped {
+      background: rgba(239, 68, 68, 0.18);
+      color: #fca5a5;
+    }
+  }
+
+  // Checkbox de selección de microservicio
+  .micro-checkbox {
+    color: #e2e8f0;
+
+    .checkmark {
+      background: rgba(255, 255, 255, 0.04);
+      border-color: rgba(96, 165, 250, 0.4);
+    }
+  }
+
+  // Switch Git pequeño dentro de la card
+  .git-toggle-micro {
+    .slider-micro {
+      background: rgba(255, 255, 255, 0.06);
+      border-color: rgba(255, 255, 255, 0.15);
+
+      &::before {
+        background: rgba(226, 232, 240, 0.5);
+      }
+    }
+
+    input:checked + .slider-micro {
+      background: linear-gradient(135deg, rgba(96, 165, 250, 0.25), rgba(99, 102, 241, 0.25));
+      border-color: #60a5fa;
+
+      &::before {
+        background: #60a5fa;
+      }
+    }
+
+    svg {
+      color: rgba(226, 232, 240, 0.5);
+    }
+
+    input:checked ~ svg {
+      color: #60a5fa;
+    }
+  }
+
+  // Toggle "Legacy Node" (si está visible)
+  .toggle-slider {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.15);
+  }
+
+  .toggle-label {
+    color: rgba(226, 232, 240, 0.6);
+  }
+
+  // Banner de éxito al lanzar
+  .success-banner {
+    background: rgba(20, 184, 166, 0.18);
+    color: #5eead4;
+  }
+
+  // Botones dentro de las cards (ghost / primary) en dark mode
+  .ghost-btn {
+    background: rgba(255, 255, 255, 0.06);
+    color: rgba(226, 232, 240, 0.85);
+
+    &:hover:not(:disabled) {
+      background: rgba(96, 165, 250, 0.15);
+      border-color: rgba(96, 165, 250, 0.35);
+      color: #93c5fd;
+    }
+
+    &:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+  }
+
+  .primary-btn {
+    &:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+  }
+}
+

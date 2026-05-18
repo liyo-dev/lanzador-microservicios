@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell, dialog, clipboard } = require("electron");
+const { app, BrowserWindow, ipcMain, shell, dialog, clipboard, Menu } = require("electron");
 const { spawn, exec } = require("child_process");
 const stripAnsi = require("strip-ansi");
 const kill = require("tree-kill");
@@ -708,103 +708,224 @@ function findChromePath() {
   return null;
 }
 
-// Handler para abrir portal con auto-login usando Chrome directamente
+// Handler para abrir portal con auto-login.
+// Estrategia: abrimos una BrowserWindow de Electron (Chromium embebido) en lugar de
+// spawnear Chrome externo. Esto nos permite inyectar el script de login directamente
+// con webContents.executeJavaScript() sin pasar por el portapapeles ni DevTools.
+// Beneficio: 100% automático y no depende de Chrome instalado ni de permisos del SO.
 ipcMain.handle('open-portal-auto-login', async (event, loginData) => {
-  console.log('Iniciando auto-login con extensión Chrome');
-  console.log('Datos recibidos:', JSON.stringify(loginData, null, 2));
-  
+  console.log('🚀 Iniciando auto-login en ventana embebida');
+  console.log('Datos recibidos:', JSON.stringify({ url: loginData?.url, user: loginData?.user?.name }, null, 2));
+
   if (!loginData || !loginData.url) {
-    console.error('loginData.url es undefined o null');
+    console.error('❌ loginData.url es undefined o null');
     return {
       success: false,
       error: 'URL no proporcionada en loginData'
     };
   }
 
-  const chromePath = findChromePath();
-  
-  if (!chromePath) {
-    return {
-      success: false,
-      error: 'No se encontró Chrome instalado en el sistema'
-    };
-  }
-
   try {
-    // SOLUCIÓN: Abrir DevTools automáticamente y copiar script al portapapeles
-    // El usuario solo necesita pegar el script en la consola (Ctrl+V + Enter)
-    
     const credentials = {
       companyID: loginData.user.companyID,
       username: loginData.user.username,
       password: loginData.user.password
     };
-    
+
     // Detectar si es LOCAL o DEV/PRE
     const isLocal = loginData.url.includes('localhost') || loginData.url.includes('127.0.0.1');
     const environment = loginData.user.environment;
-    
+
     console.log('🔍 Detectando entorno:', {
       url: loginData.url,
-      isLocal: isLocal,
-      environment: environment,
+      isLocal,
+      environment,
       userName: loginData.user.name
     });
-    
-    // Script de auto-login que se copiará al portapapeles
-    let autoLoginScript = '';
-    
-    if (isLocal) {
-      console.log('✅ Generando script para LOCAL');
-      // Script para LOCAL
-      autoLoginScript = `
-// Auto-Login Script - LOCAL
+
+    // Construir el script de auto-login (sin IIFE: lo encapsulamos al inyectar)
+    const autoLoginScript = isLocal
+      ? buildLocalAutoLoginScript(credentials)
+      : buildNexusAutoLoginScript(credentials);
+
+    // Abrir nueva ventana embebida
+    const portalWindow = new BrowserWindow({
+      width: 1280,
+      height: 900,
+      title: `Auto-Login · ${loginData.user.name}`,
+      autoHideMenuBar: false, // Mostramos el menú con atajos de navegación
+      webPreferences: {
+        // Esta ventana es un navegador "tonto" para mostrar el portal externo.
+        // No necesita acceso a Node ni preload: aislada y segura.
+        nodeIntegration: false,
+        contextIsolation: true,
+        sandbox: true,
+        // Permitimos contenido inseguro si la URL fuese http://localhost (caso LOCAL)
+        webSecurity: !isLocal
+      }
+    });
+
+    // Menú con controles de navegación, DevTools y utilidades.
+    // Cada portalWindow tiene su propio menú independiente.
+    const portalMenu = buildPortalMenu(portalWindow);
+    portalWindow.setMenu(portalMenu);
+
+    // Atajos de teclado adicionales por si el foco está en la página y
+    // se quieren las teclas estándar de navegador (algunas ya las gestiona
+    // Chromium internamente, pero F12 lo forzamos aquí).
+    portalWindow.webContents.on('before-input-event', (event, input) => {
+      if (input.type !== 'keyDown') return;
+
+      // F12 -> abrir/cerrar DevTools
+      if (input.key === 'F12') {
+        event.preventDefault();
+        if (portalWindow.webContents.isDevToolsOpened()) {
+          portalWindow.webContents.closeDevTools();
+        } else {
+          portalWindow.webContents.openDevTools({ mode: 'right' });
+        }
+        return;
+      }
+
+      // Ctrl+Shift+I -> también DevTools (alternativa)
+      if (input.control && input.shift && input.key.toLowerCase() === 'i') {
+        event.preventDefault();
+        portalWindow.webContents.openDevTools({ mode: 'right' });
+        return;
+      }
+
+      // Ctrl+L -> copiar URL actual al portapapeles (sustituto de "enfocar barra")
+      if (input.control && input.key.toLowerCase() === 'l') {
+        event.preventDefault();
+        clipboard.writeText(portalWindow.webContents.getURL());
+        return;
+      }
+
+      // Ctrl+R / F5 -> recargar (Chromium ya lo hace, lo dejamos explícito)
+      if ((input.control && input.key.toLowerCase() === 'r') || input.key === 'F5') {
+        event.preventDefault();
+        portalWindow.webContents.reload();
+        return;
+      }
+    });
+
+    portalWindow.loadURL(loginData.url);
+
+    // Inyectamos el script una vez la página termine de cargar.
+    // Usamos 'did-finish-load' (DOM listo + recursos básicos) y reintentamos
+    // ante navegaciones (login devuelve a otra URL, etc.) limitando reintentos.
+    let injectionsDone = 0;
+    const MAX_INJECTIONS = 1; // Solo la primera carga; el script ya reintenta dentro
+
+    const tryInject = async (reason) => {
+      if (injectionsDone >= MAX_INJECTIONS) return;
+      injectionsDone++;
+      try {
+        console.log(`� Inyectando script de auto-login (${reason})`);
+        await portalWindow.webContents.executeJavaScript(autoLoginScript, true);
+        console.log('✅ Script inyectado correctamente');
+      } catch (err) {
+        console.error('⚠️ Error inyectando script:', err?.message || err);
+      }
+    };
+
+    portalWindow.webContents.once('did-finish-load', () => tryInject('did-finish-load'));
+
+    // Si el script falla por algún motivo, el usuario puede abrir DevTools manualmente
+    // con F12. Lo permitimos sin abrirlo por defecto (no molestamos al usuario normal).
+
+    // Logs de errores de carga (útil para debugging si la URL es inalcanzable)
+    portalWindow.webContents.on('did-fail-load', (_e, code, desc, url) => {
+      if (code === -3) return; // -3 = aborted (típico al redirigir tras login)
+      console.warn(`⚠️ did-fail-load (${code}) en ${url}: ${desc}`);
+    });
+
+    return {
+      success: true,
+      message: 'Ventana de portal abierta con inyección automática',
+      userName: loginData.user.name,
+      environment: loginData.user.environment
+    };
+
+  } catch (error) {
+    console.error('❌ Error abriendo ventana de portal:', error);
+    return {
+      success: false,
+      error: error.message || 'Error desconocido al abrir el portal'
+    };
+  }
+});
+
+// ============================================================
+// Generadores de scripts de auto-login
+// ============================================================
+
+/** Script para portal LOCAL (formulario HTML clásico). */
+function buildLocalAutoLoginScript(credentials) {
+  return `
 (function() {
   const credentials = ${JSON.stringify(credentials)};
-  
+  console.log('🔐 Auto-Login LOCAL iniciado');
+
+  function realClick(el) {
+    if (!el) return false;
+    try {
+      ['mousedown', 'mouseup', 'click'].forEach(type => {
+        el.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, view: window, button: 0 }));
+      });
+      return true;
+    } catch {
+      try { el.click(); return true; } catch { return false; }
+    }
+  }
+
   function fillFields() {
     const companyField = document.getElementsByName('companyID')[0];
     const userField = document.getElementsByName('usuario')[0];
     const passwordField = document.getElementsByName('password')[0];
     const submitButton = document.querySelector('button[type="submit"], input[type="submit"], button.btn-primary');
-    
+
     if (companyField && userField && passwordField) {
       companyField.value = credentials.companyID;
       userField.value = credentials.username;
       passwordField.value = credentials.password;
-      
+
       [companyField, userField, passwordField].forEach(field => {
         field.dispatchEvent(new Event('input', { bubbles: true }));
         field.dispatchEvent(new Event('change', { bubbles: true }));
         field.dispatchEvent(new Event('blur', { bubbles: true }));
       });
-      
+
       console.log('✅ Campos rellenados correctamente');
-      
-      // Hacer submit automáticamente
-      setTimeout(() => {
-        if (submitButton) {
-          submitButton.click();
-          console.log('🚀 Formulario enviado automáticamente');
-        } else {
+
+      // Esperamos a que el botón esté habilitado antes de pulsarlo
+      let clickAttempts = 0;
+      const clickInterval = setInterval(() => {
+        clickAttempts++;
+        const btn = submitButton || document.querySelector('button[type="submit"], input[type="submit"], button.btn-primary');
+        if (btn && !btn.disabled) {
+          clearInterval(clickInterval);
+          realClick(btn);
+          console.log('🚀 Botón de login pulsado automáticamente');
+        } else if (clickAttempts > 20) {
+          clearInterval(clickInterval);
+          // Fallback: submit del formulario
           const form = companyField.closest('form');
           if (form) {
             form.submit();
-            console.log('🚀 Formulario enviado automáticamente');
+            console.log('🚀 Submit del formulario lanzado (fallback)');
           } else {
-            console.log('ℹ️ Presiona Enter para enviar');
+            console.warn('⚠️ Botón de login no encontrado o sigue deshabilitado');
           }
         }
-      }, 500);
-      
+      }, 250);
+
       return true;
     }
     return false;
   }
-  
-  // Intentar rellenar inmediatamente
+
   if (!fillFields()) {
-    // Si no funcionó, reintentar cada 500ms hasta 10 segundos
     let attempts = 0;
     const interval = setInterval(() => {
       attempts++;
@@ -816,15 +937,27 @@ ipcMain.handle('open-portal-auto-login', async (event, loginData) => {
   }
 })();
 `.trim();
-    } else {
-      console.log('✅ Generando script para DEV/PRE');
-      // Script para DEV/PRE (Angular - Santander Nexus)
-      autoLoginScript = `
-// Auto-Login Script - DEV/PRE (Santander Nexus)
+}
+
+/** Script para portal DEV/PRE (Angular - Santander Nexus). */
+function buildNexusAutoLoginScript(credentials) {
+  return `
 (function() {
   const credentials = ${JSON.stringify(credentials)};
-  console.log('Iniciando auto-login para DEV/PRE');
-  
+  console.log('🔐 Auto-Login Nexus (DEV/PRE) iniciado');
+
+  function realClick(el) {
+    if (!el) return false;
+    try {
+      ['mousedown', 'mouseup', 'click'].forEach(type => {
+        el.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, view: window, button: 0 }));
+      });
+      return true;
+    } catch {
+      try { el.click(); return true; } catch { return false; }
+    }
+  }
+
   function fillField(field, value) {
     field.focus();
     field.click();
@@ -836,113 +969,198 @@ ipcMain.handle('open-portal-auto-login', async (event, loginData) => {
     field.dispatchEvent(new Event('change', { bubbles: true }));
     field.dispatchEvent(new Event('blur', { bubbles: true }));
   }
-  
+
+  /**
+   * En Nexus el "botón" de Login es un <label id="btn_entrar"> dentro de
+   * un <div class="bt_entrar">. Cuando está deshabilitado, el DIV tiene
+   * inline 'background-color: rgb(194, 194, 194)' (gris) y cambia a rojo
+   * Santander cuando el formulario es válido.
+   */
+  function findNexusSubmit() {
+    const wrapperDiv = document.querySelector('.bt_entrar');
+    const labelBtn  = document.getElementById('btn_entrar') || document.querySelector('.lab_entrar');
+    return { wrapperDiv, labelBtn };
+  }
+
+  function isNexusReady(wrapperDiv) {
+    if (!wrapperDiv) return false;
+    const bg = (wrapperDiv.style.backgroundColor || '').replace(/\\s/g, '').toLowerCase();
+    // Gris exacto del estado deshabilitado: rgb(194,194,194)
+    if (bg.includes('rgb(194,194,194)')) return false;
+    // Cualquier otro color (típicamente rojo Santander) -> habilitado
+    return true;
+  }
+
+  function autoSubmitNexus() {
+    let attempts = 0;
+    const interval = setInterval(() => {
+      attempts++;
+      const { wrapperDiv, labelBtn } = findNexusSubmit();
+
+      if (wrapperDiv && labelBtn && isNexusReady(wrapperDiv)) {
+        clearInterval(interval);
+        // Pequeño delay para que Angular termine de propagar el estado
+        setTimeout(() => {
+          // Hacemos click en el div Y en el label: el handler Angular puede
+          // estar atado a cualquiera de los dos. Es idempotente.
+          realClick(wrapperDiv);
+          realClick(labelBtn);
+          console.log('🚀 Botón Nexus pulsado automáticamente');
+        }, 80);
+      } else if (attempts > 28) { // ~7s
+        clearInterval(interval);
+        if (wrapperDiv && labelBtn) {
+          realClick(wrapperDiv);
+          realClick(labelBtn);
+          console.warn('⚠️ El botón seguía gris (rgb(194,194,194)), clic forzado de todas formas');
+        } else {
+          console.error('❌ Botón Nexus no encontrado (.bt_entrar / #btn_entrar)');
+        }
+      }
+    }, 250);
+  }
+
   function fillFields() {
-    // Los inputs estan DENTRO de los app-input-data con esos IDs
     const grupoContainer = document.getElementById('txt_group');
     const userContainer = document.getElementById('txt_usuario');
     const passContainer = document.getElementById('txt_pass');
-    
+
     const grupoField = grupoContainer ? grupoContainer.querySelector('input') : null;
-    const userField = userContainer ? userContainer.querySelector('input') : null;
-    const passField = passContainer ? passContainer.querySelector('input') : null;
-    
-    const submitButton = document.getElementById('btn_entrar') || document.querySelector('.lab_entrar');
-    
-    console.log('Campos encontrados:', {
-      grupo: !!grupoField,
-      usuario: !!userField, 
-      password: !!passField,
-      boton: !!submitButton
-    });
-    
+    const userField  = userContainer  ? userContainer.querySelector('input')  : null;
+    const passField  = passContainer  ? passContainer.querySelector('input')  : null;
+
     if (grupoField && userField && passField) {
-      console.log('OK - Rellenando campos...');
       fillField(grupoField, credentials.companyID);
       setTimeout(() => {
         fillField(userField, credentials.username);
         setTimeout(() => {
           fillField(passField, credentials.password);
-          console.log('OK - Campos rellenados');
-          
-          // Hacer submit automaticamente
-          setTimeout(() => {
-            if (submitButton) {
-              submitButton.click();
-              console.log('OK - Formulario enviado');
-            } else {
-              console.log('Boton no encontrado - Haz clic manualmente en Login');
-            }
-          }, 500);
+          // Esperar a que el botón quede habilitado (cambia de gris a rojo)
+          setTimeout(autoSubmitNexus, 250);
         }, 300);
       }, 300);
       return true;
     }
-    
     return false;
   }
-  
-  // Intentar rellenar
+
   let attempts = 0;
   const interval = setInterval(() => {
     attempts++;
-    console.log('Intento ' + attempts + '/20...');
-    
     if (fillFields()) {
       clearInterval(interval);
-      console.log('Auto-login completado!');
+      console.log('✅ Campos Nexus rellenados, esperando habilitación del botón...');
     } else if (attempts > 20) {
       clearInterval(interval);
-      console.error('ERROR: Timeout - No se encontraron los campos');
-      console.log('IDs buscados: txt_group, txt_usuario, txt_pass, btn_entrar');
+      console.error('❌ Timeout: campos no encontrados (txt_group / txt_usuario / txt_pass)');
     }
   }, 500);
 })();
 `.trim();
+}
+
+/**
+ * Construye el menú nativo de una ventana de portal Auto-Login con
+ * controles de navegación, DevTools y utilidades. Los accelerators
+ * funcionan automáticamente al estar el foco en la ventana.
+ */
+function buildPortalMenu(portalWindow) {
+  const wc = portalWindow.webContents;
+
+  return Menu.buildFromTemplate([
+    {
+      label: 'Navegación',
+      submenu: [
+        {
+          label: '⬅️  Atrás',
+          accelerator: 'Alt+Left',
+          click: () => { if (wc.canGoBack()) wc.goBack(); }
+        },
+        {
+          label: '➡️  Adelante',
+          accelerator: 'Alt+Right',
+          click: () => { if (wc.canGoForward()) wc.goForward(); }
+        },
+        {
+          label: '🔄  Recargar',
+          accelerator: 'CmdOrCtrl+R',
+          click: () => wc.reload()
+        },
+        {
+          label: '🔁  Recarga forzada (sin caché)',
+          accelerator: 'CmdOrCtrl+Shift+R',
+          click: () => wc.reloadIgnoringCache()
+        },
+        { type: 'separator' },
+        {
+          label: '🏠  Ir al inicio del portal',
+          click: () => {
+            try {
+              const u = new URL(wc.getURL());
+              wc.loadURL(`${u.protocol}//${u.host}/`);
+            } catch { /* noop */ }
+          }
+        },
+        { type: 'separator' },
+        { role: 'close', label: 'Cerrar ventana' }
+      ]
+    },
+    {
+      label: 'URL',
+      submenu: [
+        {
+          label: '📋  Copiar URL actual',
+          accelerator: 'CmdOrCtrl+L',
+          click: () => clipboard.writeText(wc.getURL())
+        },
+        {
+          label: '🌐  Abrir en navegador externo',
+          click: () => shell.openExternal(wc.getURL())
+        }
+      ]
+    },
+    {
+      label: 'Edición',
+      submenu: [
+        { role: 'undo',       label: 'Deshacer' },
+        { role: 'redo',       label: 'Rehacer' },
+        { type: 'separator' },
+        { role: 'cut',        label: 'Cortar' },
+        { role: 'copy',       label: 'Copiar' },
+        { role: 'paste',      label: 'Pegar' },
+        { role: 'selectAll',  label: 'Seleccionar todo' }
+      ]
+    },
+    {
+      label: 'Ver',
+      submenu: [
+        { role: 'zoomIn',     label: 'Acercar',           accelerator: 'CmdOrCtrl+Plus' },
+        { role: 'zoomOut',    label: 'Alejar',            accelerator: 'CmdOrCtrl+-' },
+        { role: 'resetZoom',  label: 'Tamaño original',   accelerator: 'CmdOrCtrl+0' },
+        { type: 'separator' },
+        { role: 'togglefullscreen', label: 'Pantalla completa' }
+      ]
+    },
+    {
+      label: 'Desarrollador',
+      submenu: [
+        {
+          label: '🛠️  DevTools',
+          accelerator: 'F12',
+          click: () => {
+            if (wc.isDevToolsOpened()) wc.closeDevTools();
+            else wc.openDevTools({ mode: 'right' });
+          }
+        },
+        {
+          label: 'Inspeccionar (DevTools abajo)',
+          accelerator: 'CmdOrCtrl+Shift+I',
+          click: () => wc.openDevTools({ mode: 'bottom' })
+        }
+      ]
     }
-    // Copiar script al portapapeles
-    clipboard.writeText(autoLoginScript);
-    console.log('📋 Script de auto-login copiado al portapapeles');
-    console.log('📝 Longitud del script:', autoLoginScript.length, 'caracteres');
-    
-    // Debug: mostrar primeras líneas del script
-    const firstLines = autoLoginScript.split('\n').slice(0, 5).join('\n');
-    console.log('📄 Primeras líneas:\n', firstLines);
-
-    // Abrir Chrome con DevTools automáticamente abierto
-    const { spawn } = require('child_process');
-    spawn(chromePath, [
-      loginData.url,
-      '--auto-open-devtools-for-tabs',
-      '--no-first-run',
-      '--no-default-browser-check'
-    ], {
-      detached: true,
-      stdio: 'ignore'
-    }).unref();
-
-    console.log('✅ Chrome abierto con DevTools');
-
-    // El popup nativo se eliminó: el usuario ya ve las instrucciones en el
-    // disclaimer permanente de la página de usuarios. La toast de éxito que
-    // dispara la app Angular es suficiente confirmación.
-    console.log('ℹ️ Usuario debe pegar script en consola: Ctrl+V + Enter');
-
-    return {
-      success: true,
-      message: 'Chrome abierto con DevTools y script copiado',
-      userName: loginData.user.name,
-      environment: loginData.user.environment
-    };
-
-  } catch (error) {
-    console.error('Error abriendo Chrome:', error);
-    return {
-      success: false,
-      error: error.message || 'Error desconocido al abrir Chrome'
-    };
-  }
-});
+  ]);
+}
 
 // ========================================
 // GESTIÓN DE PUERTOS

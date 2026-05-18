@@ -6,7 +6,7 @@
           Gestión de Usuarios Portal
         </h1>
         <p class="page-subtitle">
-          Administra accesos rápidos por entorno y ahorra tiempo al validar en el portal - {{ getCurrentEnvironment().name }}
+          Entorno actual: <strong>{{ getCurrentEnvironment().name }}</strong>
         </p>
       </div>
 
@@ -40,21 +40,6 @@
         </button>
       }
     </div>
-
-    <aside class="autologin-disclaimer" role="note">
-      <span class="disclaimer-icon">⚠️</span>
-      <div class="disclaimer-body">
-        <strong>Cómo usar Auto-Login</strong>
-        <p>
-          Al pulsar <span class="inline-badge">🚀 Auto-Login</span> se abre el navegador en la página del portal
-          y se copia automáticamente al portapapeles el script de inicio de sesión.
-          Una vez cargado el portal, abre las <strong>Herramientas de desarrollo</strong>
-          (<span class="inline-badge">F12</span>), ve a la pestaña <strong>Console</strong>,
-          pega con <span class="inline-badge">Ctrl + V</span> y pulsa <strong>Enter</strong>
-          para completar el login.
-        </p>
-      </div>
-    </aside>
 
     @if (getUsersByEnvironment().length > 0) {
       <div class="address-toolbar">

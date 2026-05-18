@@ -453,7 +453,7 @@ export class UsersComponent implements OnInit {
       electronAPI.openPortalAutoLogin(loginData)
         .then((result: any) => {
           if (result?.success) {
-            this.notify.success(`Navegador abierto para ${user.name}.`, { title: 'Auto-Login listo' });
+            this.notify.success(`Portal abierto y credenciales inyectadas para ${user.name}.`, { title: 'Auto-Login completado' });
           } else {
             this.notify.error(result?.error || 'Auto-Login falló. Inténtalo manualmente.', { title: 'Auto-Login' });
           }
