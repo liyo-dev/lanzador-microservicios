@@ -23,6 +23,16 @@ interface Environment {
   icon: string;
 }
 
+/** Vista única del portal: local y dev comparten usuarios (env='local-dev'), solo cambia la URL. */
+type PortalView = 'local' | 'dev' | 'pre';
+
+interface PortalViewDef {
+  key: PortalView;
+  name: string;
+  icon: string;
+  env: 'local-dev' | 'pre';
+}
+
 @Component({
   selector: 'app-users',
   standalone: true,
@@ -37,14 +47,29 @@ export class UsersComponent implements OnInit {
   users: User[] = [];
   showAddForm = false;
   editingUser: User | null = null;
-  selectedEnvironment: 'local-dev' | 'pre' = 'local-dev';
-  selectedSubEnvironment: 'local' | 'dev' = 'local'; // Para saber si mostrar local o dev cuando esté en local-dev
+  /**
+   * Vista activa del portal. Tres opciones:
+   *  - 'local' y 'dev' → usuarios con environment='local-dev', cambia solo la URL
+   *  - 'pre'           → usuarios con environment='pre'
+   */
+  selectedView: PortalView = 'local';
+
+  /** Definición de las 3 vistas que se muestran como pestañas. */
+  views: PortalViewDef[] = [
+    { key: 'local', name: 'Local',         icon: '🏠', env: 'local-dev' },
+    { key: 'dev',   name: 'Desarrollo',    icon: '🔧', env: 'local-dev' },
+    { key: 'pre',   name: 'Preproducción', icon: '🧪', env: 'pre' },
+  ];
+
   showPassword = false; // Para toggle de contraseña
 
   // Estado de la libreta de direcciones
   copiedKey: string | null = null;
   private copiedTimer: any = null;
   visiblePasswords: Record<string, boolean> = {};
+
+  // Buscador de la agenda
+  searchTerm = '';
   
   environments: Environment[] = [
     {
@@ -78,45 +103,84 @@ export class UsersComponent implements OnInit {
 
   constructor() {}
 
-  // Métodos auxiliares para manejar entornos
-  getCurrentEnvironment(): Environment {
-    return this.environments.find(env => env.key === this.selectedEnvironment) || this.environments[0];
+  // ============================================================
+  // Vistas del portal (Local / Desarrollo / Pre)
+  // ============================================================
+
+  /** Definición de la vista activa. */
+  getCurrentView(): PortalViewDef {
+    return this.views.find(v => v.key === this.selectedView) ?? this.views[0];
   }
 
-  getEnvironmentUrl(user: User, subEnv?: 'local' | 'dev'): string {
+  /** Entorno (modelo de datos) de la vista activa: 'local-dev' o 'pre'. */
+  getCurrentEnv(): 'local-dev' | 'pre' {
+    return this.getCurrentView().env;
+  }
+
+  /** Cambia la vista activa. */
+  switchView(view: PortalView) {
+    this.selectedView = view;
+  }
+
+  /**
+   * Compatibilidad: devuelve un objeto con `name` e `icon` de la vista activa
+   * para los textos que ya estaban usando `getCurrentEnvironment().name`.
+   */
+  getCurrentEnvironment(): { name: string; icon: string; key: PortalView } {
+    const v = this.getCurrentView();
+    return { name: v.name, icon: v.icon, key: v.key };
+  }
+
+  /** Número de usuarios para una vista (local y dev comparten conteo). */
+  getUserCountByView(view: PortalView): number {
+    const def = this.views.find(v => v.key === view);
+    if (!def) return 0;
+    return this.users.filter(u => u.environment === def.env).length;
+  }
+
+  /**
+   * URL del portal para el usuario indicado.
+   * Si el usuario es `local-dev`, la URL depende de la vista activa (`local` vs `dev`).
+   */
+  getEnvironmentUrl(user: User): string {
     const env = this.environments.find(e => e.key === user.environment);
     if (!env) return '';
-    
+
     if (user.environment === 'local-dev') {
       const urls = env.urls as { local: string; dev: string };
-      if (subEnv) {
-        return subEnv === 'local' ? urls.local : urls.dev;
-      }
-      // Por defecto usar local, pero permitir cambiar
-      return this.selectedSubEnvironment === 'local' ? urls.local : urls.dev;
-    } else {
-      const urls = env.urls as { pre: string };
-      return urls.pre;
+      // Si la vista activa es 'dev', usamos URL dev; en cualquier otro caso (incluyendo 'pre'), local
+      return this.selectedView === 'dev' ? urls.dev : urls.local;
     }
+    return (env.urls as { pre: string }).pre;
   }
 
+  /** Usuarios visibles según la vista activa. */
   getUsersByEnvironment(): User[] {
-    return this.users.filter(user => user.environment === this.selectedEnvironment);
+    return this.users.filter(u => u.environment === this.getCurrentEnv());
+  }
+
+  /**
+   * Lista filtrada por entorno y término de búsqueda (nombre, login, descripción o grupo).
+   * Si `searchTerm` está vacío devuelve todos los usuarios de la vista actual.
+   */
+  getFilteredUsers(): User[] {
+    const base = this.getUsersByEnvironment();
+    const term = this.searchTerm.trim().toLowerCase();
+    if (!term) return base;
+    return base.filter(u =>
+      u.name?.toLowerCase().includes(term) ||
+      u.username?.toLowerCase().includes(term) ||
+      u.companyID?.toLowerCase().includes(term) ||
+      (u.description ?? '').toLowerCase().includes(term)
+    );
+  }
+
+  clearSearch() {
+    this.searchTerm = '';
   }
 
   getUserCountByEnvironment(env: 'local-dev' | 'pre'): number {
     return this.users.filter(user => user.environment === env).length;
-  }
-
-  switchEnvironment(envKey: 'local-dev' | 'pre') {
-    this.selectedEnvironment = envKey;
-  }
-  
-  // Método para cambiar entre local y dev cuando estamos en local-dev
-  switchSubEnvironment(subEnv: 'local' | 'dev') {
-    if (this.selectedEnvironment === 'local-dev') {
-      this.selectedSubEnvironment = subEnv;
-    }
   }
 
   ngOnInit() {
@@ -333,7 +397,8 @@ export class UsersComponent implements OnInit {
       username: '',
       password: '',
       description: '',
-      environment: this.selectedEnvironment
+      // El entorno por defecto al añadir desde la vista activa
+      environment: this.getCurrentEnv()
     };
   }
 

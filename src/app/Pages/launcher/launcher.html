@@ -16,17 +16,17 @@
         </p>
       </div>
       <div class="header-actions">
-        <button class="ghost-btn" (click)="goToHome()" title="Inicio">
-          <span class="emoji">🏠</span>
+        <button class="ghost-btn" (click)="goToHome()" title="Inicio" aria-label="Ir al inicio">
+          <span class="emoji" aria-hidden="true">🏠</span>
         </button>
-        <button class="ghost-btn" (click)="goToUsers()" title="Usuarios Portal">
-          <span class="emoji">👥</span>
+        <button class="ghost-btn" (click)="goToUsers()" title="Usuarios Portal" aria-label="Ir a usuarios del portal">
+          <span class="emoji" aria-hidden="true">👥</span>
         </button>
-        <button class="ghost-btn" (click)="goToPorts()" title="Gestión de Puertos">
-          <span class="emoji">🔌</span>
+        <button class="ghost-btn" (click)="goToPorts()" title="Gestión de Puertos" aria-label="Ir a gestión de puertos">
+          <span class="emoji" aria-hidden="true">🔌</span>
         </button>
-        <button class="ghost-btn" (click)="goToConfig()" title="Configuración">
-          <span class="emoji">⚙️</span>
+        <button class="ghost-btn" (click)="goToConfig()" title="Configuración" aria-label="Ir a configuración">
+          <span class="emoji" aria-hidden="true">⚙️</span>
         </button>
       </div>
     </header>
@@ -53,6 +53,47 @@
 
       @if (hasMicrosToShow()) {
         <div class="group-actions">
+          <div class="view-switcher" role="group" aria-label="Modo de visualización">
+            <button
+              class="view-btn"
+              [class.active]="viewMode === 'cards'"
+              (click)="setViewMode('cards')"
+              title="Vista de tarjetas (detallada)"
+              aria-label="Ver como tarjetas"
+              [attr.aria-pressed]="viewMode === 'cards'"
+            >
+              <span aria-hidden="true">🗂️</span>
+              <span class="view-label">Tarjetas</span>
+            </button>
+            <button
+              class="view-btn"
+              [class.active]="viewMode === 'list'"
+              (click)="setViewMode('list')"
+              title="Vista de lista (compacta)"
+              aria-label="Ver como lista compacta"
+              [attr.aria-pressed]="viewMode === 'list'"
+            >
+              <span aria-hidden="true">📋</span>
+              <span class="view-label">Lista</span>
+            </button>
+          </div>
+
+          <div class="selection-actions">
+            <button
+              class="ghost-btn"
+              (click)="toggleSelectAll()"
+              [title]="areAllSelected() ? 'Deseleccionar todos' : 'Seleccionar todos'"
+              [attr.aria-label]="areAllSelected() ? 'Deseleccionar todos los microservicios' : 'Seleccionar todos los microservicios'"
+            >
+              {{ areAllSelected() ? '☐ Ninguno' : '☑ Todos' }}
+            </button>
+            @if (selectedCount() > 0) {
+              <span class="selection-badge" aria-live="polite">
+                {{ selectedCount() }} seleccionado{{ selectedCount() === 1 ? '' : 's' }}
+              </span>
+            }
+          </div>
+
           <button class="ghost-btn" (click)="stopSelected()">🛑 Parar seleccionados</button>
           <button class="primary-btn" (click)="startSelected()">🚀 Arrancar seleccionados</button>
         </div>
@@ -86,8 +127,88 @@
       }
 
       @if (hasMicrosToShow()) {
-        <div class="micro-grid">
+        <div class="micro-grid" [class.list-mode]="viewMode === 'list'" [class.spring-tab]="selectedTab === 'spring'" [class.no-legacy]="!showLegacyToggle">
+          @if (viewMode === 'list') {
+            <div class="list-head" role="row" aria-hidden="true">
+              <span class="col-check">
+                <input
+                  type="checkbox"
+                  [checked]="areAllSelected()"
+                  [indeterminate]="areSomeSelected()"
+                  (change)="toggleSelectAll($any($event.target).checked)"
+                  title="Seleccionar / deseleccionar todos"
+                  aria-label="Seleccionar todos los microservicios"
+                />
+              </span>
+              <span class="col-name">Microservicio</span>
+              <span class="col-status">Estado</span>
+              <span class="col-git">Git</span>
+              @if (selectedTab === 'angular' && showLegacyToggle) {
+                <span class="col-legacy">Node legacy</span>
+              }
+              <span class="col-actions">Acciones</span>
+            </div>
+          }
+
           @for (micro of getDisplayedMicros(); track micro.key) {
+            @if (viewMode === 'list') {
+              <!-- ===== VISTA LISTA (COMPACTA) ===== -->
+              <article class="micro-row" [class.selected]="micro.selected" [attr.data-key]="micro.key">
+                <label class="col-check micro-checkbox compact">
+                  <input type="checkbox" [(ngModel)]="micro.selected" [attr.aria-label]="'Seleccionar ' + micro.label" />
+                  <span class="checkmark"></span>
+                </label>
+
+                <div class="col-name">
+                  <span class="micro-label">{{ micro.label }}</span>
+                  @if (getGitState(selectedTab, micro.key).branch && isGitEnabled(selectedTab, micro.key)) {
+                    <span class="branch-mini" [class.warn]="getGitState(selectedTab, micro.key).hasChanges">
+                      🌿 {{ getGitState(selectedTab, micro.key).branch }}
+                    </span>
+                  }
+                </div>
+
+                <div class="col-status">
+                  <span class="status-pill"
+                        [class.running]="micro.status === 'running'"
+                        [class.stopped]="micro.status === 'stopped'"
+                        [class.starting]="micro.status === 'starting'">
+                    {{ micro.status }}
+                  </span>
+                </div>
+
+                <div class="col-git">
+                  <label class="git-toggle-micro compact" [title]="isGitEnabled(selectedTab, micro.key) ? 'Desconectar Git' : 'Conectar Git'">
+                    <input type="checkbox" [checked]="isGitEnabled(selectedTab, micro.key)" (change)="toggleGit(micro, selectedTab)" />
+                    <span class="slider-micro"></span>
+                  </label>
+                </div>
+
+                @if (selectedTab === 'angular' && showLegacyToggle) {
+                  <div class="col-legacy">
+                    <label class="toggle-switch compact">
+                      <input type="checkbox" [(ngModel)]="micro.useLegacyProvider" [attr.aria-label]="'Compatibilidad Node para ' + micro.label" />
+                      <span class="toggle-slider"></span>
+                    </label>
+                  </div>
+                }
+
+                <div class="col-actions">
+                  @if (isGitEnabled(selectedTab, micro.key) && !getGitState(selectedTab, micro.key).error) {
+                    <button
+                      class="ghost-btn small"
+                      (click)="runGitAction('pull', micro, selectedTab)"
+                      [disabled]="(getGitState(selectedTab, micro.key).loading ?? false) || gitActions[repoKey(selectedTab, micro.key)]"
+                      title="Hacer pull en la rama actual"
+                      aria-label="Hacer git pull"
+                    >
+                      ⬇️ Pull
+                    </button>
+                  }
+                </div>
+              </article>
+            } @else {
+              <!-- ===== VISTA TARJETA (DETALLE) ===== -->
             <article class="micro-card" [attr.data-key]="micro.key">
               <div class="micro-card-header">
                 <label class="micro-checkbox">
@@ -208,7 +329,7 @@
                 </div>
               }
 
-              @if (selectedTab === 'angular') {
+              @if (selectedTab === 'angular' && showLegacyToggle) {
                 <div class="legacy-toggle">
                   <label class="toggle-switch">
                     <input type="checkbox" [(ngModel)]="micro.useLegacyProvider" />
@@ -218,6 +339,7 @@
                 </div>
               }
             </article>
+            }
           }
         </div>
       }
@@ -242,7 +364,7 @@
             {{ showLogs ? 'Ocultar logs' : 'Mostrar logs' }}
           </button>
           @if (showLogs && logs.length > 1) {
-            <button class="danger-btn" (click)="clearLogs()" title="Limpiar logs manualmente">
+            <button class="danger-btn" (click)="clearLogs()" title="Limpiar logs manualmente" aria-label="Limpiar logs manualmente">
               🗑️ Limpiar
             </button>
           }
@@ -261,7 +383,7 @@
               class="search-input"
             />
             @if (logSearchTerm) {
-              <button class="clear-search-btn" (click)="clearSearch()" title="Limpiar búsqueda">
+              <button class="clear-search-btn" (click)="clearSearch()" title="Limpiar búsqueda" aria-label="Limpiar búsqueda de logs">
                 ✕
               </button>
             }
@@ -271,7 +393,7 @@
               </span>
             }
           </div>
-          <button class="export-btn" (click)="exportLogs()" title="Exportar logs a archivo TXT">
+          <button class="export-btn" (click)="exportLogs()" title="Exportar logs a archivo TXT" aria-label="Exportar logs a archivo TXT">
             📥 Exportar
           </button>
         </div>

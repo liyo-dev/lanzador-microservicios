@@ -48,6 +48,21 @@ export class Launcher implements OnInit, OnDestroy {
   angularMicros: MicroService[] = [];
   springMicros: MicroService[] = [];
 
+  /**
+   * Modo de visualización de la lista de microservicios.
+   *  - 'cards': vista actual con tarjeta detallada (Git, legacy, etc.)
+   *  - 'list' : vista compacta tipo lista para seleccionar varios de un vistazo
+   */
+  viewMode: 'cards' | 'list' = 'cards';
+  private readonly VIEW_MODE_STORAGE_KEY = 'launcher-view-mode';
+
+  /**
+   * Feature flag: muestra/oculta el toggle "Compatibilidad Node" (legacy provider).
+   * Actualmente no aplica, pero se mantiene oculto por si vuelve a ser necesario.
+   * Pon a `true` para volver a mostrarlo en las dos vistas y el formulario.
+   */
+  readonly showLegacyToggle = false;
+
   logs: string[] = [];
   microLogs: Record<string, string[]> = {}; // Logs separados por microservicio (con prefijo angular-key o spring-key)
   selectedLogTab: string = 'all'; // 'all', 'angular-all', 'spring-all', o 'angular-key'/'spring-key'
@@ -76,6 +91,7 @@ export class Launcher implements OnInit, OnDestroy {
   @ViewChild('logBox') logBox!: ElementRef;
 
   constructor(private ngZone: NgZone) {
+    this.loadViewModePreference();
     this.loadConfiguration();
     this.setupElectronListeners();
     this.setupLogCleanup();
@@ -688,6 +704,62 @@ export class Launcher implements OnInit, OnDestroy {
   // Verificar si hay microservicios para mostrar
   hasMicrosToShow(): boolean {
     return this.getDisplayedMicros().length > 0;
+  }
+
+  // ============================================================
+  // Modo de visualización (cards / list) y selección masiva
+  // ============================================================
+
+  /** Carga la preferencia de vista guardada en localStorage. */
+  loadViewModePreference() {
+    try {
+      const saved = localStorage.getItem(this.VIEW_MODE_STORAGE_KEY);
+      if (saved === 'cards' || saved === 'list') {
+        this.viewMode = saved;
+      }
+    } catch {
+      // Ignorar errores de localStorage
+    }
+  }
+
+  /** Cambia el modo de visualización y lo persiste. */
+  setViewMode(mode: 'cards' | 'list') {
+    if (this.viewMode === mode) return;
+    this.viewMode = mode;
+    try {
+      localStorage.setItem(this.VIEW_MODE_STORAGE_KEY, mode);
+    } catch {
+      // Ignorar errores de localStorage
+    }
+  }
+
+  /** Número de microservicios seleccionados en la pestaña actual. */
+  selectedCount(): number {
+    return this.getDisplayedMicros().filter(m => m.selected).length;
+  }
+
+  /** Indica si TODOS los microservicios visibles están seleccionados. */
+  areAllSelected(): boolean {
+    const micros = this.getDisplayedMicros();
+    return micros.length > 0 && micros.every(m => m.selected);
+  }
+
+  /** Indica si hay selección parcial (algunos sí, otros no). Útil para estado indeterminado. */
+  areSomeSelected(): boolean {
+    const micros = this.getDisplayedMicros();
+    const count = micros.filter(m => m.selected).length;
+    return count > 0 && count < micros.length;
+  }
+
+  /** Selecciona o deselecciona todos los microservicios de la pestaña actual. */
+  toggleSelectAll(checked?: boolean) {
+    const target = typeof checked === 'boolean' ? checked : !this.areAllSelected();
+    this.getDisplayedMicros().forEach(m => (m.selected = target));
+  }
+
+  /** Invierte la selección actual. */
+  invertSelection() {
+    this.getDisplayedMicros().forEach(m => (m.selected = !m.selected));
   }
 
   handleLog(msg: any, type: 'Angular' | 'Spring') {

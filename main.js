@@ -923,14 +923,9 @@ ipcMain.handle('open-portal-auto-login', async (event, loginData) => {
 
     console.log('✅ Chrome abierto con DevTools');
 
-    // Mostrar diálogo con instrucciones
-    dialog.showMessageBox({
-      type: 'info',
-      title: 'Auto-Login - Script Copiado',
-      message: `Chrome se ha abierto con la consola.\n\n📋 El script de auto-login está copiado en el portapapeles.\n\n✅ SOLO NECESITAS:\n1. Click en la pestaña "Console" (si no está activa)\n2. Pegar el script: Ctrl+V\n3. Presionar Enter\n\n¡Los campos se rellenarán automáticamente!`,
-      buttons: ['Entendido']
-    });
-
+    // El popup nativo se eliminó: el usuario ya ve las instrucciones en el
+    // disclaimer permanente de la página de usuarios. La toast de éxito que
+    // dispara la app Angular es suficiente confirmación.
     console.log('ℹ️ Usuario debe pegar script en consola: Ctrl+V + Enter');
 
     return {

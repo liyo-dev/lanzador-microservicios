@@ -11,10 +11,10 @@
       </div>
 
       <div class="header-actions">
-        <button class="ghost-btn" (click)="goToHome()" title="Ir al inicio">🏠</button>
-        <button class="ghost-btn" (click)="goToLauncher()" title="Ir al launcher">🚀</button>
-        <button class="ghost-btn" (click)="goToUsers()" title="Usuarios Portal">👥</button>
-        <button class="ghost-btn" (click)="goToConfig()" title="Ir a configuración">⚙️</button>
+        <button class="ghost-btn" (click)="goToHome()" title="Ir al inicio" aria-label="Ir al inicio">🏠</button>
+        <button class="ghost-btn" (click)="goToLauncher()" title="Ir al launcher" aria-label="Ir al launcher de microservicios">🚀</button>
+        <button class="ghost-btn" (click)="goToUsers()" title="Usuarios Portal" aria-label="Ir a usuarios del portal">👥</button>
+        <button class="ghost-btn" (click)="goToConfig()" title="Ir a configuración" aria-label="Ir a configuración">⚙️</button>
       </div>
     </header>
 
@@ -119,6 +119,7 @@
                   class="kill-btn" 
                   (click)="killProcess(process.pid)"
                   title="Terminar proceso"
+                  [attr.aria-label]="'Terminar proceso con PID ' + process.pid"
                 >
                   ⛔ Parar
                 </button>

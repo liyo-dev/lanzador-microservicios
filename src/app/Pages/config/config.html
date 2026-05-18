@@ -8,24 +8,24 @@
         </p>
       </div>
       <div class="header-actions">
-        <button class="ghost-btn" (click)="goToHome()" title="Inicio">
-          <span class="emoji">🏠</span>
+        <button class="ghost-btn" (click)="goToHome()" title="Inicio" aria-label="Ir al inicio">
+          <span class="emoji" aria-hidden="true">🏠</span>
         </button>
-        <button class="ghost-btn" (click)="goToLauncher()" title="Ir al launcher">
-          <span class="emoji">🚀</span>
+        <button class="ghost-btn" (click)="goToLauncher()" title="Ir al launcher" aria-label="Ir al launcher de microservicios">
+          <span class="emoji" aria-hidden="true">🚀</span>
         </button>
-        <button class="ghost-btn" (click)="goToUsers()" title="Usuarios Portal">
-          <span class="emoji">👥</span>
+        <button class="ghost-btn" (click)="goToUsers()" title="Usuarios Portal" aria-label="Ir a usuarios del portal">
+          <span class="emoji" aria-hidden="true">👥</span>
         </button>
-        <button class="ghost-btn" (click)="goToPorts()" title="Gestión de Puertos">
-          <span class="emoji">🔌</span>
+        <button class="ghost-btn" (click)="goToPorts()" title="Gestión de Puertos" aria-label="Ir a gestión de puertos">
+          <span class="emoji" aria-hidden="true">🔌</span>
         </button>
-        <button class="primary-btn" (click)="save()" title="Guardar configuración">
-          <span class="emoji">💾</span>
+        <button class="primary-btn" (click)="save()" title="Guardar configuración" aria-label="Guardar toda la configuración">
+          <span class="emoji" aria-hidden="true">💾</span>
           Guardar todo
         </button>
-        <button class="danger-btn" (click)="clear()" title="Borrar configuración">
-          <span class="emoji">🗑️</span>
+        <button class="danger-btn" (click)="clear()" title="Borrar configuración" aria-label="Borrar toda la configuración">
+          <span class="emoji" aria-hidden="true">🗑️</span>
         </button>
       </div>
     </header>
@@ -131,6 +131,7 @@
                 class="ghost-btn danger"
                 (click)="removeCustomMicroservice(micro.key, 'angular')"
                 title="Eliminar microservicio personalizado"
+                [attr.aria-label]="'Eliminar microservicio ' + micro.label"
               >
                 🗑️
               </button>
@@ -209,6 +210,7 @@
                   class="ghost-btn danger"
                   (click)="removeCustomMicroservice(micro.key, 'spring')"
                   title="Eliminar microservicio personalizado"
+                  [attr.aria-label]="'Eliminar microservicio ' + micro.label"
                 >
                   🗑️
                 </button>

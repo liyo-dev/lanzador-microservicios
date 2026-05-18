@@ -11,51 +11,35 @@
       </div>
 
       <div class="header-actions">
-        <button class="ghost-btn" (click)="goToHome()" title="Ir al inicio">🏠</button>
-        <button class="ghost-btn" (click)="goBack()" title="Volver al launcher">🚀</button>
-        <button class="ghost-btn" (click)="goToPorts()" title="Gestión de Puertos">🔌</button>
-        <button class="ghost-btn" (click)="goToConfig()" title="Ir a configuración">⚙️</button>
+        <button class="ghost-btn" (click)="goToHome()" title="Ir al inicio" aria-label="Ir al inicio">🏠</button>
+        <button class="ghost-btn" (click)="goBack()" title="Volver al launcher" aria-label="Volver al launcher">🚀</button>
+        <button class="ghost-btn" (click)="goToPorts()" title="Gestión de Puertos" aria-label="Gestión de puertos">🔌</button>
+        <button class="ghost-btn" (click)="goToConfig()" title="Ir a configuración" aria-label="Ir a configuración">⚙️</button>
         <button class="primary-btn" (click)="showAddUserForm()">
-          <span class="emoji">➕</span>
+          <span class="emoji" aria-hidden="true">➕</span>
           Añadir usuario
         </button>
       </div>
     </header>
 
-    <div class="environment-tabs">
-      @for (env of environments; track env.key) {
+    <div class="environment-tabs view-tabs">
+      @for (view of views; track view.key) {
         <button
           class="env-tab"
-          [class.active]="selectedEnvironment === env.key"
-          (click)="switchEnvironment(env.key)"
-          [attr.data-env]="env.key"
+          [class.active]="selectedView === view.key"
+          (click)="switchView(view.key)"
+          [attr.data-view]="view.key"
+          [attr.aria-pressed]="selectedView === view.key"
+          [title]="'Ver usuarios y URL de ' + view.name"
         >
-          <span class="icon">{{ env.icon }}</span>
-          <span class="name">{{ env.name }}</span>
-          <span class="count">{{ getUserCountByEnvironment(env.key) }}</span>
+          <span class="icon" aria-hidden="true">{{ view.icon }}</span>
+          <span class="name">{{ view.name }}</span>
+          <span class="count" [attr.aria-label]="getUserCountByView(view.key) + ' usuarios'">
+            {{ getUserCountByView(view.key) }}
+          </span>
         </button>
       }
     </div>
-
-    @if (selectedEnvironment === 'local-dev') {
-      <div class="sub-environment-switcher">
-        <span class="label">Vista del portal:</span>
-        <button
-          class="sub-env"
-          [class.active]="selectedSubEnvironment === 'local'"
-          (click)="switchSubEnvironment('local')"
-        >
-          🏠 Local
-        </button>
-        <button
-          class="sub-env"
-          [class.active]="selectedSubEnvironment === 'dev'"
-          (click)="switchSubEnvironment('dev')"
-        >
-          🔧 Desarrollo
-        </button>
-      </div>
-    }
 
     <aside class="autologin-disclaimer" role="note">
       <span class="disclaimer-icon">⚠️</span>
@@ -73,6 +57,31 @@
     </aside>
 
     @if (getUsersByEnvironment().length > 0) {
+      <div class="address-toolbar">
+        <div class="address-search">
+          <span class="search-icon" aria-hidden="true">🔍</span>
+          <input
+            type="search"
+            class="search-input"
+            [(ngModel)]="searchTerm"
+            placeholder="Buscar por nombre, login, grupo o descripción…"
+            aria-label="Buscar usuarios"
+          />
+          @if (searchTerm) {
+            <button
+              class="clear-search-btn"
+              (click)="clearSearch()"
+              title="Limpiar búsqueda"
+              aria-label="Limpiar búsqueda"
+            >✕</button>
+          }
+        </div>
+        <span class="address-count" aria-live="polite">
+          {{ getFilteredUsers().length }} / {{ getUsersByEnvironment().length }}
+          {{ getUsersByEnvironment().length === 1 ? 'usuario' : 'usuarios' }}
+        </span>
+      </div>
+
       <section class="users-content address-book">
         <header class="address-row address-head" aria-hidden="true">
           <span class="col col-user">Usuario</span>
@@ -83,7 +92,7 @@
           <span class="col col-actions">Acciones</span>
         </header>
 
-        @for (user of getUsersByEnvironment(); track user.id) {
+        @for (user of getFilteredUsers(); track user.id) {
           <article class="address-row" [attr.data-user-id]="user.id" [attr.data-env]="user.environment">
             <div class="col col-user">
               <div class="user-name">{{ user.name }}</div>
@@ -103,6 +112,7 @@
                 [class.copied]="copiedKey === 'company-' + user.id"
                 (click)="copyToClipboard(user.companyID || 'SCNP', 'company-' + user.id)"
                 [title]="copiedKey === 'company-' + user.id ? '¡Copiado!' : 'Copiar grupo empresarial'"
+                [attr.aria-label]="copiedKey === 'company-' + user.id ? 'Copiado al portapapeles' : 'Copiar grupo empresarial'"
               >
                 {{ copiedKey === 'company-' + user.id ? '✅' : '📋' }}
               </button>
@@ -115,6 +125,7 @@
                 [class.copied]="copiedKey === 'user-' + user.id"
                 (click)="copyToClipboard(user.username, 'user-' + user.id)"
                 [title]="copiedKey === 'user-' + user.id ? '¡Copiado!' : 'Copiar usuario'"
+                [attr.aria-label]="copiedKey === 'user-' + user.id ? 'Copiado al portapapeles' : 'Copiar usuario'"
               >
                 {{ copiedKey === 'user-' + user.id ? '✅' : '📋' }}
               </button>
@@ -128,6 +139,8 @@
                 class="copy-btn"
                 (click)="toggleUserPasswordVisibility(user.id)"
                 [title]="isPasswordVisible(user.id) ? 'Ocultar contraseña' : 'Mostrar contraseña'"
+                [attr.aria-label]="isPasswordVisible(user.id) ? 'Ocultar contraseña' : 'Mostrar contraseña'"
+                [attr.aria-pressed]="isPasswordVisible(user.id)"
               >
                 {{ isPasswordVisible(user.id) ? '🙈' : '👁️' }}
               </button>
@@ -136,6 +149,7 @@
                 [class.copied]="copiedKey === 'pw-' + user.id"
                 (click)="copyToClipboard(user.password, 'pw-' + user.id)"
                 [title]="copiedKey === 'pw-' + user.id ? '¡Copiado!' : 'Copiar contraseña'"
+                [attr.aria-label]="copiedKey === 'pw-' + user.id ? 'Copiado al portapapeles' : 'Copiar contraseña'"
               >
                 {{ copiedKey === 'pw-' + user.id ? '✅' : '📋' }}
               </button>
@@ -148,6 +162,7 @@
                 [class.copied]="copiedKey === 'url-' + user.id"
                 (click)="copyToClipboard(getEnvironmentUrl(user), 'url-' + user.id)"
                 [title]="copiedKey === 'url-' + user.id ? '¡Copiado!' : 'Copiar URL del portal'"
+                [attr.aria-label]="copiedKey === 'url-' + user.id ? 'Copiado al portapapeles' : 'Copiar URL del portal'"
               >
                 {{ copiedKey === 'url-' + user.id ? '✅' : '📋' }}
               </button>
@@ -158,16 +173,31 @@
                 class="auto-login-btn compact"
                 (click)="loginWithUser(user)"
                 title="Abre Chrome y completa el login automáticamente"
+                [attr.aria-label]="'Iniciar Auto-Login para ' + user.name"
               >
-                <span class="emoji">🚀</span>
+                <span class="emoji" aria-hidden="true">🚀</span>
                 <span class="label">Auto-Login</span>
               </button>
-              <button class="ghost-btn icon-only" (click)="editUser(user)" title="Editar usuario">✏️</button>
-              <button class="ghost-btn icon-only danger" (click)="deleteUser(user.id)" title="Eliminar usuario">🗑️</button>
+              <button class="ghost-btn icon-only" (click)="editUser(user)" title="Editar usuario" [attr.aria-label]="'Editar usuario ' + user.name">✏️</button>
+              <button class="ghost-btn icon-only danger" (click)="deleteUser(user.id)" title="Eliminar usuario" [attr.aria-label]="'Eliminar usuario ' + user.name">🗑️</button>
             </div>
           </article>
         }
       </section>
+
+      @if (getFilteredUsers().length === 0) {
+        <div class="empty-state empty-search">
+          <div class="empty-card">
+            <div class="icon">🔎</div>
+            <h3>Sin resultados</h3>
+            <p>Ningún usuario coincide con «{{ searchTerm }}» en {{ getCurrentEnvironment().name }}.</p>
+            <button class="ghost-btn" (click)="clearSearch()">
+              <span class="emoji" aria-hidden="true">✕</span>
+              Limpiar búsqueda
+            </button>
+          </div>
+        </div>
+      }
     }
 
     @if (getUsersByEnvironment().length === 0) {

@@ -79,6 +79,23 @@
     color: var(--color-primary-dark);
     border-color: rgba(99, 102, 241, 0.3);
   }
+
+  // Acentos por vista (cuando .active)
+  &[data-view='local'].active {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.18), rgba(37, 99, 235, 0.14));
+    border-color: rgba(37, 99, 235, 0.35);
+    color: #1d4ed8;
+  }
+  &[data-view='dev'].active {
+    background: linear-gradient(135deg, rgba(34, 197, 94, 0.18), rgba(22, 163, 74, 0.14));
+    border-color: rgba(22, 163, 74, 0.35);
+    color: #15803d;
+  }
+  &[data-view='pre'].active {
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.18), rgba(217, 119, 6, 0.14));
+    border-color: rgba(217, 119, 6, 0.35);
+    color: #b45309;
+  }
 }
 
 .sub-environment-switcher {
@@ -584,6 +601,89 @@
 // ============================================================
 // Libreta de direcciones (address book)
 // ============================================================
+.address-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+  flex-wrap: wrap;
+
+  .address-search {
+    position: relative;
+    display: flex;
+    align-items: center;
+    flex: 1 1 280px;
+    max-width: 480px;
+    background: var(--color-surface);
+    border: 1px solid rgba(226, 232, 240, 0.9);
+    border-radius: var(--radius-md);
+    padding: 0.4rem 0.75rem;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+
+    &:focus-within {
+      border-color: var(--color-primary, #2563eb);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+    }
+
+    .search-icon {
+      font-size: 1rem;
+      opacity: 0.7;
+      margin-right: 0.5rem;
+    }
+
+    .search-input {
+      flex: 1;
+      border: none;
+      outline: none;
+      background: transparent;
+      font-size: 0.95rem;
+      color: var(--color-text, #1f2937);
+      padding: 0.25rem 0;
+
+      &::placeholder {
+        color: var(--color-text-muted, #94a3b8);
+      }
+
+      // Quita el botón nativo de cerrar de los <input type="search">
+      &::-webkit-search-cancel-button {
+        appearance: none;
+      }
+    }
+
+    .clear-search-btn {
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      font-size: 0.9rem;
+      color: var(--color-text-muted, #94a3b8);
+      width: 1.75rem;
+      height: 1.75rem;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s ease, color 0.2s ease;
+
+      &:hover {
+        background: rgba(148, 163, 184, 0.15);
+        color: var(--color-text, #1f2937);
+      }
+    }
+  }
+
+  .address-count {
+    font-size: 0.85rem;
+    color: var(--color-text-muted, #64748b);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+}
+
+.empty-state.empty-search {
+  margin-top: 1rem;
+}
+
 .users-content.address-book {
   display: flex;
   flex-direction: column;
@@ -777,5 +877,35 @@
     .col-actions {
       justify-content: flex-start;
     }
+  }
+}
+
+// Modo oscuro: toolbar del buscador
+:root[data-theme='dark'] .address-toolbar {
+  .address-search {
+    background: var(--color-surface);
+    border-color: rgba(255, 255, 255, 0.1);
+
+    &:focus-within {
+      border-color: var(--color-primary, #60a5fa);
+      box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.25);
+    }
+
+    .search-input {
+      color: var(--color-text, #f1f5f9);
+
+      &::placeholder {
+        color: rgba(255, 255, 255, 0.4);
+      }
+    }
+
+    .clear-search-btn:hover {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--color-text, #f1f5f9);
+    }
+  }
+
+  .address-count {
+    color: rgba(255, 255, 255, 0.65);
   }
 }
