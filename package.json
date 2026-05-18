@@ -12,7 +12,8 @@
     "test": "ng test",
     "electron": "electron .",
     "electron:start": "concurrently -k \"npm run ng\" \"wait-on http://localhost:4200 && electron .\"",
-    "electron:build": "npm run build && electron-builder",
+    "electron:build": "npm run make-icons && npm run build && electron-builder",
+    "make-icons": "node scripts/makeIcon.js",
     "office:server": "node virtual-office-server.js"
   },
   "private": true,
