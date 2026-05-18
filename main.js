@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell, dialog, clipboard, Menu } = require("electron");
+const { app, BrowserWindow, ipcMain, shell, dialog, clipboard, Menu, session } = require("electron");
 const { spawn, exec } = require("child_process");
 const stripAnsi = require("strip-ansi");
 const kill = require("tree-kill");
@@ -748,11 +748,23 @@ ipcMain.handle('open-portal-auto-login', async (event, loginData) => {
       ? buildLocalAutoLoginScript(credentials)
       : buildNexusAutoLoginScript(credentials);
 
+    // ¿Modo incógnito? Usamos una sesión en memoria (partición sin "persist:")
+    // que se destruye al cerrar la ventana. Sin cookies, sin caché, sin
+    // storage persistente entre ejecuciones.
+    const incognito = !!loginData.incognito;
+    let portalSession;
+    if (incognito) {
+      // Partición única por ventana para aislar también de otras ventanas incógnito abiertas.
+      const partitionName = `incognito-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      portalSession = session.fromPartition(partitionName, { cache: false });
+      console.log(`🕵️ Modo incógnito activado (partición: ${partitionName})`);
+    }
+
     // Abrir nueva ventana embebida
     const portalWindow = new BrowserWindow({
       width: 1280,
       height: 900,
-      title: `Auto-Login · ${loginData.user.name}`,
+      title: `${incognito ? '🕵️ Incógnito · ' : 'Auto-Login · '}${loginData.user.name}`,
       autoHideMenuBar: false, // Mostramos el menú con atajos de navegación
       webPreferences: {
         // Esta ventana es un navegador "tonto" para mostrar el portal externo.
@@ -761,7 +773,9 @@ ipcMain.handle('open-portal-auto-login', async (event, loginData) => {
         contextIsolation: true,
         sandbox: true,
         // Permitimos contenido inseguro si la URL fuese http://localhost (caso LOCAL)
-        webSecurity: !isLocal
+        webSecurity: !isLocal,
+        // Sesión efímera si estamos en incógnito
+        ...(portalSession ? { session: portalSession } : {})
       }
     });
 
@@ -808,6 +822,15 @@ ipcMain.handle('open-portal-auto-login', async (event, loginData) => {
         return;
       }
     });
+
+    // En modo incógnito, mantener siempre el prefijo en el título de la ventana
+    // (la página intentará sobrescribirlo con su propio <title>).
+    if (incognito) {
+      portalWindow.on('page-title-updated', (e, pageTitle) => {
+        e.preventDefault();
+        portalWindow.setTitle(`🕵️ Incógnito · ${pageTitle}`);
+      });
+    }
 
     portalWindow.loadURL(loginData.url);
 

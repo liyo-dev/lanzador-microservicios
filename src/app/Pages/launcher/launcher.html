@@ -195,15 +195,40 @@
 
                 <div class="col-actions">
                   @if (isGitEnabled(selectedTab, micro.key) && !getGitState(selectedTab, micro.key).error) {
-                    <button
-                      class="ghost-btn small"
-                      (click)="runGitAction('pull', micro, selectedTab)"
-                      [disabled]="(getGitState(selectedTab, micro.key).loading ?? false) || gitActions[repoKey(selectedTab, micro.key)]"
-                      title="Hacer pull en la rama actual"
-                      aria-label="Hacer git pull"
-                    >
-                      ⬇️ Pull
-                    </button>
+                    @if (gitActions[repoKey(selectedTab, micro.key)]; as runningAction) {
+                      <span class="git-action-running" [title]="gitActionLabel(runningAction)">
+                        <span class="mini-spinner" aria-hidden="true"></span>
+                        <span class="action-label">{{ gitActionLabel(runningAction) }}</span>
+                      </span>
+                    } @else {
+                      <button
+                        class="ghost-btn small icon-only"
+                        (click)="runGitAction('fetch', micro, selectedTab)"
+                        [disabled]="getGitState(selectedTab, micro.key).loading ?? false"
+                        title="Fetch (actualizar refs remotas)"
+                        aria-label="Fetch"
+                      >
+                        🔄
+                      </button>
+                      <button
+                        class="ghost-btn small icon-only"
+                        (click)="runGitAction('checkout', micro, selectedTab)"
+                        [disabled]="getGitState(selectedTab, micro.key).loading ?? false"
+                        title="Cambiar a la rama seleccionada"
+                        aria-label="Checkout"
+                      >
+                        🌿
+                      </button>
+                      <button
+                        class="ghost-btn small"
+                        (click)="runGitAction('pull', micro, selectedTab)"
+                        [disabled]="getGitState(selectedTab, micro.key).loading ?? false"
+                        title="Hacer pull en la rama actual"
+                        aria-label="Hacer git pull"
+                      >
+                        ⬇️ Pull
+                      </button>
+                    }
                   }
                 </div>
               </article>
@@ -281,27 +306,34 @@
                       </label>
 
                       <div class="git-buttons">
-                        <button
-                          class="ghost-btn"
-                          (click)="runGitAction('fetch', micro, selectedTab)"
-                          [disabled]="(getGitState(selectedTab, micro.key).loading ?? false) || gitActions[repoKey(selectedTab, micro.key)]"
-                        >
-                          Fetch
-                        </button>
-                        <button
-                          class="ghost-btn"
-                          (click)="runGitAction('checkout', micro, selectedTab)"
-                          [disabled]="(getGitState(selectedTab, micro.key).loading ?? false) || gitActions[repoKey(selectedTab, micro.key)]"
-                        >
-                          Cambiar rama
-                        </button>
-                        <button
-                          class="primary-btn"
-                          (click)="runGitAction('pull', micro, selectedTab)"
-                          [disabled]="(getGitState(selectedTab, micro.key).loading ?? false) || gitActions[repoKey(selectedTab, micro.key)]"
-                        >
-                          Pull
-                        </button>
+                        @if (gitActions[repoKey(selectedTab, micro.key)]; as runningAction) {
+                          <span class="git-action-running" [title]="gitActionLabel(runningAction)">
+                            <span class="mini-spinner" aria-hidden="true"></span>
+                            <span class="action-label">{{ gitActionLabel(runningAction) }}</span>
+                          </span>
+                        } @else {
+                          <button
+                            class="ghost-btn"
+                            (click)="runGitAction('fetch', micro, selectedTab)"
+                            [disabled]="getGitState(selectedTab, micro.key).loading ?? false"
+                          >
+                            Fetch
+                          </button>
+                          <button
+                            class="ghost-btn"
+                            (click)="runGitAction('checkout', micro, selectedTab)"
+                            [disabled]="getGitState(selectedTab, micro.key).loading ?? false"
+                          >
+                            Cambiar rama
+                          </button>
+                          <button
+                            class="primary-btn"
+                            (click)="runGitAction('pull', micro, selectedTab)"
+                            [disabled]="getGitState(selectedTab, micro.key).loading ?? false"
+                          >
+                            Pull
+                          </button>
+                        }
                       </div>
                     </div>
                   }
@@ -376,14 +408,15 @@
         <div class="log-actions">
           <div class="log-search">
             <input 
+              #logSearchInput
               type="text" 
               [(ngModel)]="logSearchTerm"
               (input)="filterLogs()"
-              placeholder="🔍 Buscar en logs..."
+              placeholder="🔍 Buscar en logs... (Ctrl+F)"
               class="search-input"
             />
             @if (logSearchTerm) {
-              <button class="clear-search-btn" (click)="clearSearch()" title="Limpiar búsqueda" aria-label="Limpiar búsqueda de logs">
+              <button class="clear-search-btn" (click)="clearSearch()" title="Limpiar búsqueda (Esc)" aria-label="Limpiar búsqueda de logs">
                 ✕
               </button>
             }
@@ -393,10 +426,42 @@
               </span>
             }
           </div>
+          <button
+            class="autoscroll-toggle"
+            [class.active]="autoScrollEnabled"
+            (click)="toggleAutoScroll()"
+            [title]="autoScrollEnabled ? 'Auto-scroll activado (clic para pausar)' : 'Auto-scroll pausado (clic para reactivar)'"
+            [attr.aria-pressed]="autoScrollEnabled"
+            aria-label="Alternar auto-scroll de logs">
+            {{ autoScrollEnabled ? '📌 Auto-scroll' : '⏸️ Pausado' }}
+          </button>
           <button class="export-btn" (click)="exportLogs()" title="Exportar logs a archivo TXT" aria-label="Exportar logs a archivo TXT">
             📥 Exportar
           </button>
         </div>
+
+        <!-- Filtro por nivel -->
+        @if (getLevelCounts(); as lc) {
+          <div class="level-filter" role="group" aria-label="Filtrar logs por nivel">
+            <button class="level-chip" [class.active]="selectedLogLevel === 'all'" (click)="setLogLevel('all')">
+              Todos <span class="chip-badge">{{ lc.total }}</span>
+            </button>
+            <button class="level-chip level-error" [class.active]="selectedLogLevel === 'error'" (click)="setLogLevel('error')" [disabled]="lc.error === 0">
+              ✖ Errores <span class="chip-badge">{{ lc.error }}</span>
+            </button>
+            <button class="level-chip level-warn" [class.active]="selectedLogLevel === 'warn'" (click)="setLogLevel('warn')" [disabled]="lc.warn === 0">
+              ⚠ Warnings <span class="chip-badge">{{ lc.warn }}</span>
+            </button>
+            <button class="level-chip level-info" [class.active]="selectedLogLevel === 'info'" (click)="setLogLevel('info')" [disabled]="lc.info === 0">
+              ℹ Info <span class="chip-badge">{{ lc.info }}</span>
+            </button>
+            @if (lc.debug > 0) {
+              <button class="level-chip level-debug" [class.active]="selectedLogLevel === 'debug'" (click)="setLogLevel('debug')">
+                🐛 Debug <span class="chip-badge">{{ lc.debug }}</span>
+              </button>
+            }
+          </div>
+        }
 
         <!-- Pestañas de logs -->
         <div class="log-tabs">
@@ -408,19 +473,33 @@
             >
               {{ tab.label }}
               <span class="tab-badge">{{ tab.count }}</span>
+              @if (getTabErrorCount(tab.key) > 0) {
+                <span class="tab-badge tab-badge-error" title="Errores en esta pestaña">✖ {{ getTabErrorCount(tab.key) }}</span>
+              }
+              @if (getTabWarnCount(tab.key) > 0) {
+                <span class="tab-badge tab-badge-warn" title="Warnings en esta pestaña">⚠ {{ getTabWarnCount(tab.key) }}</span>
+              }
             </button>
           }
         </div>
 
-        <div class="log-box" #logBox>
-          @for (log of getDisplayedLogs(); track $index) {
-            <div class="log-line">{{ log }}</div>
-          }
-          @if (getDisplayedLogs().length === 0 && !logSearchTerm) {
-            <div class="log-line muted">No hay logs disponibles para esta pestaña</div>
-          }
-          @if (getDisplayedLogs().length === 0 && logSearchTerm) {
-            <div class="log-line muted">No se encontraron resultados para "{{ logSearchTerm }}"</div>
+        <div class="log-box-wrapper">
+          <div class="log-box" #logBox (scroll)="onLogsScroll()">
+            @for (log of getVisibleLogs(); track $index) {
+              <div class="log-line" [class]="'level-' + getLogLevel(log)" [innerHTML]="getLogHtml(log)"></div>
+            }
+            @if (getVisibleLogs().length === 0 && !logSearchTerm) {
+              <div class="log-line muted">No hay logs disponibles para esta pestaña</div>
+            }
+            @if (getVisibleLogs().length === 0 && logSearchTerm) {
+              <div class="log-line muted">No se encontraron resultados para "{{ logSearchTerm }}"</div>
+            }
+          </div>
+
+          @if (pendingNewLogs > 0 && (userScrolledUp || !autoScrollEnabled)) {
+            <button class="new-logs-pill" (click)="jumpToLatestLogs()" aria-label="Ir a los logs más recientes">
+              ↓ {{ pendingNewLogs }} nueva{{ pendingNewLogs === 1 ? '' : 's' }}
+            </button>
           }
         </div>
       }
