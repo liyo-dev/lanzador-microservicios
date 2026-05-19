@@ -693,6 +693,9 @@
   display: grid;
   gap: 1.2rem;
   box-shadow: var(--shadow-sm);
+  min-width: 0;       // permite que el grid item se encoja en su contenedor
+  max-width: 100%;
+  overflow: hidden;   // evita que el contenido (botones/logs) desborde la tarjeta
 }
 
 .logs-header {
@@ -718,9 +721,10 @@
 
 .log-actions {
   display: flex;
+  flex-wrap: wrap;            // permite que botones bajen de línea en pantallas estrechas
   justify-content: space-between;
   align-items: center;
-  gap: 1rem;
+  gap: 0.75rem 1rem;
   padding: 0.75rem 1rem;
   background: rgba(99, 102, 241, 0.04);
   border: 1px solid rgba(99, 102, 241, 0.12);
@@ -729,7 +733,8 @@
 }
 
 .log-search {
-  flex: 1;
+  flex: 1 1 220px;            // puede crecer y encogerse sin desbordar
+  min-width: 0;
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -737,7 +742,8 @@
 }
 
 .search-input {
-  flex: 1;
+  flex: 1 1 0;
+  min-width: 0;                       // evita que el input fuerce un ancho mayor al disponible
   padding: 0.6rem 2.5rem 0.6rem 1rem; // Padding extra a la derecha para el botón de cerrar
   background: var(--color-surface);
   border: 1px solid rgba(148, 163, 184, 0.24);
@@ -758,8 +764,11 @@
 }
 
 .clear-search-btn {
-  position: absolute;
-  right: 8.5rem; // Posicionado antes del contador de resultados
+  // Se coloca relativo (no absolute) para no quedar fuera del input cuando
+  // el contador de resultados no se muestra. Va dentro del flex de .log-search.
+  flex: 0 0 auto;
+  margin-left: -2.25rem;   // se solapa sobre el padding derecho del input
+  z-index: 2;
   padding: 0.25rem 0.5rem;
   background: rgba(148, 163, 184, 0.15);
   border: none;
@@ -776,6 +785,7 @@
 }
 
 .search-results {
+  flex: 0 0 auto;
   padding: 0.5rem 0.75rem;
   background: rgba(34, 197, 94, 0.1);
   border: 1px solid rgba(34, 197, 94, 0.2);
@@ -870,6 +880,7 @@
   border: 1px solid rgba(148, 163, 184, 0.24);
   max-height: 280px;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 1rem;
   font-family: 'JetBrains Mono', 'Fira Code', monospace;
   font-size: 0.85rem;
@@ -901,6 +912,10 @@
   padding-left: 0.55rem;
   border-left: 3px solid transparent;
   transition: background 0.15s ease;
+  // Romper URLs/stack traces/JSON largos para que no se salgan horizontalmente
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 
   &.level-error {
     border-left-color: #ef4444;
