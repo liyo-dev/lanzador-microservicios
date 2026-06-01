@@ -6,6 +6,28 @@ const path = require("path");
 const fs = require("fs");
 const os = require("os");
 
+// Lanzar BKS
+ipcMain.handle('launch-bks', async (event, opts) => {
+  try {
+    const exe = opts.exe;
+    const workspace = opts.workspace;
+    if (!fs.existsSync(exe)) {
+      throw new Error('No se encontró bks.exe en la ruta indicada.');
+    }
+    if (!fs.existsSync(workspace)) {
+      throw new Error('No se encontró el workspace de BKS en la ruta indicada.');
+    }
+    // Lanzar bks.exe con el parámetro -data "ruta_workspace"
+    spawn(exe, ['-data', workspace], {
+      detached: true,
+      stdio: 'ignore',
+    }).unref();
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
 // ----------------------------------------------
 // DETECCIÓN DEV vs PROD
 // ----------------------------------------------
@@ -781,7 +803,14 @@ ipcMain.handle('open-portal-auto-login', async (event, loginData) => {
 
     // Menú con controles de navegación, DevTools y utilidades.
     // Cada portalWindow tiene su propio menú independiente.
-    const portalMenu = buildPortalMenu(portalWindow);
+    // reloadLogin se define más abajo en el mismo closure; se pasa como referencia.
+    const reloadLogin = () => {
+      console.log('🔄 Recargando login...');
+      injectionsDone = 0;
+      portalWindow.loadURL(loginData.url);
+      portalWindow.webContents.once('did-finish-load', () => tryInject('reload-login'));
+    };
+    const portalMenu = buildPortalMenu(portalWindow, reloadLogin);
     portalWindow.setMenu(portalMenu);
 
     // Atajos de teclado adicionales por si el foco está en la página y
@@ -808,8 +837,15 @@ ipcMain.handle('open-portal-auto-login', async (event, loginData) => {
         return;
       }
 
+      // Ctrl+Shift+L -> recargar login (volver a la URL original y reinyectar autologin)
+      if (input.control && input.shift && input.key.toLowerCase() === 'l') {
+        event.preventDefault();
+        reloadLogin();
+        return;
+      }
+
       // Ctrl+L -> copiar URL actual al portapapeles (sustituto de "enfocar barra")
-      if (input.control && input.key.toLowerCase() === 'l') {
+      if (input.control && !input.shift && input.key.toLowerCase() === 'l') {
         event.preventDefault();
         clipboard.writeText(portalWindow.webContents.getURL());
         return;
@@ -820,6 +856,24 @@ ipcMain.handle('open-portal-auto-login', async (event, loginData) => {
         event.preventDefault();
         portalWindow.webContents.reload();
         return;
+      }
+
+      // Ctrl+0 -> restablecer zoom
+      if (input.control && input.key === '0') {
+        event.preventDefault();
+        portalWindow.webContents.setZoomFactor(1.0);
+        return;
+      }
+    });
+
+    // Ctrl+Rueda del ratón -> zoom in/out
+    portalWindow.webContents.on('zoom-changed', (event, zoomDirection) => {
+      const current = portalWindow.webContents.getZoomFactor();
+      const step = 0.1;
+      if (zoomDirection === 'in') {
+        portalWindow.webContents.setZoomFactor(Math.min(parseFloat((current + step).toFixed(1)), 3.0));
+      } else {
+        portalWindow.webContents.setZoomFactor(Math.max(parseFloat((current - step).toFixed(1)), 0.3));
       }
     });
 
@@ -1087,7 +1141,7 @@ function buildNexusAutoLoginScript(credentials) {
  * controles de navegación, DevTools y utilidades. Los accelerators
  * funcionan automáticamente al estar el foco en la ventana.
  */
-function buildPortalMenu(portalWindow) {
+function buildPortalMenu(portalWindow, onReloadLogin) {
   const wc = portalWindow.webContents;
 
   return Menu.buildFromTemplate([
@@ -1116,13 +1170,9 @@ function buildPortalMenu(portalWindow) {
         },
         { type: 'separator' },
         {
-          label: '🏠  Ir al inicio del portal',
-          click: () => {
-            try {
-              const u = new URL(wc.getURL());
-              wc.loadURL(`${u.protocol}//${u.host}/`);
-            } catch { /* noop */ }
-          }
+          label: '🔐  Recargar Login',
+          accelerator: 'CmdOrCtrl+Shift+L',
+          click: () => onReloadLogin && onReloadLogin()
         },
         { type: 'separator' },
         { role: 'close', label: 'Cerrar ventana' }
@@ -1174,11 +1224,32 @@ function buildPortalMenu(portalWindow) {
             if (wc.isDevToolsOpened()) wc.closeDevTools();
             else wc.openDevTools({ mode: 'right' });
           }
-        },
+        }
+      ]
+    },
+    {
+      label: 'Herramientas',
+      submenu: [
         {
-          label: 'Inspeccionar (DevTools abajo)',
-          accelerator: 'CmdOrCtrl+Shift+I',
-          click: () => wc.openDevTools({ mode: 'bottom' })
+          label: '📸  Captura de pantalla',
+          accelerator: 'CmdOrCtrl+Shift+S',
+          click: async () => {
+            try {
+              const image = await wc.capturePage();
+              const defaultName = `captura-${new Date().toISOString().replace(/[:.]/g, '-')}.png`;
+              const { filePath: savePath, canceled } = await dialog.showSaveDialog(portalWindow, {
+                title: 'Guardar captura de pantalla',
+                defaultPath: path.join(app.getPath('pictures'), defaultName),
+                filters: [{ name: 'Imágenes PNG', extensions: ['png'] }]
+              });
+              if (!canceled && savePath) {
+                fs.writeFileSync(savePath, image.toPNG());
+                shell.showItemInFolder(savePath);
+              }
+            } catch (err) {
+              console.error('❌ Error al capturar pantalla:', err);
+            }
+          }
         }
       ]
     }

@@ -34,7 +34,7 @@ export class ConfigComponent {
 
   // Agregar campos para el formulario de nuevo microservicio
   newMicroName = '';
-  newMicroType: 'angular' | 'spring' = 'angular';
+  newMicroType: 'angular' | 'spring' | 'bks' = 'angular';
   showAddMicroForm = false;
 
   config: any = {
@@ -49,6 +49,10 @@ export class ConfigComponent {
         java8: { javaHome: '', settingsXml: '', m2RepoPath: '' },
         java17: { javaHome: '', settingsXml: '', m2RepoPath: '' }
       }
+    },
+    // Configuración global de BKS
+    bks: {
+      workspacePath: ''
     },
     // Configuración para microservicios personalizados
     customMicros: {
@@ -67,7 +71,7 @@ export class ConfigComponent {
   angularMicros: CustomMicroservice[] = [];
   springMicros: CustomMicroservice[] = [];
 
-  selectedTab: 'angular' | 'spring' = 'angular';
+  selectedTab: 'angular' | 'spring' | 'bks' = 'angular';
   //#endregion
   
   constructor() {
@@ -216,12 +220,13 @@ export class ConfigComponent {
     return nextPort;
   }
 
-  changeTab(tab: 'angular' | 'spring') {
+  changeTab(tab: 'angular' | 'spring' | 'bks') {
     if (this.selectedTab !== tab) {
       this.selectedTab = tab;
       requestAnimationFrame(() => {
         gsap.from('.section', { opacity: 0, y: 20, duration: 0.4 });
         gsap.from('.micro-card', { opacity: 0, y: 20, duration: 0.4, stagger: 0.1 });
+        gsap.from('.bks-card', { opacity: 0, y: 20, duration: 0.4 });
       });
     }
   }

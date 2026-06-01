@@ -30,5 +30,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // === GESTIÓN DE PUERTOS ===
   findProcessByPort: (port) => ipcRenderer.invoke('find-process-by-port', port),
-  killProcess: (pid) => ipcRenderer.invoke('kill-process', pid)
+  killProcess: (pid) => ipcRenderer.invoke('kill-process', pid),
+
+  // === LANZAR BKS ===
+  launchBks: (opts) => ipcRenderer.invoke('launch-bks', opts)
 });
