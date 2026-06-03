@@ -41,31 +41,6 @@ interface GitDialog {
   styleUrls: ['./launcher.scss'],
 })
 export class Launcher implements OnInit, OnDestroy {
-    /**
-     * Arranca BKS usando la ruta guardada en la configuración.
-     */
-    startBks() {
-      const bksConfig = this.config?.bks;
-      const bksExe = 'C:/Users/x976334/OneDrive - Santander Office 365/Escritorio/Raul Data Cloud/BKS/BKSPlatformNew/eclipse/bks.exe';
-      const wsPath = bksConfig?.workspacePath;
-      if (!wsPath || wsPath.trim() === '') {
-        this.notify?.warning('Configura primero la ruta del workspace de BKS en la configuración.', { title: 'Configuración requerida' });
-        return;
-      }
-      this.loading = true;
-      this.loadingMessage = 'Arrancando BKS...';
-      (window as any).electronAPI.launchBks?.({ exe: bksExe, workspace: wsPath })
-        .then(() => {
-          this.loading = false;
-          this.notify?.success('BKS arrancado correctamente.', { title: 'Éxito' });
-          this.pushLog('🚀 BKS arrancado correctamente');
-        })
-        .catch((err: any) => {
-          this.loading = false;
-          this.notify?.error('Error al arrancar BKS: ' + (err?.message || err), { title: 'Error' });
-          this.pushLog('❌ Error al arrancar BKS: ' + (err?.message || err));
-        });
-    }
   private router = inject(Router);
   private notify = inject(NotificationService);
   config: any = {};

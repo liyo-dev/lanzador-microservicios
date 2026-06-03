@@ -6,25 +6,12 @@ const path = require("path");
 const fs = require("fs");
 const os = require("os");
 
-// Lanzar BKS
-ipcMain.handle('launch-bks', async (event, opts) => {
+ipcMain.handle('show-open-dialog', async (event, options) => {
   try {
-    const exe = opts.exe;
-    const workspace = opts.workspace;
-    if (!fs.existsSync(exe)) {
-      throw new Error('No se encontró bks.exe en la ruta indicada.');
-    }
-    if (!fs.existsSync(workspace)) {
-      throw new Error('No se encontró el workspace de BKS en la ruta indicada.');
-    }
-    // Lanzar bks.exe con el parámetro -data "ruta_workspace"
-    spawn(exe, ['-data', workspace], {
-      detached: true,
-      stdio: 'ignore',
-    }).unref();
-    return { success: true };
+    const result = await dialog.showOpenDialog(mainWindow || undefined, options || {});
+    return result;
   } catch (err) {
-    return { success: false, error: err.message };
+    return { canceled: true, filePaths: [], error: err.message };
   }
 });
 

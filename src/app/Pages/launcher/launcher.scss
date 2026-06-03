@@ -43,6 +43,13 @@
   flex-wrap: wrap;
 }
 
+.launcher-tabs-left {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
 .tab-buttons {
   display: inline-flex;
   padding: 0.35rem;

@@ -1,4 +1,4 @@
-const { contextBridge, ipcRenderer, dialog } = require('electron');
+const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('electronAPI', {
   getConfig: () => ipcRenderer.invoke('get-config'),
@@ -10,7 +10,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   stopProcess: (processKey) => ipcRenderer.send('stop-process', processKey),
   onLogAngular: (callback) => ipcRenderer.on('log-angular', (event, data) => callback(data)),
   onLogSpring: (callback) => ipcRenderer.on('log-spring', (event, data) => callback(data)),
-  showOpenDialog: (options) => dialog.showOpenDialog(options),
+  showOpenDialog: (options) => ipcRenderer.invoke('show-open-dialog', options),
   
   // === GESTIÓN DE USUARIOS ===
   getUsers: () => ipcRenderer.invoke('get-users'),
@@ -31,7 +31,4 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // === GESTIÓN DE PUERTOS ===
   findProcessByPort: (port) => ipcRenderer.invoke('find-process-by-port', port),
   killProcess: (pid) => ipcRenderer.invoke('kill-process', pid),
-
-  // === LANZAR BKS ===
-  launchBks: (opts) => ipcRenderer.invoke('launch-bks', opts)
 });

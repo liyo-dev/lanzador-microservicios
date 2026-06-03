@@ -48,31 +48,20 @@
           <img src="assets/logoSpring.png" alt="Spring" />
           <span>Spring</span>
         </button>
-        <button
-          class="tab-btn"
-          [class.active]="selectedTab === 'bks'"
-          (click)="changeTab('bks')"
-        >
-          <img src="assets/bks-logo.png" alt="BKS" style="height: 20px; width: 20px;" />
-          <span>BKS</span>
-        </button>
       </div>
 
       <div class="tab-info">
         <h2>
           {{
             selectedTab === 'angular' ? 'Fronts Angular'
-            : selectedTab === 'spring' ? 'Servicios Spring'
-            : 'BKS Platform'
+            : 'Servicios Spring'
           }}
         </h2>
         <p>
           {{
             selectedTab === 'angular'
               ? 'Configura rutas locales, puertos y proveedores legacy para los diferentes fronts.'
-              : selectedTab === 'spring'
-                ? 'Mantén tus rutas de compilación y variables globales actualizadas antes de ejecutar.'
-                : 'Indica la ruta del workspace de BKS que quieres usar para arrancar el servidor.'
+              : 'Mantén tus rutas de compilación y variables globales actualizadas antes de ejecutar.'
           }}
         </p>
       </div>
@@ -132,21 +121,6 @@
       </aside>
 
       <section class="main-panel">
-        <!-- Panel de configuración BKS -->
-        <div *ngIf="selectedTab === 'bks'" class="bks-config-panel">
-          <article class="bks-card">
-            <header>
-              <h3>Workspace de BKS</h3>
-            </header>
-            <label>
-              <span>Ruta del workspace</span>
-              <input [(ngModel)]="config.bks.workspacePath" type="text" placeholder="Ej: C:\ruta\a\ws_fase4_sic" />
-            </label>
-            <div class="tips">
-              <small>Esta ruta se usará para arrancar BKS desde el launcher.</small>
-            </div>
-          </article>
-        </div>
         <div class="feedback-zone">
           <div *ngIf="guardadoOK" class="alert success">✅ Configuración guardada correctamente.</div>
           <div *ngIf="borradoOK" class="alert warning">🗑️ Configuración eliminada.</div>

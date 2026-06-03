@@ -350,3 +350,12 @@
 .emoji {
   font-size: 1.1rem;
 }
+
+.input-with-button {
+  display: flex;
+  align-items: stretch;
+  gap: 0.4rem;
+  > input { flex: 1 1 auto; min-width: 0; }
+  > button { flex: 0 0 auto; padding: 0 0.75rem; }
+}
+
