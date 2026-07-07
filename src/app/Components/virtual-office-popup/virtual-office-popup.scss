@@ -1177,6 +1177,154 @@ $pot-color-dark: #9a3412;
 }
 
 // ============================================================
+// Mini-juego "Caza al Dinosaurio"
+// ============================================================
+
+// Badges informativos en la toolbar
+.dino-badge {
+  display: inline-flex; align-items: center; gap: 0.35rem;
+  padding: 0.35rem 0.75rem; border-radius: 999px;
+  font-weight: 700; font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+  background: rgba(148, 163, 184, 0.18); color: var(--color-muted);
+  border: 1px solid transparent;
+
+  &.lobby     { background: rgba(59, 130, 246, 0.16); color: #1d4ed8; }
+  &.joined    { background: rgba(34, 197, 94, 0.16);  color: #15803d; }
+  &.round     { background: rgba(239, 68, 68, 0.16);  color: #b91c1c;
+                animation: dino-round-pulse 1s ease-in-out infinite; }
+  &.spectator { background: rgba(100, 116, 139, 0.16); color: #475569; }
+  &.done      { background: rgba(250, 204, 21, 0.22); color: #92400e; }
+}
+
+@keyframes dino-round-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.35); }
+  50%      { box-shadow: 0 0 0 6px rgba(239, 68, 68, 0);   }
+}
+
+// Botón "Únete" en la toolbar (llama la atención)
+.dino-btn.pulse {
+  animation: dino-cta-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes dino-cta-pulse {
+  0%, 100% { transform: translateY(0);    box-shadow: var(--shadow-sm); }
+  50%      { transform: translateY(-1px); box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.28); }
+}
+
+// Aviso flotante sobre el avatar del creador
+.dino-lobby-tooltip {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  pointer-events: auto; // el avatar padre tiene pointer-events: none
+  z-index: 4;
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  padding: 0.35rem 0.65rem;
+  border-radius: 10px;
+  border: 1px solid rgba(99, 102, 241, 0.35);
+  background: linear-gradient(135deg, #ffffff, #eef2ff);
+  color: var(--color-text);
+  font-size: 0.72rem; font-weight: 600;
+  white-space: nowrap;
+  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.2);
+  cursor: pointer;
+  animation: dino-tooltip-in 0.25s ease-out;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+
+  .dlt-icon { font-size: 1rem; }
+  .dlt-text {
+    display: inline-flex; align-items: baseline; gap: 0.25rem;
+    strong { color: var(--color-primary-dark); }
+    em     { font-style: normal; color: var(--color-muted); font-weight: 500; }
+  }
+
+  // Flecha inferior
+  &::after {
+    content: '';
+    position: absolute; top: 100%; left: 50%;
+    transform: translateX(-50%);
+    width: 0; height: 0;
+    border-left: 6px solid transparent;
+    border-right: 6px solid transparent;
+    border-top: 6px solid #eef2ff;
+    filter: drop-shadow(0 1px 0 rgba(99, 102, 241, 0.35));
+  }
+
+  &:hover:not(:disabled)  { transform: translateX(-50%) translateY(-2px); box-shadow: 0 10px 20px rgba(15, 23, 42, 0.25); }
+  &:disabled              { opacity: 0.6; cursor: default; }
+}
+
+@keyframes dino-tooltip-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(4px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0);   }
+}
+
+// ============================================================
+// Sprite del dinosaurio
+// Se usa MISMA posición para participantes y espectadores. La
+// diferencia visual la marca .spectator-mode (ver más abajo).
+// ============================================================
+.dino-sprite {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  z-index: 6;
+
+  // Reset del <button>
+  border: none;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+
+  // Sprite visual
+  display: inline-grid; place-items: center;
+  width: 42px; height: 42px;
+  font-size: 2rem;
+  line-height: 1;
+  cursor: pointer;
+  filter:
+    drop-shadow(0 4px 4px rgba(15, 23, 42, 0.35))
+    drop-shadow(0 0 12px rgba(34, 197, 94, 0.55));
+  animation: dino-bob 1.2s ease-in-out infinite;
+  transition: transform 0.12s ease, filter 0.12s ease;
+
+  &:hover {
+    transform: translate(-50%, -50%) scale(1.15);
+    filter:
+      drop-shadow(0 6px 6px rgba(15, 23, 42, 0.4))
+      drop-shadow(0 0 18px rgba(34, 197, 94, 0.8));
+  }
+
+  &:focus-visible {
+    outline: 2px solid #22c55e;
+    outline-offset: 4px;
+  }
+
+  // ----------------------------------------------------------
+  // Modo ESPECTADOR (pasivo): el usuario no participa en la
+  // partida, así que ve el sprite pero NO puede interactuar.
+  //
+  //   - pointer-events: none   → crítico, no interfiere con la app
+  //   - opacity: 0.4           → semitransparente
+  //   - filter: grayscale(50%) → indica que es un evento de fondo
+  // ----------------------------------------------------------
+  &.spectator-mode {
+    pointer-events: none;
+    opacity: 0.4;
+    filter: grayscale(50%);
+    cursor: default;
+    animation: none;
+  }
+}
+
+@keyframes dino-bob {
+  0%, 100% { transform: translate(-50%, -50%) translateY(0)    rotate(-2deg); }
+  50%      { transform: translate(-50%, -50%) translateY(-4px) rotate(2deg);  }
+}
+
+// ============================================================
 // Dark theme
 // ============================================================
 :host-context(:root[data-theme='dark']) {
@@ -1219,4 +1367,13 @@ $pot-color-dark: #9a3412;
     &.done { background: rgba(34, 197, 94, 0.2); color: #4ade80; }
   }
   .rv-item { background: rgba(255, 255, 255, 0.04); }
+
+  // Tooltip del dino en tema oscuro
+  .dino-lobby-tooltip {
+    background: linear-gradient(135deg, #1e293b, #0f172a);
+    border-color: rgba(129, 140, 248, 0.45);
+    color: #e2e8f0;
+    .dlt-text strong { color: #a5b4fc; }
+    &::after { border-top-color: #0f172a; }
+  }
 }

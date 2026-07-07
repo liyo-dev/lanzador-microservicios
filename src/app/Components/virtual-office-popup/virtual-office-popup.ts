@@ -20,6 +20,7 @@ import { OfficeWindowService } from '../../services/office-window.service';
 import {
   BugHuntRankingEntry,
   ConnectionState,
+  DinoGameState,
   PlayerPayload,
   VirtualOfficeService,
 } from '../../Pages/office/virtual-office.service';
@@ -182,6 +183,45 @@ export class VirtualOfficePopupComponent implements OnInit, OnDestroy {
     return rows;
   });
 
+  // -------- Mini-juego "Caza al Dinosaurio" --------
+  /** Estado autoritativo del juego (viene del servidor). */
+  readonly dinoGame = signal<DinoGameState | null>(null);
+  /** Segundos restantes en el lobby (calculados localmente a partir de `endsAt`). */
+  readonly dinoLobbySeconds = signal(0);
+  private dinoTickTimer: any = null;
+
+  /** True si el juego está en fase lobby. */
+  readonly dinoLobbyActive = computed(() => this.dinoGame()?.phase === 'lobby');
+  /** True si estamos en la fase de captura con dino visible. */
+  readonly dinoRoundActive = computed(() => this.dinoGame()?.phase === 'round');
+  /** True si el juego terminó y aún se muestra el resultado. */
+  readonly dinoRoundDone = computed(() => this.dinoGame()?.phase === 'done');
+  /** True si el usuario local se unió a la partida (participante). */
+  readonly dinoIsParticipant = computed(() => {
+    const g = this.dinoGame();
+    const me = this.myId();
+    return !!(g && me && g.participantIds.includes(me));
+  });
+  /** True si el usuario local es el creador (subset de participante). */
+  readonly dinoIsCreator = computed(() => {
+    const g = this.dinoGame();
+    const me = this.myId();
+    return !!(g && me && g.creatorId === me);
+  });
+  /** True si la ventana emergente actual pertenece al usuario que la miró
+   *  como espectador — es decir, hay dino visible pero no soy participante. */
+  readonly dinoIsSpectator = computed(
+    () => this.dinoRoundActive() && !this.dinoIsParticipant(),
+  );
+  /** ID del creador si hay lobby abierto y no soy yo (para mostrar el tooltip
+   *  encima de su avatar remoto). */
+  readonly dinoLobbyCreatorRemoteId = computed<string | null>(() => {
+    const g = this.dinoGame();
+    if (!g || g.phase !== 'lobby') return null;
+    if (g.creatorId === this.myId()) return null;
+    return g.creatorId;
+  });
+
   @ViewChild('officeScene') officeScene?: ElementRef<HTMLDivElement>;
 
   private eventsSub?: Subscription;
@@ -237,6 +277,7 @@ export class VirtualOfficePopupComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.stopBugTimer();
+    this.stopDinoTick();
     document.removeEventListener('pointermove', this.onPointerMove);
     document.removeEventListener('pointerup', this.onPointerUp);
     this.eventsSub?.unsubscribe();
@@ -474,6 +515,11 @@ export class VirtualOfficePopupComponent implements OnInit, OnDestroy {
             this.pixelBoardHeight.set(event.pixelBoard.height);
             this.pixelBoardPixels.set({ ...(event.pixelBoard.pixels || {}) });
           }
+          if (event.dinoGame) {
+            this.applyDinoGame(event.dinoGame);
+          } else {
+            this.applyDinoGame(null);
+          }
           // Empuja mi hello con la posición inicial.
           this.sendHelloIfConnected();
           break;
@@ -502,6 +548,47 @@ export class VirtualOfficePopupComponent implements OnInit, OnDestroy {
             else delete next[key];
             return next;
           });
+          break;
+        }
+        case 'dino-lobby-open': {
+          this.applyDinoGame(event.game);
+          const g = event.game;
+          if (g.creatorId !== this.myId()) {
+            this.notify.info(`🦕 ${g.creatorName} ha creado una partida. ¡Únete!`);
+          }
+          break;
+        }
+        case 'dino-lobby-update': {
+          this.applyDinoGame(event.game);
+          break;
+        }
+        case 'dino-round-start': {
+          this.applyDinoGame(event.game);
+          if (this.dinoIsParticipant()) {
+            this.notify.info('🦕 ¡La partida ha comenzado! Atrapa al dinosaurio.');
+          } else {
+            this.notify.info('🦕 Partida en curso (modo espectador).');
+          }
+          break;
+        }
+        case 'dino-round-end': {
+          this.applyDinoGame(event.game);
+          const g = event.game;
+          const time = g.timeMs ? `${((g.timeMs || 0) / 1000).toFixed(2)}s` : '';
+          if (g.winnerId === this.myId()) {
+            this.notify.success(`🏆 ¡Has atrapado al dinosaurio en ${time}!`);
+          } else if (g.winnerName) {
+            this.notify.info(`🦕 ${g.winnerName} atrapó al dinosaurio (${time}).`);
+          }
+          break;
+        }
+        case 'dino-cancelled': {
+          this.applyDinoGame(null);
+          this.notify.warning(event.reason || 'La partida se ha cancelado.');
+          break;
+        }
+        case 'dino-cleared': {
+          this.applyDinoGame(null);
           break;
         }
         case 'error': {
@@ -621,6 +708,91 @@ export class VirtualOfficePopupComponent implements OnInit, OnDestroy {
       this.lastSentX = p.x;
       this.lastSentY = p.y;
     }, 80);
+  }
+
+  // ============================================================
+  // Mini-juego "Caza al Dinosaurio"
+  // ============================================================
+
+  /** Aplica el estado del servidor al signal local y sincroniza el temporizador. */
+  private applyDinoGame(game: DinoGameState | null): void {
+    this.dinoGame.set(game);
+    this.refreshDinoCountdown();
+    if (game && game.phase === 'lobby') {
+      this.startDinoTick();
+    } else {
+      this.stopDinoTick();
+    }
+  }
+
+  private refreshDinoCountdown(): void {
+    const g = this.dinoGame();
+    if (!g || g.phase !== 'lobby' || !g.endsAt) {
+      this.dinoLobbySeconds.set(0);
+      return;
+    }
+    const remainingMs = Math.max(0, g.endsAt - Date.now());
+    this.dinoLobbySeconds.set(Math.ceil(remainingMs / 1000));
+  }
+
+  private startDinoTick(): void {
+    if (this.dinoTickTimer) return;
+    this.dinoTickTimer = setInterval(() => this.refreshDinoCountdown(), 250);
+  }
+
+  private stopDinoTick(): void {
+    if (this.dinoTickTimer) {
+      clearInterval(this.dinoTickTimer);
+      this.dinoTickTimer = null;
+    }
+  }
+
+  createDinoGame(): void {
+    if (this.connectionState() !== 'connected') {
+      this.notify.warning('Necesitas estar conectado para crear una partida.');
+      return;
+    }
+    if (this.dinoGame()) {
+      this.notify.info('Ya hay una partida activa.');
+      return;
+    }
+    this.office.sendDinoCreate();
+  }
+
+  joinDinoGame(): void {
+    const g = this.dinoGame();
+    if (!g || g.phase !== 'lobby') return;
+    if (this.dinoIsParticipant()) return;
+    this.office.sendDinoJoin(g.id);
+  }
+
+  startDinoNow(): void {
+    const g = this.dinoGame();
+    if (!g || g.phase !== 'lobby') return;
+    if (!this.dinoIsCreator()) return;
+    this.office.sendDinoStart(g.id);
+  }
+
+  cancelDinoGame(): void {
+    const g = this.dinoGame();
+    if (!g) return;
+    if (!this.dinoIsCreator()) return;
+    this.office.sendDinoCancel(g.id);
+  }
+
+  onDinoClick(event: MouseEvent): void {
+    event.stopPropagation();
+    const g = this.dinoGame();
+    if (!g || g.phase !== 'round') return;
+    // Guardia adicional: los espectadores no deberían poder disparar el
+    // click, pero por seguridad reforzamos aquí antes de enviar al servidor.
+    if (!this.dinoIsParticipant()) return;
+    this.office.sendDinoCatch(g.id);
+  }
+
+  formatDinoLobbyLabel(): string {
+    const s = this.dinoLobbySeconds();
+    return s > 0 ? `${s}s` : '¡ya!';
   }
 
   // ============================================================

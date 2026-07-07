@@ -303,6 +303,65 @@
                   <button type="button" class="btn-ghost small" (click)="openRanking()">
                     🏆 Ranking
                   </button>
+
+                  <!-- Mini-juego "Caza al Dinosaurio" -->
+                  @if (!dinoGame()) {
+                    <button
+                      type="button"
+                      class="btn-ghost small dino-btn"
+                      (click)="createDinoGame()"
+                      [disabled]="connectionState() !== 'connected'"
+                      [title]="connectionState() !== 'connected'
+                        ? 'Necesitas conexión para crear partida'
+                        : 'Crear una partida de Caza al Dinosaurio'"
+                    >
+                      🦕 Crear partida
+                    </button>
+                  } @else if (dinoLobbyActive()) {
+                    @if (dinoIsCreator()) {
+                      <span class="dino-badge lobby" aria-live="polite">
+                        🦕 Lobby · {{ formatDinoLobbyLabel() }}
+                        ({{ dinoGame()!.participantIds.length }} dentro)
+                      </span>
+                      <button type="button" class="btn-primary small" (click)="startDinoNow()">
+                        🚀 Comenzar ya
+                      </button>
+                      <button type="button" class="btn-ghost small" (click)="cancelDinoGame()">
+                        Cancelar
+                      </button>
+                    } @else if (dinoIsParticipant()) {
+                      <span class="dino-badge joined" aria-live="polite">
+                        ✅ Unido · comienza en {{ formatDinoLobbyLabel() }}
+                      </span>
+                    } @else {
+                      <button
+                        type="button"
+                        class="btn-primary small dino-btn pulse"
+                        (click)="joinDinoGame()"
+                        [title]="'Partida de ' + dinoGame()!.creatorName"
+                      >
+                        🦕 Únete ({{ formatDinoLobbyLabel() }})
+                      </button>
+                    }
+                  } @else if (dinoRoundActive()) {
+                    @if (dinoIsParticipant()) {
+                      <span class="dino-badge round" aria-live="polite">
+                        🎯 ¡Atrapa al dino!
+                      </span>
+                    } @else {
+                      <span class="dino-badge spectator" aria-live="polite">
+                        👀 Espectador
+                      </span>
+                    }
+                  } @else if (dinoRoundDone()) {
+                    <span class="dino-badge done" aria-live="polite">
+                      🏆 {{ dinoGame()!.winnerName || '¡Fin!' }}
+                      @if (dinoGame()!.timeMs) {
+                        · {{ ((dinoGame()!.timeMs || 0) / 1000).toFixed(2) }}s
+                      }
+                    </span>
+                  }
+
                   @if (bugHuntStatus() === 'idle') {
                     <button
                       type="button"
@@ -500,6 +559,24 @@
                       </div>
                     </div>
                     <span class="sa-name">{{ p.name }}</span>
+
+                    <!-- Aviso flotante: sólo sobre el creador del lobby (para el resto). -->
+                    @if (dinoLobbyCreatorRemoteId() === p.id) {
+                      <button
+                        type="button"
+                        class="dino-lobby-tooltip"
+                        (click)="joinDinoGame()"
+                        [disabled]="dinoIsParticipant()"
+                        [attr.aria-label]="'Unirse a la partida de ' + p.name"
+                      >
+                        <span class="dlt-icon">🦕</span>
+                        <span class="dlt-text">
+                          ¡Partida creada!
+                          <strong>Únete</strong>
+                          <em>{{ formatDinoLobbyLabel() }}</em>
+                        </span>
+                      </button>
+                    }
                   </div>
                 }
 
@@ -548,6 +625,30 @@
 
                 @if (bugHuntStatus() === 'running' && !bug()) {
                   <div class="scene-hint">Colocando el bug…</div>
+                }
+
+                <!-- Dinosaurio del mini-juego multijugador.
+                     Los participantes ven el sprite activo (clickable) y los
+                     espectadores lo ven en modo pasivo (.spectator-mode). -->
+                @if (dinoRoundActive() && dinoGame(); as dg) {
+                  @if (dinoIsParticipant()) {
+                    <button
+                      type="button"
+                      class="dino-sprite"
+                      [style.left.%]="worldToPctX(dg.x || 0)"
+                      [style.top.%]="worldToPctY(dg.y || 0)"
+                      (click)="onDinoClick($event)"
+                      title="¡Atrápalo!"
+                      aria-label="Atrapar dinosaurio"
+                    >🦖</button>
+                  } @else {
+                    <span
+                      class="dino-sprite spectator-mode"
+                      [style.left.%]="worldToPctX(dg.x || 0)"
+                      [style.top.%]="worldToPctY(dg.y || 0)"
+                      aria-hidden="true"
+                    >🦖</span>
+                  }
                 }
               </div>
 

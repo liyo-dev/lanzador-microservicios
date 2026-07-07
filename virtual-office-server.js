@@ -27,6 +27,19 @@ let bugHuntRanking = normalizeRanking(loadBugHuntRanking());
 let pixelBoardPixels = loadPixelBoard(); // { "x,y": "#rrggbb" }
 let pixelSaveTimer = null;
 
+// ============================================================
+// Estado del mini-juego multijugador "Caza al Dinosaurio"
+// ============================================================
+// Sólo hay una partida activa a la vez (lobby o ronda en curso).
+// Estructura: { id, phase: 'lobby'|'round'|'done', creatorId, creatorStableId,
+//   creatorName, creatorAvatar, participantIds: Set<clientId>,
+//   endsAt: number (ms epoch, sólo en fase lobby),
+//   lobbyTimer, x, y, startedAt, winnerId, winnerName, timeMs, endTimer }
+let dinoGame = null;
+const DINO_LOBBY_MS = 30_000;
+const DINO_RESULT_LINGER_MS = 6_000;
+const DINO_PADDING = 80;
+
 const server = http.createServer((req, res) => {
   res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
   res.end('Servidor de oficina virtual activo. Usa WebSocket para conectarte.\n');
@@ -73,6 +86,7 @@ server.on('upgrade', (req, socket, head) => {
       height: PIXEL_BOARD_HEIGHT,
       pixels: pixelBoardPixels,
     },
+    dinoGame: serializeDinoGame(),
   });
 
   if (head && head.length) {
@@ -173,6 +187,21 @@ function handleClientMessage(client, raw) {
       break;
     case 'pixel-paint':
       handlePixelPaint(client, data);
+      break;
+    case 'dino-create':
+      handleDinoCreate(client, data);
+      break;
+    case 'dino-join':
+      handleDinoJoin(client, data);
+      break;
+    case 'dino-start':
+      handleDinoStart(client, data);
+      break;
+    case 'dino-catch':
+      handleDinoCatch(client, data);
+      break;
+    case 'dino-cancel':
+      handleDinoCancel(client, data);
       break;
     default:
       send(client, { type: 'error', message: 'Acción no soportada.' });
@@ -626,9 +655,218 @@ function disconnectClient(client) {
   const player = players.get(client.id);
   players.delete(client.id);
 
+  // Limpieza del mini-juego del dino si el cliente estaba implicado.
+  handleDinoClientGone(client.id);
+
   if (player) {
     broadcast({ type: 'player-left', id: player.id });
     pushSystemMessage(`${player.name} ha abandonado la oficina.`);
+  }
+}
+
+// ============================================================
+// Mini-juego multijugador "Caza al Dinosaurio"
+// ============================================================
+
+function serializeDinoGame() {
+  if (!dinoGame) return null;
+  const base = {
+    id: dinoGame.id,
+    phase: dinoGame.phase,
+    creatorId: dinoGame.creatorId,
+    creatorName: dinoGame.creatorName,
+    creatorAvatar: dinoGame.creatorAvatar,
+    participantIds: Array.from(dinoGame.participantIds),
+  };
+  if (dinoGame.phase === 'lobby') {
+    base.endsAt = dinoGame.endsAt;
+  }
+  if (dinoGame.phase === 'round') {
+    base.x = dinoGame.x;
+    base.y = dinoGame.y;
+    base.startedAt = dinoGame.startedAt;
+  }
+  if (dinoGame.phase === 'done') {
+    base.winnerId = dinoGame.winnerId;
+    base.winnerName = dinoGame.winnerName;
+    base.timeMs = dinoGame.timeMs;
+    base.x = dinoGame.x;
+    base.y = dinoGame.y;
+  }
+  return base;
+}
+
+function clearDinoTimers() {
+  if (!dinoGame) return;
+  if (dinoGame.lobbyTimer) {
+    clearTimeout(dinoGame.lobbyTimer);
+    dinoGame.lobbyTimer = null;
+  }
+  if (dinoGame.endTimer) {
+    clearTimeout(dinoGame.endTimer);
+    dinoGame.endTimer = null;
+  }
+}
+
+function resetDinoGame() {
+  clearDinoTimers();
+  dinoGame = null;
+}
+
+function handleDinoCreate(client) {
+  if (!client.player) {
+    send(client, { type: 'error', message: 'Necesitas un perfil para crear la partida.' });
+    return;
+  }
+  if (dinoGame && dinoGame.phase !== 'done') {
+    send(client, { type: 'error', message: 'Ya hay una partida activa. Únete o espera al resultado.' });
+    return;
+  }
+
+  const id = crypto.randomUUID();
+  const participantIds = new Set([client.id]);
+  const endsAt = Date.now() + DINO_LOBBY_MS;
+
+  dinoGame = {
+    id,
+    phase: 'lobby',
+    creatorId: client.id,
+    creatorStableId: client.stableId || client.id,
+    creatorName: client.player.name,
+    creatorAvatar: client.player.avatar,
+    participantIds,
+    endsAt,
+    lobbyTimer: setTimeout(() => startDinoRound(id), DINO_LOBBY_MS),
+    x: 0,
+    y: 0,
+    startedAt: 0,
+    winnerId: null,
+    winnerName: null,
+    timeMs: 0,
+    endTimer: null,
+  };
+
+  broadcast({
+    type: 'dino-lobby-open',
+    game: serializeDinoGame(),
+  });
+  pushSystemMessage(`🦕 ${client.player.name} ha creado una partida de Caza al Dinosaurio.`);
+}
+
+function handleDinoJoin(client) {
+  if (!client.player) return;
+  if (!dinoGame || dinoGame.phase !== 'lobby') {
+    send(client, { type: 'error', message: 'No hay ninguna partida abierta para unirse.' });
+    return;
+  }
+  if (dinoGame.participantIds.has(client.id)) return;
+
+  dinoGame.participantIds.add(client.id);
+  broadcast({
+    type: 'dino-lobby-update',
+    game: serializeDinoGame(),
+  });
+}
+
+function handleDinoStart(client) {
+  if (!dinoGame || dinoGame.phase !== 'lobby') return;
+  if (dinoGame.creatorId !== client.id) {
+    send(client, { type: 'error', message: 'Sólo el creador puede empezar la partida.' });
+    return;
+  }
+  startDinoRound(dinoGame.id);
+}
+
+function handleDinoCancel(client) {
+  if (!dinoGame || dinoGame.phase === 'done') return;
+  if (dinoGame.creatorId !== client.id) return;
+  cancelDinoGame('El creador ha cancelado la partida.');
+}
+
+function handleDinoCatch(client, data) {
+  if (!dinoGame || dinoGame.phase !== 'round') return;
+  if (!dinoGame.participantIds.has(client.id)) {
+    send(client, { type: 'error', message: 'Eres espectador en esta partida.' });
+    return;
+  }
+  if (dinoGame.winnerId) return; // ya capturado
+
+  // Validación mínima: si el cliente envía coordenadas, comprobar que están
+  // razonablemente cerca de las del servidor (evitar clicks automáticos triviales).
+  const rawId = typeof data?.gameId === 'string' ? data.gameId : null;
+  if (rawId && rawId !== dinoGame.id) return;
+
+  const now = Date.now();
+  dinoGame.phase = 'done';
+  dinoGame.winnerId = client.id;
+  dinoGame.winnerName = client.player?.name || 'Jugador';
+  dinoGame.timeMs = Math.max(0, now - dinoGame.startedAt);
+  clearDinoTimers();
+
+  broadcast({
+    type: 'dino-round-end',
+    game: serializeDinoGame(),
+  });
+  pushSystemMessage(
+    `🏆 ${dinoGame.winnerName} atrapó al dinosaurio en ${(dinoGame.timeMs / 1000).toFixed(2)} s.`,
+  );
+
+  const finishedGameId = dinoGame.id;
+  dinoGame.endTimer = setTimeout(() => {
+    // Sólo limpiar si sigue siendo la misma partida.
+    if (dinoGame && dinoGame.id === finishedGameId) {
+      resetDinoGame();
+      broadcast({ type: 'dino-cleared' });
+    }
+  }, DINO_RESULT_LINGER_MS);
+}
+
+function startDinoRound(gameId) {
+  if (!dinoGame || dinoGame.id !== gameId || dinoGame.phase !== 'lobby') return;
+
+  // Si el creador se quedó solo, cancelamos.
+  if (dinoGame.participantIds.size === 0) {
+    cancelDinoGame('Nadie se unió a la partida.');
+    return;
+  }
+
+  clearDinoTimers();
+  const minX = DINO_PADDING;
+  const maxX = OFFICE_WIDTH - DINO_PADDING;
+  const minY = DINO_PADDING;
+  const maxY = OFFICE_HEIGHT - DINO_PADDING;
+  dinoGame.x = Math.round(minX + Math.random() * (maxX - minX));
+  dinoGame.y = Math.round(minY + Math.random() * (maxY - minY));
+  dinoGame.startedAt = Date.now();
+  dinoGame.phase = 'round';
+
+  broadcast({
+    type: 'dino-round-start',
+    game: serializeDinoGame(),
+  });
+}
+
+function cancelDinoGame(reason) {
+  if (!dinoGame) return;
+  clearDinoTimers();
+  const message = reason || 'La partida ha sido cancelada.';
+  dinoGame = null;
+  broadcast({ type: 'dino-cancelled', reason: message });
+  pushSystemMessage(`🦕 ${message}`);
+}
+
+function handleDinoClientGone(clientId) {
+  if (!dinoGame) return;
+  const wasParticipant = dinoGame.participantIds.delete(clientId);
+  if (dinoGame.creatorId === clientId) {
+    cancelDinoGame('El creador se ha desconectado.');
+    return;
+  }
+  if (wasParticipant && dinoGame.phase === 'lobby') {
+    broadcast({ type: 'dino-lobby-update', game: serializeDinoGame() });
+  }
+  if (wasParticipant && dinoGame.phase === 'round' && dinoGame.participantIds.size === 0) {
+    cancelDinoGame('Todos los participantes se han desconectado.');
   }
 }
 

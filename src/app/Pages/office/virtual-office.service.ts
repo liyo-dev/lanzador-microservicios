@@ -118,8 +118,32 @@ export interface PixelBoardPaintEvent {
   by?: string;
 }
 
+// ============================================================
+// Mini-juego multijugador "Caza al Dinosaurio"
+// ============================================================
+export type DinoGamePhase = 'lobby' | 'round' | 'done';
+
+export interface DinoGameState {
+  id: string;
+  phase: DinoGamePhase;
+  creatorId: string;
+  creatorName: string;
+  creatorAvatar: AvatarDescriptor;
+  /** IDs de conexión de los jugadores que participan. */
+  participantIds: string[];
+  /** Fin del lobby en ms epoch (fase `lobby`). */
+  endsAt?: number;
+  /** Coordenadas del dinosaurio en el mundo (fases `round` y `done`). */
+  x?: number;
+  y?: number;
+  startedAt?: number;
+  winnerId?: string;
+  winnerName?: string;
+  timeMs?: number;
+}
+
 export type ServerEvent =
-  | { type: 'welcome'; id: string; players: PlayerPayload[]; generalMessages: GeneralMessagePayload[]; space: SpaceDescriptor; bugHuntRanking?: BugHuntRankingEntry[]; pixelBoard?: PixelBoardState }
+  | { type: 'welcome'; id: string; players: PlayerPayload[]; generalMessages: GeneralMessagePayload[]; space: SpaceDescriptor; bugHuntRanking?: BugHuntRankingEntry[]; pixelBoard?: PixelBoardState; dinoGame?: DinoGameState | null }
   | { type: 'player-joined'; player: PlayerPayload }
   | { type: 'player-updated'; player: PlayerPayload }
   | { type: 'player-left'; id: string }
@@ -134,6 +158,12 @@ export type ServerEvent =
   | { type: 'mini-game-move'; payload: MiniGameMovePayload }
   | { type: 'bug-hunt-ranking'; entries: BugHuntRankingEntry[] }
   | { type: 'pixel-board-paint'; x: number; y: number; color: string | null; by?: string }
+  | { type: 'dino-lobby-open'; game: DinoGameState }
+  | { type: 'dino-lobby-update'; game: DinoGameState }
+  | { type: 'dino-round-start'; game: DinoGameState }
+  | { type: 'dino-round-end'; game: DinoGameState }
+  | { type: 'dino-cancelled'; reason: string }
+  | { type: 'dino-cleared' }
   | { type: 'error'; message: string }
   | { type: 'disconnected' };
 
@@ -269,6 +299,28 @@ export class VirtualOfficeService {
 
   sendPixelPaint(x: number, y: number, color: string | null): void {
     this.send({ type: 'pixel-paint', x, y, color });
+  }
+
+  // ---------------- Mini-juego "Caza al Dinosaurio" ----------------
+
+  sendDinoCreate(): void {
+    this.send({ type: 'dino-create' });
+  }
+
+  sendDinoJoin(gameId: string): void {
+    this.send({ type: 'dino-join', gameId });
+  }
+
+  sendDinoStart(gameId: string): void {
+    this.send({ type: 'dino-start', gameId });
+  }
+
+  sendDinoCatch(gameId: string): void {
+    this.send({ type: 'dino-catch', gameId });
+  }
+
+  sendDinoCancel(gameId: string): void {
+    this.send({ type: 'dino-cancel', gameId });
   }
 
   disconnect(): void {
