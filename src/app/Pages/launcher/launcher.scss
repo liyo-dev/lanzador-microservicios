@@ -129,45 +129,6 @@
   flex-wrap: wrap;
 }
 
-// ============================================================
-// Switch de modo de visualización (tarjetas / lista)
-// ============================================================
-.view-switcher {
-  display: inline-flex;
-  background: rgba(148, 163, 184, 0.15);
-  border-radius: var(--radius-md);
-  padding: 3px;
-  gap: 2px;
-
-  .view-btn {
-    border: none;
-    background: transparent;
-    padding: 0.4rem 0.85rem;
-    border-radius: calc(var(--radius-md) - 4px);
-    font-size: 0.85rem;
-    cursor: pointer;
-    color: var(--color-muted);
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
-
-    &:hover {
-      color: var(--color-text);
-    }
-
-    &.active {
-      background: var(--color-surface);
-      color: var(--color-text);
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-    }
-
-    .view-label {
-      font-weight: 500;
-    }
-  }
-}
-
 .selection-actions {
   display: inline-flex;
   align-items: center;
@@ -371,6 +332,16 @@
   border-radius: 999px;
   font-size: 0.75rem;
   font-weight: 800;
+}
+
+.branch-pill .badge.ahead {
+  background: rgba(59, 130, 246, 0.14);
+  color: #1d4ed8;
+}
+
+.branch-pill .badge.behind {
+  background: rgba(234, 179, 8, 0.14);
+  color: #92400e;
 }
 
 .branch-pill.warn {
@@ -618,6 +589,14 @@
   &.stopped {
     background: rgba(239, 68, 68, 0.14);
     color: var(--color-danger);
+  }
+
+  .uptime {
+    font-weight: 500;
+    font-size: 0.78rem;
+    opacity: 0.85;
+    text-transform: none;
+    white-space: nowrap;
   }
 }
 
@@ -1270,18 +1249,17 @@
   .micro-row {
     display: grid;
     grid-template-columns:
-      40px              // checkbox
-      minmax(180px, 2fr) // nombre + rama
-      110px             // estado
-      70px              // git toggle
-      110px             // legacy (solo angular, oculto si no aplica)
-      minmax(90px, 1fr); // acciones
+      40px                 // checkbox
+      minmax(180px, 2fr)   // nombre + rama
+      110px                // estado
+      minmax(120px, auto)  // git
+      110px;               // legacy (solo angular, oculto si no aplica)
     align-items: center;
     gap: 0.75rem;
     padding: 0.6rem 1rem;
   }
 
-  // En Spring no existe columna "legacy": reducimos el grid a 5 tracks
+  // En Spring no existe columna "legacy": reducimos el grid a 4 tracks
   &.spring-tab {
     .list-head,
     .micro-row {
@@ -1289,8 +1267,7 @@
         40px
         minmax(180px, 2fr)
         110px
-        70px
-        minmax(90px, 1fr);
+        minmax(120px, auto);
     }
   }
 
@@ -1303,8 +1280,7 @@
         40px
         minmax(180px, 2fr)
         110px
-        70px
-        minmax(90px, 1fr);
+        minmax(120px, auto);
     }
   }
 
@@ -1418,12 +1394,6 @@
       align-items: center;
       justify-content: center;
     }
-
-    .col-actions {
-      display: flex;
-      gap: 0.4rem;
-      justify-content: flex-end;
-    }
   }
 
   // Toggles compactos dentro de la fila
@@ -1453,8 +1423,7 @@
       }
 
       .col-git,
-      .col-legacy,
-      .col-actions {
+      .col-legacy {
         grid-column: 1 / -1;
         grid-row: 2;
         justify-content: flex-start;
@@ -1506,14 +1475,6 @@
 
 // Modo oscuro: switcher
 :root[data-theme='dark'] {
-  .view-switcher {
-    background: rgba(255, 255, 255, 0.06);
-
-    .view-btn.active {
-      background: var(--color-surface);
-    }
-  }
-
   .selection-actions .selection-badge {
     background: rgba(96, 165, 250, 0.18);
     color: #93c5fd;
@@ -1951,3 +1912,200 @@
   }
 }
 
+
+
+// ============================================================
+// Bot�n "Git" en la fila del microservicio (abre el popup Git)
+// ============================================================
+.git-chip-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.7rem;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(148, 163, 184, 0.08);
+  color: var(--color-muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+
+  .git-chip-check {
+    font-size: 0.85rem;
+    line-height: 1;
+  }
+
+  svg {
+    opacity: 0.85;
+  }
+
+  &:hover {
+    background: rgba(148, 163, 184, 0.18);
+    color: var(--color-text);
+    border-color: rgba(148, 163, 184, 0.6);
+  }
+
+  &.active {
+    background: rgba(34, 197, 94, 0.14);
+    color: #15803d;
+    border-color: rgba(34, 197, 94, 0.45);
+
+    &:hover {
+      background: rgba(34, 197, 94, 0.22);
+    }
+  }
+
+  &.warn {
+    background: rgba(245, 158, 11, 0.14);
+    color: #b45309;
+    border-color: rgba(245, 158, 11, 0.5);
+
+    &:hover {
+      background: rgba(245, 158, 11, 0.22);
+    }
+  }
+}
+
+// ============================================================
+// Popup del panel Git (sustituye a la vista de tarjeta)
+// ============================================================
+.git-panel-modal {
+  background: var(--color-surface);
+  border-radius: 14px;
+  border: 1px solid var(--color-border);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.25);
+  width: min(560px, calc(100vw - 2rem));
+  max-height: calc(100vh - 3rem);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  animation: git-panel-in 0.2s ease-out;
+}
+
+@keyframes git-panel-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0)   scale(1); }
+}
+
+.git-panel-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.2rem 0.8rem;
+  border-bottom: 1px solid var(--color-border);
+
+  h4 {
+    margin: 0;
+    font-size: 1.05rem;
+    color: var(--color-text);
+  }
+
+  .git-panel-modal-sub {
+    margin: 0.25rem 0 0;
+    font-size: 0.82rem;
+    color: var(--color-muted);
+  }
+
+  .git-panel-close {
+    background: transparent;
+    border: none;
+    color: var(--color-muted);
+    font-size: 1rem;
+    cursor: pointer;
+    padding: 0.25rem 0.5rem;
+    border-radius: 8px;
+    line-height: 1;
+
+    &:hover {
+      background: rgba(148, 163, 184, 0.18);
+      color: var(--color-text);
+    }
+  }
+}
+
+.git-panel-modal-body {
+  padding: 1rem 1.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  overflow: auto;
+
+  .git-enable-row {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-size: 0.9rem;
+    color: var(--color-text);
+    cursor: pointer;
+
+    input[type='checkbox'] {
+      width: 16px;
+      height: 16px;
+      cursor: pointer;
+    }
+  }
+
+  .git-panel {
+    margin: 0;
+  }
+
+  .git-disabled-hint {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.75rem 0.9rem;
+    border-radius: 10px;
+    background: rgba(148, 163, 184, 0.08);
+    color: var(--color-muted);
+    font-size: 0.85rem;
+    line-height: 1.4;
+  }
+}
+
+.git-panel-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0.8rem 1.2rem 1rem;
+  border-top: 1px solid var(--color-border);
+}
+
+:root[data-theme='dark'] {
+  .git-chip-btn {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.1);
+    color: rgba(226, 232, 240, 0.75);
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.08);
+      color: #e2e8f0;
+    }
+
+    &.active {
+      background: rgba(34, 197, 94, 0.2);
+      color: #4ade80;
+      border-color: rgba(34, 197, 94, 0.4);
+    }
+
+    &.warn {
+      background: rgba(245, 158, 11, 0.2);
+      color: #fbbf24;
+      border-color: rgba(245, 158, 11, 0.45);
+    }
+  }
+
+  .git-panel-modal {
+    background: #1e293b;
+    border-color: rgba(255, 255, 255, 0.08);
+  }
+
+  .git-panel-modal-header,
+  .git-panel-modal-footer {
+    border-color: rgba(255, 255, 255, 0.08);
+  }
+
+  .git-panel-modal-body .git-disabled-hint {
+    background: rgba(255, 255, 255, 0.04);
+  }
+}

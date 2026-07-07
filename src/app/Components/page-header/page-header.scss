@@ -1,0 +1,98 @@
+// ------------------------------------------------------------
+// Cabecera reutilizable de página (title + subtitle + acciones)
+// ------------------------------------------------------------
+:host {
+  display: block;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.title-block {
+  display: grid;
+  gap: 0.4rem;
+  min-width: 0;
+
+  .page-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin: 0;
+
+    .emoji {
+      font-size: 1.25em;
+      line-height: 1;
+    }
+  }
+
+  .default-subtitle {
+    // Estilo por defecto para el subtítulo pasado como input.
+    // Los subtítulos proyectados (con selector [page-subtitle]) llevan sus
+    // propias reglas y no se ven afectados por esta clase.
+    max-width: 720px;
+  }
+}
+
+.header-actions {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+  flex-wrap: wrap;
+
+  .emoji {
+    font-size: 1.1em;
+    line-height: 1;
+  }
+
+  // Los botones de navegación viven en el template del componente,
+  // así que necesitan sus propios estilos (la encapsulación de vistas
+  // impide que hereden los `.ghost-btn` de cada página).
+  .ghost-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    padding: 0.5rem 0.7rem;
+    min-width: 40px;
+    min-height: 40px;
+    border-radius: 999px;
+    border: 1px solid transparent;
+    background: rgba(148, 163, 184, 0.18);
+    color: var(--color-muted);
+    font-family: inherit;
+    font-weight: 600;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: transform 0.2s ease, background 0.2s ease, color 0.2s ease,
+                border-color 0.2s ease, box-shadow 0.2s ease;
+
+    &:hover {
+      color: var(--color-primary-dark);
+      background: rgba(99, 102, 241, 0.10);
+      border-color: rgba(99, 102, 241, 0.25);
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-sm);
+    }
+
+    &:active {
+      transform: translateY(0);
+    }
+  }
+}
+
+// Ajustes en modo oscuro para los botones de navegación
+:host-context(:root[data-theme='dark']) .header-actions .ghost-btn {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--color-muted);
+
+  &:hover {
+    background: rgba(108, 140, 255, 0.18);
+    color: var(--color-primary-dark);
+    border-color: rgba(108, 140, 255, 0.35);
+  }
+}

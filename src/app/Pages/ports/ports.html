@@ -1,22 +1,10 @@
 <div class="ports-page">
   <section class="ports-shell app-surface">
-    <header class="ports-header">
-      <div class="title-block">
-        <h1 class="page-title">
-          🔌 Gestión de Puertos
-        </h1>
-        <p class="page-subtitle">
-          Encuentra y libera puertos ocupados en tu sistema
-        </p>
-      </div>
-
-      <div class="header-actions">
-        <button class="ghost-btn" (click)="goToHome()" title="Ir al inicio" aria-label="Ir al inicio">🏠</button>
-        <button class="ghost-btn" (click)="goToLauncher()" title="Ir al launcher" aria-label="Ir al launcher de microservicios">🚀</button>
-        <button class="ghost-btn" (click)="goToUsers()" title="Usuarios Portal" aria-label="Ir a usuarios del portal">👥</button>
-        <button class="ghost-btn" (click)="goToConfig()" title="Ir a configuración" aria-label="Ir a configuración">⚙️</button>
-      </div>
-    </header>
+    <app-page-header
+      title="Gestión de Puertos"
+      titleIcon="🔌"
+      subtitle="Encuentra y libera puertos ocupados en tu sistema"
+    ></app-page-header>
 
     <div class="search-section">
       <div class="search-box">

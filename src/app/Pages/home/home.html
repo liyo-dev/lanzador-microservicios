@@ -13,6 +13,21 @@
       </div>
     </header>
 
+    <div class="home-stats">
+      <div class="stat-card running">
+        <span class="stat-value">{{ stats.runningCount }}</span>
+        <span class="stat-label">En ejecución</span>
+      </div>
+      <div class="stat-card stopped">
+        <span class="stat-value">{{ stats.stoppedCount }}</span>
+        <span class="stat-label">Detenidos</span>
+      </div>
+      <div class="stat-card total">
+        <span class="stat-value">{{ stats.totalConfigured }}</span>
+        <span class="stat-label">Configurados</span>
+      </div>
+    </div>
+
     <div class="welcome-body">
       <div class="intro">
         <h2>Guía rápida de navegación</h2>
@@ -35,6 +50,10 @@
           <li>
             <span class="feature-icon">🔌</span>
             <strong>Gestión de Puertos:</strong> Encuentra y libera puertos ocupados que puedan estar bloqueando el arranque de tus servicios.
+          </li>
+          <li>
+            <span class="feature-icon">✅</span>
+            <strong>Tareas:</strong> Lleva tu propia lista de tareas con prioridades, fechas, etiquetas y filtros, y prepárate la <em>daily</em> con lo de ayer y lo de hoy. Persistencia local automática.
           </li>
         </ul>
       </div>
@@ -73,6 +92,15 @@
           <button class="btn" (click)="goToPorts()">
             <span>Gestionar puertos</span>
             <span class="emoji">🔌</span>
+          </button>
+        </article>
+
+        <article class="action-card">
+          <h3>Tareas</h3>
+          <p>Tu lista personal con prioridades, fechas, etiquetas y filtros, y la vista <em>Daily</em> para ver lo que hiciste ayer y lo que toca hoy.</p>
+          <button class="btn" (click)="goToTodos()">
+            <span>Ver mis tareas</span>
+            <span class="emoji">✅</span>
           </button>
         </article>
       </nav>

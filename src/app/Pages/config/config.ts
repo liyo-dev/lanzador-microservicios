@@ -6,7 +6,7 @@ import { SpinnerComponent } from '../../Components/spinner/spinner';
 import gsap from 'gsap';
 import { NotificationService } from '../../services/notification.service';
 import { ConfirmService } from '../../services/confirm.service';
-
+import { PageHeaderComponent } from '../../Components/page-header/page-header';
 // Añadir interface para microservicios personalizados
 interface CustomMicroservice {
   key: string;
@@ -17,7 +17,7 @@ interface CustomMicroservice {
 @Component({
   selector: 'app-config',
   standalone: true,
-  imports: [FormsModule, CommonModule, SpinnerComponent],
+  imports: [FormsModule, CommonModule, SpinnerComponent, PageHeaderComponent],
   templateUrl: './config.html',
   styleUrls: ['./config.scss'],
 })
@@ -68,6 +68,10 @@ export class ConfigComponent {
   springMicros: CustomMicroservice[] = [];
 
   selectedTab: 'angular' | 'spring' = 'angular';
+
+  // Validación de campos por microKey. undefined = no validado, true = OK, false = inválido.
+  pathValidity: Record<string, boolean | undefined> = {};
+  portValidity: Record<string, boolean | undefined> = {};
   //#endregion
   
   constructor() {
@@ -226,6 +230,42 @@ export class ConfigComponent {
     }
   }
 
+  /** Comprueba si la ruta configurada para un micro existe y es un directorio. */
+  async validatePath(microKey: string) {
+    const api = (window as any).electronAPI;
+    if (!api?.checkPath) return;
+    const path =
+      this.config?.angular?.[microKey]?.path ||
+      this.config?.spring?.[microKey]?.path;
+    if (!path) {
+      // Vacío: no marcamos como inválido (será obligatorio al lanzar)
+      this.pathValidity[microKey] = undefined;
+      return;
+    }
+    try {
+      const res = await api.checkPath(path);
+      this.pathValidity[microKey] = !!(res?.exists && res?.isDirectory);
+    } catch {
+      this.pathValidity[microKey] = false;
+    }
+  }
+
+  /** Comprueba si el puerto está ocupado (colisión potencial). */
+  async validatePort(microKey: string, port: number | string | null | undefined) {
+    const api = (window as any).electronAPI;
+    if (!api?.checkPort) return;
+    if (!port || Number(port) <= 0) {
+      this.portValidity[microKey] = undefined;
+      return;
+    }
+    try {
+      const inUse: boolean = await api.checkPort(Number(port));
+      // Si está en uso, marcamos como inválido (advertencia). Si no, OK.
+      this.portValidity[microKey] = !inUse;
+    } catch {
+      this.portValidity[microKey] = undefined;
+    }
+  }
 
   save() {
     (window as any).electronAPI.saveConfig(this.config);
@@ -245,6 +285,85 @@ export class ConfigComponent {
         }, 2000);
       }
     }, 0);
+  }
+
+  async exportConfig() {
+    try {
+      const api = (window as any).electronAPI;
+      const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const suggested = `launcher-config-${stamp}.json`;
+      const payload = {
+        exportedAt: new Date().toISOString(),
+        version: 1,
+        config: this.config,
+        angularMicros: this.angularMicros,
+        springMicros: this.springMicros,
+      };
+      const result = await api.showSaveDialog?.({
+        title: 'Exportar configuración',
+        defaultPath: suggested,
+        filters: [{ name: 'JSON', extensions: ['json'] }],
+      });
+      if (!result || result.canceled || !result.filePath) return;
+      const written = await api.writeFile?.(result.filePath, JSON.stringify(payload, null, 2));
+      if (written?.success) {
+        this.notify.success('Configuración exportada correctamente.');
+      } else {
+        this.notify.error('No se pudo escribir el fichero: ' + (written?.error || 'error desconocido'));
+      }
+    } catch (err: any) {
+      this.notify.error('Error exportando: ' + (err?.message || err));
+    }
+  }
+
+  async importConfig() {
+    try {
+      const api = (window as any).electronAPI;
+      const result = await api.showOpenDialog?.({
+        title: 'Importar configuración',
+        filters: [{ name: 'JSON', extensions: ['json'] }],
+        properties: ['openFile'],
+      });
+      if (!result || result.canceled || !result.filePaths?.[0]) return;
+
+      const read = await api.readFile?.(result.filePaths[0]);
+      if (!read?.success) {
+        this.notify.error('No se pudo leer el fichero: ' + (read?.error || 'error desconocido'));
+        return;
+      }
+
+      let parsed: any;
+      try {
+        parsed = JSON.parse(read.contents);
+      } catch {
+        this.notify.error('El fichero no contiene JSON válido.');
+        return;
+      }
+
+      // Soportar tanto exports nuestros ({config, ...}) como un config bruto.
+      const cfg = parsed?.config ?? parsed;
+      if (!cfg || typeof cfg !== 'object') {
+        this.notify.error('El JSON no tiene el formato esperado.');
+        return;
+      }
+
+      const ok = await this.confirm.ask({
+        title: 'Importar configuración',
+        message: '¿Sobrescribir la configuración actual con la importada? Esta acción no se puede deshacer.',
+        confirmLabel: 'Sí, importar',
+        cancelLabel: 'Cancelar',
+        tone: 'warning',
+      });
+      if (!ok) return;
+
+      this.config = cfg;
+      if (Array.isArray(parsed?.angularMicros)) this.angularMicros = parsed.angularMicros;
+      if (Array.isArray(parsed?.springMicros)) this.springMicros = parsed.springMicros;
+      await api.saveConfig(this.config);
+      this.notify.success('Configuración importada. Recarga la vista si no ves los cambios.');
+    } catch (err: any) {
+      this.notify.error('Error importando: ' + (err?.message || err));
+    }
   }
 
   goToLauncher() {

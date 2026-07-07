@@ -232,6 +232,30 @@
   }
 }
 
+/* Validación de campos */
+input.invalid,
+select.invalid {
+  border-color: var(--color-danger, #dc2626) !important;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-danger, #dc2626) 20%, transparent);
+}
+
+.field-hint {
+  font-size: 0.78rem;
+  margin-top: 0.2rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+
+  a {
+    color: var(--color-primary);
+    text-decoration: underline;
+    cursor: pointer;
+  }
+}
+
+.field-hint--error { color: var(--color-danger, #dc2626); }
+.field-hint--warn  { color: var(--color-warning, #b45309); }
+
 .spring-layout {
   display: grid;
   gap: 1.5rem;

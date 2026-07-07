@@ -1,5 +1,7 @@
 const http = require('http');
 const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
 
 // Configuración del servidor - Compatible con servicios cloud
 const PORT = process.env.PORT || process.env.VIRTUAL_OFFICE_PORT || 8974;
@@ -8,10 +10,16 @@ const OFFICE_WIDTH = Number(process.env.VIRTUAL_OFFICE_WIDTH || 960);
 const OFFICE_HEIGHT = Number(process.env.VIRTUAL_OFFICE_HEIGHT || 560);
 const EDGE_PADDING = Number(process.env.VIRTUAL_OFFICE_PADDING || 48);
 const GENERAL_HISTORY_LIMIT = Number(process.env.VIRTUAL_OFFICE_HISTORY || 150);
+const BUG_HUNT_RANKING_LIMIT = Number(process.env.VIRTUAL_OFFICE_BUG_RANKING || 50);
+const BUG_HUNT_STORE = process.env.VIRTUAL_OFFICE_BUG_STORE ||
+  path.join(__dirname, '.bug-hunt-ranking.json');
 
 const clients = new Map(); // id -> Client
 const players = new Map(); // id -> Player state
 const generalMessages = [];
+let bugHuntRanking = loadBugHuntRanking();
+// Set de "authorKey|date" para bloquear más de un intento por día por usuario.
+const dailyPlays = new Set(bugHuntRanking.map(e => `${bugHuntKey(e)}|${e.date}`));
 
 const server = http.createServer((req, res) => {
   res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
@@ -53,6 +61,7 @@ server.on('upgrade', (req, socket, head) => {
     players: Array.from(players.values()),
     generalMessages,
     space: { width: OFFICE_WIDTH, height: OFFICE_HEIGHT },
+    bugHuntRanking,
   });
 
   if (head && head.length) {
@@ -147,6 +156,9 @@ function handleClientMessage(client, raw) {
       break;
     case 'mini-game-cancel':
       handleMiniGameCancel(client, data);
+      break;
+    case 'bug-hunt-result':
+      handleBugHuntResult(client, data);
       break;
     default:
       send(client, { type: 'error', message: 'Acción no soportada.' });
@@ -367,6 +379,80 @@ function handleMiniGameCancel(client, data) {
   };
 
   send(target, { type: 'mini-game-cancel', payload });
+}
+
+function handleBugHuntResult(client, data) {
+  if (!client.player) {
+    return;
+  }
+
+  const timeMs = Number(data?.timeMs);
+  if (!Number.isFinite(timeMs) || timeMs <= 0 || timeMs > 10 * 60 * 1000) {
+    send(client, { type: 'error', message: 'Tiempo de bug hunt inválido.' });
+    return;
+  }
+
+  const date = todayIsoDate();
+  const key = `${bugHuntKey({ name: client.player.name, avatarId: client.player.avatar?.id })}|${date}`;
+  if (dailyPlays.has(key)) {
+    send(client, { type: 'error', message: 'Ya has registrado tu marca de hoy.' });
+    return;
+  }
+
+  const entry = {
+    id: crypto.randomUUID(),
+    playerId: client.id,
+    name: client.player.name,
+    avatarId: client.player.avatar?.id || 'pilot',
+    avatarEmoji: client.player.avatar?.emoji || '🐞',
+    avatarTone: client.player.avatar?.tone || 'sky',
+    timeMs: Math.round(timeMs),
+    date,
+    playedAt: new Date().toISOString(),
+  };
+
+  bugHuntRanking = [...bugHuntRanking, entry]
+    .sort((a, b) => a.timeMs - b.timeMs)
+    .slice(0, BUG_HUNT_RANKING_LIMIT);
+  dailyPlays.add(key);
+  saveBugHuntRanking();
+
+  broadcast({ type: 'bug-hunt-ranking', entries: bugHuntRanking });
+  pushSystemMessage(`🐞 ${client.player.name} ha cazado el bug en ${(entry.timeMs / 1000).toFixed(2)} s.`);
+}
+
+function bugHuntKey(entry) {
+  const name = (entry?.name || '').trim().toLowerCase();
+  const avatar = (entry?.avatarId || '').trim().toLowerCase();
+  return `${name}::${avatar}`;
+}
+
+function todayIsoDate() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function loadBugHuntRanking() {
+  try {
+    if (!fs.existsSync(BUG_HUNT_STORE)) return [];
+    const raw = fs.readFileSync(BUG_HUNT_STORE, 'utf8');
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (err) {
+    console.warn('No se pudo cargar el ranking del bug hunt:', err?.message || err);
+    return [];
+  }
+}
+
+function saveBugHuntRanking() {
+  try {
+    fs.writeFileSync(BUG_HUNT_STORE, JSON.stringify(bugHuntRanking, null, 2), 'utf8');
+  } catch (err) {
+    console.warn('No se pudo guardar el ranking del bug hunt:', err?.message || err);
+  }
 }
 
 function disconnectClient(client) {

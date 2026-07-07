@@ -1,37 +1,25 @@
 <div class="users-page">
   <section class="users-shell app-surface" [class.overlay-active]="showAddForm">
-    <header class="users-header">
-      <div class="title-block">
-        <h1 class="page-title">
-          Gestión de Usuarios Portal
-        </h1>
-        <p class="page-subtitle">
-          Entorno actual: <strong>{{ getCurrentEnvironment().name }}</strong>
-        </p>
-      </div>
-
-      <div class="header-actions">
-        <button class="ghost-btn" (click)="goToHome()" title="Ir al inicio" aria-label="Ir al inicio">🏠</button>
-        <button class="ghost-btn" (click)="goBack()" title="Volver al launcher" aria-label="Volver al launcher">🚀</button>
-        <button class="ghost-btn" (click)="goToPorts()" title="Gestión de Puertos" aria-label="Gestión de puertos">🔌</button>
-        <button class="ghost-btn" (click)="goToConfig()" title="Ir a configuración" aria-label="Ir a configuración">⚙️</button>
-        <button
-          class="ghost-btn incognito-toggle"
-          [class.active]="incognitoMode"
-          (click)="toggleIncognito()"
-          [title]="incognitoMode ? 'Modo incógnito ACTIVADO: sesión efímera, sin cookies' : 'Activar modo incógnito (sesión efímera)'"
-          [attr.aria-pressed]="incognitoMode"
-          aria-label="Alternar modo incógnito"
-        >
-          🕵️
-          <span class="incognito-label">{{ incognitoMode ? 'Incógnito ON' : 'Incógnito' }}</span>
-        </button>
-        <button class="primary-btn" (click)="showAddUserForm()">
-          <span class="emoji" aria-hidden="true">➕</span>
-          Añadir usuario
-        </button>
-      </div>
-    </header>
+    <app-page-header title="Gestión de Usuarios Portal">
+      <p page-subtitle class="page-subtitle">
+        Entorno actual: <strong>{{ getCurrentEnvironment().name }}</strong>
+      </p>
+      <button
+        class="ghost-btn incognito-toggle"
+        [class.active]="incognitoMode"
+        (click)="toggleIncognito()"
+        [title]="incognitoMode ? 'Modo incógnito ACTIVADO: sesión efímera, sin cookies' : 'Activar modo incógnito (sesión efímera)'"
+        [attr.aria-pressed]="incognitoMode"
+        aria-label="Alternar modo incógnito"
+      >
+        🕵️
+        <span class="incognito-label">{{ incognitoMode ? 'Incógnito ON' : 'Incógnito' }}</span>
+      </button>
+      <button class="primary-btn" (click)="showAddUserForm()">
+        <span class="emoji" aria-hidden="true">➕</span>
+        Añadir usuario
+      </button>
+    </app-page-header>
 
     <div class="environment-tabs view-tabs">
       @for (view of views; track view.key) {
@@ -73,27 +61,29 @@
           }
         </div>
 
-        <label class="address-filter">
-          <span class="filter-label">Grupo:</span>
-          <select
-            [(ngModel)]="companyFilter"
-            class="filter-select"
-            aria-label="Filtrar por grupo empresarial"
-          >
-            <option value="">Todos</option>
-            @for (group of getCompanyGroups(); track group) {
-              <option [value]="group">{{ group }}</option>
+        @if (envRequiresCompanyID(getCurrentEnv())) {
+          <label class="address-filter">
+            <span class="filter-label">Grupo:</span>
+            <select
+              [(ngModel)]="companyFilter"
+              class="filter-select"
+              aria-label="Filtrar por grupo empresarial"
+            >
+              <option value="">Todos</option>
+              @for (group of getCompanyGroups(); track group) {
+                <option [value]="group">{{ group }}</option>
+              }
+            </select>
+            @if (companyFilter) {
+              <button
+                class="clear-search-btn"
+                (click)="clearCompanyFilter()"
+                title="Quitar filtro de grupo"
+                aria-label="Quitar filtro de grupo"
+              >✕</button>
             }
-          </select>
-          @if (companyFilter) {
-            <button
-              class="clear-search-btn"
-              (click)="clearCompanyFilter()"
-              title="Quitar filtro de grupo"
-              aria-label="Quitar filtro de grupo"
-            >✕</button>
-          }
-        </label>
+          </label>
+        }
 
         <span class="address-count" aria-live="polite">
           {{ getFilteredUsers().length }} / {{ getUsersByEnvironment().length }}
@@ -101,11 +91,13 @@
         </span>
       </div>
 
-      <section class="users-content address-book">
+      <section class="users-content address-book" [attr.data-env]="getCurrentEnv()">
         <header class="address-row address-head" aria-hidden="true">
           <span class="col col-user">Nombre</span>
-          <span class="col col-company">Grupo Emp.</span>
-          <span class="col col-login">Usuario</span>
+          @if (envRequiresCompanyID(getCurrentEnv())) {
+            <span class="col col-company">Grupo Emp.</span>
+          }
+          <span class="col col-login">{{ getUsernameLabel(getCurrentEnv()) }}</span>
           <span class="col col-pass">Contraseña</span>
           <span class="col col-actions">Acciones</span>
         </header>
@@ -118,23 +110,39 @@
                 <div class="user-desc">{{ user.description }}</div>
               }
               <span class="env-badge" [attr.data-env]="user.environment">
-                @if (user.environment === 'local-dev') { 🏠🔧 LOCAL/DEV }
-                @if (user.environment === 'pre') { 🧪 PRE }
+                @if (user.environment === 'local-dev')    { 🏠🔧 LOCAL/DEV }
+                @if (user.environment === 'pre')          { 🧪 PRE }
+                @if (user.environment === 'intranet-dev') { 🌐 INTRANET DEV }
+                @if (user.environment === 'digital-dev')  { 💻 DIGITAL DEV }
               </span>
+              @if (hasNotes(user)) {
+                <button
+                  class="notes-toggle"
+                  type="button"
+                  (click)="toggleNotes(user.id)"
+                  [class.open]="isNotesExpanded(user.id)"
+                  [attr.aria-pressed]="isNotesExpanded(user.id)"
+                  [title]="isNotesExpanded(user.id) ? 'Ocultar notas' : 'Ver notas'"
+                >
+                  📝 <span class="notes-label">Notas</span>
+                </button>
+              }
             </div>
 
-            <div class="col col-company copyable">
-              <span class="value" [title]="user.companyID || 'SCNP'">{{ user.companyID || 'SCNP' }}</span>
-              <button
-                class="copy-btn"
-                [class.copied]="copiedKey === 'company-' + user.id"
-                (click)="copyToClipboard(user.companyID || 'SCNP', 'company-' + user.id)"
-                [title]="copiedKey === 'company-' + user.id ? '¡Copiado!' : 'Copiar grupo empresarial'"
-                [attr.aria-label]="copiedKey === 'company-' + user.id ? 'Copiado al portapapeles' : 'Copiar grupo empresarial'"
-              >
-                {{ copiedKey === 'company-' + user.id ? '✅' : '📋' }}
-              </button>
-            </div>
+            @if (envRequiresCompanyID(user.environment)) {
+              <div class="col col-company copyable">
+                <span class="value" [title]="user.companyID || 'SCNP'">{{ user.companyID || 'SCNP' }}</span>
+                <button
+                  class="copy-btn"
+                  [class.copied]="copiedKey === 'company-' + user.id"
+                  (click)="copyToClipboard(user.companyID || 'SCNP', 'company-' + user.id)"
+                  [title]="copiedKey === 'company-' + user.id ? '¡Copiado!' : 'Copiar grupo empresarial'"
+                  [attr.aria-label]="copiedKey === 'company-' + user.id ? 'Copiado al portapapeles' : 'Copiar grupo empresarial'"
+                >
+                  {{ copiedKey === 'company-' + user.id ? '✅' : '📋' }}
+                </button>
+              </div>
+            }
 
             <div class="col col-login copyable">
               <span class="value" [title]="user.username">{{ user.username }}</span>
@@ -186,6 +194,24 @@
               <button class="ghost-btn icon-only" (click)="editUser(user)" title="Editar usuario" [attr.aria-label]="'Editar usuario ' + user.name">✏️</button>
               <button class="ghost-btn icon-only danger" (click)="deleteUser(user.id)" title="Eliminar usuario" [attr.aria-label]="'Eliminar usuario ' + user.name">🗑️</button>
             </div>
+
+            @if (hasNotes(user) && isNotesExpanded(user.id)) {
+              <div class="col col-notes notes-panel" role="region" aria-label="Notas del usuario">
+                <div class="notes-head">
+                  <span class="notes-title">📝 Notas</span>
+                  <button
+                    class="copy-btn"
+                    [class.copied]="copiedKey === 'notes-' + user.id"
+                    (click)="copyToClipboard(user.notes || '', 'notes-' + user.id)"
+                    [title]="copiedKey === 'notes-' + user.id ? '¡Copiado!' : 'Copiar notas'"
+                    aria-label="Copiar notas"
+                  >
+                    {{ copiedKey === 'notes-' + user.id ? '✅' : '📋' }}
+                  </button>
+                </div>
+                <pre class="notes-body">{{ user.notes }}</pre>
+              </div>
+            }
           </article>
         }
       </section>
@@ -252,25 +278,27 @@
             />
           </label>
 
-          <label>
-            <span>Grupo Empresarial</span>
-            <input 
-              type="text" 
-              [(ngModel)]="newUser.companyID" 
-              placeholder="Ej: SCNP, TESTPORTAL"
-              autocomplete="organization"
-              name="companyID"
-            />
-            <small>Requerido para todos los entornos.</small>
-          </label>
+          @if (envRequiresCompanyID(newUser.environment)) {
+            <label>
+              <span>Grupo Empresarial</span>
+              <input 
+                type="text" 
+                [(ngModel)]="newUser.companyID" 
+                placeholder="Ej: SCNP, TESTPORTAL"
+                autocomplete="organization"
+                name="companyID"
+              />
+              <small>Requerido para Local / Desarrollo y Preproducción.</small>
+            </label>
+          }
 
           <label>
-            <span>Usuario</span>
+            <span>{{ getUsernameLabel(newUser.environment) }}</span>
             <input 
-              type="text" 
+              [type]="newUser.environment === 'digital-dev' ? 'email' : 'text'"
               [(ngModel)]="newUser.username" 
-              placeholder="Ej: Testraul"
-              autocomplete="username"
+              [placeholder]="getUsernamePlaceholder(newUser.environment)"
+              [autocomplete]="newUser.environment === 'digital-dev' ? 'email' : 'username'"
               name="username"
             />
           </label>
@@ -305,6 +333,16 @@
               autocomplete="off"
               name="description"
             />
+          </label>
+
+          <label class="full-row">
+            <span>Notas (opcional)</span>
+            <textarea
+              [(ngModel)]="newUser.notes"
+              name="notes"
+              rows="4"
+              placeholder="Anota aquí cualquier detalle: permisos, perfiles, códigos OTP, recordatorios, etc."
+            ></textarea>
           </label>
         </div>
 

@@ -1,0 +1,461 @@
+<div class="todos-page">
+  <section class="todos-shell app-surface" [class.overlay-active]="showEditModal">
+
+    <!-- ============================================
+         Cabecera
+         ============================================ -->
+    <app-page-header title="Tareas" titleIcon="✅">
+      <p page-subtitle class="page-subtitle">
+        Tu lista personal y vista <em>Daily</em>. {{ stats().pending }} pendientes ·
+        {{ stats().inProgress }} en curso · {{ stats().done }} completadas.
+      </p>
+      <button class="primary-btn" (click)="openNew()">
+        <span class="emoji" aria-hidden="true">➕</span>
+        Nueva tarea
+      </button>
+    </app-page-header>
+
+    <!-- ============================================
+         Pestañas de vista (Lista / Daily)
+         ============================================ -->
+    <nav class="view-tabs" role="tablist" aria-label="Modo de vista">
+      <button
+        class="view-tab"
+        [class.active]="viewMode() === 'list'"
+        (click)="viewMode.set('list')"
+        role="tab"
+        [attr.aria-selected]="viewMode() === 'list'"
+      >
+        <span class="icon" aria-hidden="true">📋</span>
+        <span class="name">Lista</span>
+      </button>
+      <button
+        class="view-tab"
+        [class.active]="viewMode() === 'daily'"
+        (click)="viewMode.set('daily')"
+        role="tab"
+        [attr.aria-selected]="viewMode() === 'daily'"
+      >
+        <span class="icon" aria-hidden="true">📆</span>
+        <span class="name">Daily</span>
+      </button>
+    </nav>
+
+    @if (viewMode() === 'list') {
+    <!-- ============================================
+         Alta rápida
+         ============================================ -->
+    <div class="quick-add">
+      <span class="quick-icon" aria-hidden="true">➕</span>
+      <input
+        type="text"
+        class="quick-input"
+        [(ngModel)]="quickTitle"
+        (keydown.enter)="quickAdd()"
+        placeholder="Escribe una tarea y pulsa Enter… (o usa «Nueva tarea» para los detalles)"
+        aria-label="Nueva tarea rápida"
+      />
+      <button
+        class="ghost-btn"
+        (click)="quickAdd()"
+        [disabled]="!quickTitle.trim()"
+        title="Añadir tarea"
+        aria-label="Añadir tarea rápida"
+      >Añadir</button>
+    </div>
+
+    <!-- ============================================
+         Toolbar de filtros
+         ============================================ -->
+    <div class="todos-toolbar">
+      <div class="address-search">
+        <span class="search-icon" aria-hidden="true">🔍</span>
+        <input
+          type="search"
+          class="search-input"
+          [ngModel]="search()"
+          (ngModelChange)="search.set($event)"
+          placeholder="Buscar por título, descripción o tag…"
+          aria-label="Buscar tarea"
+        />
+        @if (search()) {
+          <button class="clear-search-btn" (click)="clearSearch()" aria-label="Limpiar búsqueda">✕</button>
+        }
+      </div>
+
+      <div class="filter-chips" role="tablist" aria-label="Estado">
+        <button
+          class="chip"
+          [class.active]="statusFilter() === 'all'"
+          (click)="statusFilter.set('all')"
+          role="tab"
+          [attr.aria-selected]="statusFilter() === 'all'"
+        >Todas <span class="chip-count">{{ stats().total }}</span></button>
+        @for (s of statusesUi; track s.key) {
+          <button
+            class="chip"
+            [class.active]="statusFilter() === s.key"
+            [attr.data-status]="s.key"
+            (click)="statusFilter.set(s.key)"
+            role="tab"
+            [attr.aria-selected]="statusFilter() === s.key"
+          >
+            <span aria-hidden="true">{{ s.icon }}</span> {{ s.label }}
+            <span class="chip-count">
+              @switch (s.key) {
+                @case ('pending')     { {{ stats().pending }} }
+                @case ('in-progress') { {{ stats().inProgress }} }
+                @case ('done')        { {{ stats().done }} }
+              }
+            </span>
+          </button>
+        }
+      </div>
+
+      <label class="select-filter">
+        <span class="filter-label">Prioridad:</span>
+        <select [ngModel]="priorityFilter()" (ngModelChange)="priorityFilter.set($event)">
+          <option value="all">Todas</option>
+          @for (p of priorities; track p.key) {
+            <option [value]="p.key">{{ p.icon }} {{ p.label }}</option>
+          }
+        </select>
+      </label>
+
+      @if (allTags().length > 0) {
+        <label class="select-filter">
+          <span class="filter-label">Tag:</span>
+          <select [ngModel]="tagFilter()" (ngModelChange)="tagFilter.set($event)">
+            <option value="">Todos</option>
+            @for (tag of allTags(); track tag) {
+              <option [value]="tag">{{ tag }}</option>
+            }
+          </select>
+        </label>
+      }
+
+      <label class="select-filter">
+        <span class="filter-label">Orden:</span>
+        <select [ngModel]="sortMode()" (ngModelChange)="sortMode.set($event)">
+          <option value="created-desc">Más recientes</option>
+          <option value="created-asc">Más antiguas</option>
+          <option value="due-asc">Por vencimiento</option>
+          <option value="priority-desc">Por prioridad</option>
+        </select>
+      </label>
+
+      <button class="ghost-btn" (click)="resetFilters()" title="Limpiar filtros">↺ Filtros</button>
+      <button class="ghost-btn danger" (click)="clearCompleted()" title="Borrar todas las completadas">
+        🧹 Limpiar hechas
+      </button>
+    </div>
+
+    <!-- ============================================
+         Lista de tareas
+         ============================================ -->
+    @if (visibleTasks().length > 0) {
+      <ul class="task-list" role="list">
+        @for (task of visibleTasks(); track task.id) {
+          <li
+            class="task-item"
+            [attr.data-status]="task.status"
+            [attr.data-priority]="task.priority"
+            [class.is-done]="task.status === 'done'"
+            [class.is-overdue]="isOverdue(task)"
+            [class.is-due-soon]="isDueSoon(task)"
+          >
+            <button
+              class="task-check"
+              [class.checked]="task.status === 'done'"
+              (click)="toggleDone(task)"
+              [attr.aria-pressed]="task.status === 'done'"
+              [attr.aria-label]="task.status === 'done' ? 'Marcar como pendiente' : 'Marcar como hecha'"
+              title="Marcar como hecha"
+            >
+              @if (task.status === 'done') { ✅ } @else { ⭕ }
+            </button>
+
+            <div class="task-body">
+              <div class="task-line">
+                <span class="task-type" [attr.data-type]="task.type" [title]="'Tipo: ' + typeLabel(task.type)">
+                  {{ typeIcon(task.type) }}
+                </span>
+                <span class="task-title">{{ task.title }}</span>
+                <span class="task-prio" [attr.data-priority]="task.priority" [title]="'Prioridad: ' + priorityLabel(task.priority)">
+                  {{ priorityIcon(task.priority) }}
+                </span>
+              </div>
+
+              @if (task.description) {
+                <p class="task-desc">{{ task.description }}</p>
+              }
+
+              <div class="task-meta">
+                <button
+                  class="status-pill"
+                  [attr.data-status]="task.status"
+                  (click)="cycleStatus(task)"
+                  title="Cambiar estado (pendiente → en curso → hecha)"
+                >
+                  {{ statusIcon(task.status) }} {{ statusLabel(task.status) }}
+                </button>
+
+                @if (task.dueDate) {
+                  <span
+                    class="due-pill"
+                    [class.is-overdue]="isOverdue(task)"
+                    [class.is-due-soon]="isDueSoon(task) && !isOverdue(task)"
+                    [title]="isOverdue(task) ? 'Vencida' : 'Fecha de vencimiento'"
+                  >
+                    📅 {{ task.dueDate }}
+                  </span>
+                }
+
+                @for (tag of task.tags; track tag) {
+                  <span class="tag-pill">#{{ tag }}</span>
+                }
+              </div>
+            </div>
+
+            <div class="task-actions">
+              <button class="ghost-btn icon-only" (click)="openEdit(task)" title="Editar" aria-label="Editar tarea">✏️</button>
+              <button class="ghost-btn icon-only danger" (click)="deleteTask(task)" title="Eliminar" aria-label="Eliminar tarea">🗑️</button>
+            </div>
+          </li>
+        }
+      </ul>
+    } @else {
+      <div class="empty-state">
+        <div class="empty-card">
+          <div class="icon">🌱</div>
+          @if (tasks().length === 0) {
+            <h3>Sin tareas todavía</h3>
+            <p>Empieza añadiendo una tarea con el campo de arriba o usa «Nueva tarea» para más opciones.</p>
+            <button class="primary-btn" (click)="openNew()">
+              <span class="emoji">➕</span>
+              Crear primera tarea
+            </button>
+          } @else {
+            <h3>Sin resultados</h3>
+            <p>Ningún elemento coincide con los filtros actuales.</p>
+            <button class="ghost-btn" (click)="resetFilters()">↺ Restablecer filtros</button>
+          }
+        </div>
+      </div>
+    }
+
+    } @else if (viewMode() === 'daily') {
+    <!-- ============================================
+         Vista Daily (Ayer / Hoy / Mañana)
+         ============================================ -->
+    <div class="daily-toolbar">
+      <div class="daily-date-picker">
+        <button class="ghost-btn icon-only" (click)="shiftDailyDate(-1)" title="Día anterior" aria-label="Día anterior">◀</button>
+        <input
+          type="date"
+          class="daily-date-input"
+          [ngModel]="dailyDate()"
+          (ngModelChange)="onDailyDateChange($event)"
+          aria-label="Día seleccionado para la daily"
+        />
+        <button class="ghost-btn icon-only" (click)="shiftDailyDate(1)" title="Día siguiente" aria-label="Día siguiente">▶</button>
+        <button
+          class="ghost-btn"
+          (click)="setDailyToToday()"
+          [disabled]="isToday(dailyDate())"
+          title="Saltar a hoy"
+        >Hoy</button>
+      </div>
+
+      <button class="primary-btn" (click)="copyDailyToClipboard()" title="Copiar ayer + hoy al portapapeles">
+        <span class="emoji" aria-hidden="true">📋</span>
+        Copiar daily
+      </button>
+    </div>
+
+    <div class="daily-grid">
+      <!-- AYER -->
+      <section class="daily-col col-yesterday">
+        <header class="daily-col-head">
+          <div class="daily-col-title">
+            <span class="daily-col-icon" aria-hidden="true">✅</span>
+            <div>
+              <h3>Ayer</h3>
+              <small>{{ formatDayLabel(dailyYesterdayKey()) }}</small>
+            </div>
+          </div>
+          <span class="daily-col-count">{{ tasksForDailyColumn('yesterday').length }}</span>
+        </header>
+
+        <ng-container *ngTemplateOutlet="dailyItems; context: { $implicit: tasksForDailyColumn('yesterday'), allowMoveToToday: true }"></ng-container>
+      </section>
+
+      <!-- HOY -->
+      <section class="daily-col col-today" [class.is-today]="isToday(dailyDate())">
+        <header class="daily-col-head">
+          <div class="daily-col-title">
+            <span class="daily-col-icon" aria-hidden="true">🎯</span>
+            <div>
+              <h3>{{ isToday(dailyDate()) ? 'Hoy' : 'Día seleccionado' }}</h3>
+              <small>{{ formatDayLabel(dailyDate()) }}</small>
+            </div>
+          </div>
+          <span class="daily-col-count">{{ tasksForDailyColumn('today').length }}</span>
+        </header>
+
+        <ng-container *ngTemplateOutlet="dailyItems; context: { $implicit: tasksForDailyColumn('today'), allowMoveToToday: false }"></ng-container>
+      </section>
+    </div>
+
+    <!-- Plantilla compartida para items de cada columna del daily -->
+    <ng-template #dailyItems let-items let-allowMoveToToday="allowMoveToToday">
+      @if (items.length === 0) {
+        <div class="daily-empty">— Sin entradas —</div>
+      } @else {
+        <ul class="daily-list" role="list">
+          @for (task of items; track task.id) {
+            <li
+              class="daily-item"
+              [attr.data-type]="task.type"
+              [attr.data-status]="task.status"
+              [class.is-done]="task.status === 'done'"
+            >
+              <div class="daily-item-body">
+                <div class="daily-item-line">
+                  <span class="daily-type" [title]="typeLabel(task.type)">{{ typeIcon(task.type) }}</span>
+                  <span class="daily-title">{{ task.title }}</span>
+                </div>
+                @if (task.description) {
+                  <p class="daily-desc">{{ task.description }}</p>
+                }
+              </div>
+
+              <div class="daily-item-actions">
+                @if (allowMoveToToday) {
+                  <button
+                    class="ghost-btn icon-only"
+                    (click)="moveToSelectedDay(task)"
+                    title="Mover al día seleccionado"
+                    aria-label="Mover al día seleccionado"
+                  >↪</button>
+                }
+                <button
+                  class="ghost-btn icon-only"
+                  [class.is-done-btn]="task.status === 'done'"
+                  (click)="toggleDone(task)"
+                  [title]="task.status === 'done' ? 'Marcar como pendiente' : 'Marcar como completada'"
+                  [attr.aria-label]="task.status === 'done' ? 'Marcar pendiente' : 'Marcar hecha'"
+                >{{ task.status === 'done' ? '↩️' : '✅' }}</button>
+                <button class="ghost-btn icon-only" (click)="openEdit(task)" title="Editar" aria-label="Editar tarea">✏️</button>
+                <button class="ghost-btn icon-only danger" (click)="deleteTask(task)" title="Eliminar" aria-label="Eliminar tarea">🗑️</button>
+              </div>
+            </li>
+          }
+        </ul>
+      }
+    </ng-template>
+    }
+
+  </section>
+
+  <!-- ============================================
+       Modal de edición / nueva tarea
+       ============================================ -->
+  @if (showEditModal) {
+    <div class="form-overlay" (click)="closeModal()">
+      <div class="user-form" (click)="$event.stopPropagation()" role="dialog" aria-modal="true" aria-labelledby="todo-form-title">
+        <header>
+          <h2 id="todo-form-title">{{ editing ? 'Editar tarea' : 'Nueva tarea' }}</h2>
+          <button class="ghost-btn" type="button" (click)="closeModal()" aria-label="Cerrar">✖️</button>
+        </header>
+
+        <div class="form-grid">
+          <label class="full-row">
+            <span>Título *</span>
+            <input
+              type="text"
+              [(ngModel)]="draft.title"
+              placeholder="Ej: Revisar PR del microservicio X"
+              autocomplete="off"
+              name="title"
+            />
+          </label>
+
+          <label class="full-row">
+            <span>Descripción</span>
+            <textarea
+              [(ngModel)]="draft.description"
+              name="description"
+              rows="3"
+              placeholder="Detalles, enlaces, contexto…"
+            ></textarea>
+          </label>
+
+          <label>
+            <span>Tipo</span>
+            <select [(ngModel)]="draft.type" name="type">
+              @for (t of types; track t.key) {
+                <option [value]="t.key">{{ t.icon }} {{ t.label }}</option>
+              }
+            </select>
+          </label>
+
+          <label>
+            <span>Estado</span>
+            <select [(ngModel)]="draft.status" name="status">
+              @for (s of statusesUi; track s.key) {
+                <option [value]="s.key">{{ s.icon }} {{ s.label }}</option>
+              }
+            </select>
+          </label>
+
+          <label>
+            <span>Prioridad</span>
+            <select [(ngModel)]="draft.priority" name="priority">
+              @for (p of priorities; track p.key) {
+                <option [value]="p.key">{{ p.icon }} {{ p.label }}</option>
+              }
+            </select>
+          </label>
+
+          <label>
+            <span>Día de trabajo (Daily)</span>
+            <input
+              type="date"
+              [(ngModel)]="draft.workDate"
+              name="workDate"
+            />
+          </label>
+
+          <label>
+            <span>Fecha de vencimiento</span>
+            <input
+              type="date"
+              [(ngModel)]="draft.dueDate"
+              name="dueDate"
+            />
+          </label>
+
+          <label>
+            <span>Tags (separados por comas)</span>
+            <input
+              type="text"
+              [(ngModel)]="draftTagsInput"
+              placeholder="Ej: bug, urgente, frontend"
+              autocomplete="off"
+              name="tags"
+            />
+          </label>
+        </div>
+
+        <footer class="form-actions">
+          <button class="ghost-btn" type="button" (click)="closeModal()">Cancelar</button>
+          <button class="primary-btn" type="button" (click)="saveDraft()">
+            <span class="emoji">💾</span>
+            {{ editing ? 'Actualizar' : 'Crear' }}
+          </button>
+        </footer>
+      </div>
+    </div>
+  }
+</div>

@@ -4,6 +4,7 @@ import { Launcher } from './Pages/launcher/launcher';
 import { Home } from './Pages/home/home';
 import { UsersComponent } from './Pages/users/users';
 import { PortsComponent } from './Pages/ports/ports';
+import { TodosComponent } from './Pages/todos/todos';
 // import { OfficeComponent } from './Pages/office/office';
 
 export const routes: Routes = [
@@ -12,6 +13,7 @@ export const routes: Routes = [
   { path: 'launcher', component: Launcher },
   { path: 'users', component: UsersComponent },
   { path: 'ports', component: PortsComponent },
+  { path: 'todos', component: TodosComponent },
   // { path: 'office', component: OfficeComponent },
   { path: '**', redirectTo: '' },
 ];

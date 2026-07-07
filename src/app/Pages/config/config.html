@@ -1,34 +1,25 @@
 <div class="config-page">
   <section class="page-shell app-surface" [class.loading]="loading">
-    <header class="page-header">
-      <div>
-        <h1 class="page-title">Configuración de Microservicios</h1>
-        <p class="page-subtitle">
-          Define rutas, puertos y variables globales antes de lanzar tus servicios.
-        </p>
-      </div>
-      <div class="header-actions">
-        <button class="ghost-btn" (click)="goToHome()" title="Inicio" aria-label="Ir al inicio">
-          <span class="emoji" aria-hidden="true">🏠</span>
-        </button>
-        <button class="ghost-btn" (click)="goToLauncher()" title="Ir al launcher" aria-label="Ir al launcher de microservicios">
-          <span class="emoji" aria-hidden="true">🚀</span>
-        </button>
-        <button class="ghost-btn" (click)="goToUsers()" title="Usuarios Portal" aria-label="Ir a usuarios del portal">
-          <span class="emoji" aria-hidden="true">👥</span>
-        </button>
-        <button class="ghost-btn" (click)="goToPorts()" title="Gestión de Puertos" aria-label="Ir a gestión de puertos">
-          <span class="emoji" aria-hidden="true">🔌</span>
-        </button>
-        <button class="primary-btn" (click)="save()" title="Guardar configuración" aria-label="Guardar toda la configuración">
-          <span class="emoji" aria-hidden="true">💾</span>
-          Guardar todo
-        </button>
-        <button class="danger-btn" (click)="clear()" title="Borrar configuración" aria-label="Borrar toda la configuración">
-          <span class="emoji" aria-hidden="true">🗑️</span>
-        </button>
-      </div>
-    </header>
+    <app-page-header
+      title="Configuración de Microservicios"
+      subtitle="Define rutas, puertos y variables globales antes de lanzar tus servicios."
+    >
+      <button class="ghost-btn" (click)="exportConfig()" title="Exportar configuración a JSON" aria-label="Exportar configuración">
+        <span class="emoji" aria-hidden="true">📤</span>
+        Exportar
+      </button>
+      <button class="ghost-btn" (click)="importConfig()" title="Importar configuración desde JSON" aria-label="Importar configuración">
+        <span class="emoji" aria-hidden="true">📥</span>
+        Importar
+      </button>
+      <button class="primary-btn" (click)="save()" title="Guardar configuración" aria-label="Guardar toda la configuración">
+        <span class="emoji" aria-hidden="true">💾</span>
+        Guardar todo
+      </button>
+      <button class="danger-btn" (click)="clear()" title="Borrar configuración" aria-label="Borrar toda la configuración">
+        <span class="emoji" aria-hidden="true">🗑️</span>
+      </button>
+    </app-page-header>
 
     <div class="tab-panel" *ngIf="!loading">
       <div class="tabs">
@@ -142,11 +133,31 @@
             </header>
             <label>
               <span>Ruta local</span>
-              <input [(ngModel)]="config.angular[micro.key].path" type="text" placeholder="Ruta del microservicio" />
+              <input
+                [(ngModel)]="config.angular[micro.key].path"
+                type="text"
+                placeholder="Ruta del microservicio"
+                [class.invalid]="pathValidity[micro.key] === false"
+                (blur)="validatePath(micro.key)"
+              />
+              @if (pathValidity[micro.key] === false) {
+                <small class="field-hint field-hint--error">⚠️ La ruta no existe o no es un directorio.</small>
+              }
             </label>
             <label>
               <span>Puerto</span>
-              <input [(ngModel)]="config.angular[micro.key].port" type="number" placeholder="Puerto" />
+              <input
+                [(ngModel)]="config.angular[micro.key].port"
+                type="number"
+                placeholder="Puerto"
+                [class.invalid]="portValidity[micro.key] === false"
+                (blur)="validatePort(micro.key, config.angular[micro.key].port)"
+              />
+              @if (portValidity[micro.key] === false) {
+                <small class="field-hint field-hint--warn">
+                  ⚠️ Puerto ocupado. <a (click)="goToPorts()">Ver detalles</a>
+                </small>
+              }
             </label>
           </article>
         </div>
@@ -221,7 +232,16 @@
               </header>
               <label>
                 <span>Ruta del microservicio</span>
-                <input [(ngModel)]="config.spring[micro.key].path" type="text" placeholder="Ruta del microservicio" />
+                <input
+                  [(ngModel)]="config.spring[micro.key].path"
+                  type="text"
+                  placeholder="Ruta del microservicio"
+                  [class.invalid]="pathValidity[micro.key] === false"
+                  (blur)="validatePath(micro.key)"
+                />
+                @if (pathValidity[micro.key] === false) {
+                  <small class="field-hint field-hint--error">⚠️ La ruta no existe o no es un directorio.</small>
+                }
               </label>
               <label>
                 <span>Perfil de Java</span>

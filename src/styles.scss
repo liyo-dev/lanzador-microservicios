@@ -51,6 +51,22 @@
   box-sizing: border-box;
 }
 
+/* Accesibilidad: outline claro y consistente para navegación por teclado.
+   Solo se muestra con :focus-visible para no molestar en clicks con ratón. */
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+button:focus-visible,
+a:focus-visible,
+[role='button']:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
 body {
   font-family: inherit;
   font-size: 15px;

@@ -19,7 +19,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // === CHROME CON URL ESPECÍFICA ===
   openChromeWithUrl: (url) => ipcRenderer.invoke('open-chrome-with-url', url),
   
-  // === AUTO-LOGIN CON PUPPETEER ===
+  // === AUTO-LOGIN (BrowserWindow embebida con inyección de script) ===
   openPortalAutoLogin: (loginData) => ipcRenderer.invoke('open-portal-auto-login', loginData),
 
   // === GIT POR MICRO ===
@@ -31,4 +31,20 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // === GESTIÓN DE PUERTOS ===
   findProcessByPort: (port) => ipcRenderer.invoke('find-process-by-port', port),
   killProcess: (pid) => ipcRenderer.invoke('kill-process', pid),
+
+  // === CIFRADO LOCAL (safeStorage) ===
+  cryptoIsAvailable: () => ipcRenderer.invoke('crypto:is-available'),
+  encryptText: (plain) => ipcRenderer.invoke('crypto:encrypt', plain),
+  decryptText: (cipher) => ipcRenderer.invoke('crypto:decrypt', cipher),
+  encryptTexts: (list) => ipcRenderer.invoke('crypto:encrypt-batch', list),
+  decryptTexts: (list) => ipcRenderer.invoke('crypto:decrypt-batch', list),
+
+  // === UTILIDADES DE FS / RED / DIÁLOGO ===
+  checkPath: (targetPath) => ipcRenderer.invoke('check-path', targetPath),
+  checkPort: (port) => ipcRenderer.invoke('check-port', port),
+  probeHttp: (url, timeoutMs) => ipcRenderer.invoke('probe-http', url, timeoutMs),
+  showSaveDialog: (options) => ipcRenderer.invoke('show-save-dialog', options),
+  writeFile: (targetPath, contents) => ipcRenderer.invoke('write-file', targetPath, contents),
+  readFile: (targetPath) => ipcRenderer.invoke('read-file', targetPath),
+  getAppVersion: () => ipcRenderer.invoke('get-app-version'),
 });

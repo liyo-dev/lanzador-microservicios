@@ -5,38 +5,60 @@ import { Router } from '@angular/router';
 import gsap from 'gsap';
 import { NotificationService } from '../../services/notification.service';
 import { ConfirmService } from '../../services/confirm.service';
+import { CryptoService } from '../../services/crypto.service';
+import { PageHeaderComponent } from '../../Components/page-header/page-header';
+
+/**
+ * Entornos soportados:
+ *  - 'local-dev'    → Portal local + DEV (Nexus). Requiere companyID + usuario + password.
+ *  - 'pre'          → Portal Preproducción (Nexus). Requiere companyID + usuario + password.
+ *  - 'intranet-dev' → Intranet Digital DEV (logcorp). Requiere SOLO usuario + password.
+ *  - 'digital-dev'  → Digital DEV (iciam). Requiere SOLO email + password.
+ */
+export type EnvironmentKey = 'local-dev' | 'pre' | 'intranet-dev' | 'digital-dev';
 
 interface User {
   id: string;
   name: string;
-  companyID: string;
+  /** Solo se usa en 'local-dev' y 'pre'. Opcional para entornos nuevos. */
+  companyID?: string;
+  /** Para 'digital-dev' contiene el email. Para el resto, el nombre de usuario. */
   username: string;
   password: string;
   description?: string;
-  environment: 'local-dev' | 'pre'; // Unificado: local-dev y pre separado
+  /** Notas libres del usuario (multilínea). */
+  notes?: string;
+  environment: EnvironmentKey;
 }
 
 interface Environment {
-  key: 'local-dev' | 'pre';
+  key: EnvironmentKey;
   name: string;
-  urls: { local: string; dev: string } | { pre: string }; // URLs múltiples para local-dev
+  /**
+   * URLs por sub-vista. local-dev tiene 2 (local/dev); el resto tiene 1.
+   */
+  urls:
+    | { local: string; dev: string }
+    | { pre: string }
+    | { 'intranet-dev': string }
+    | { 'digital-dev': string };
   icon: string;
 }
 
-/** Vista única del portal: local y dev comparten usuarios (env='local-dev'), solo cambia la URL. */
-type PortalView = 'local' | 'dev' | 'pre';
+/** Vista del portal. 'local'/'dev' comparten el env 'local-dev' (cambia la URL). */
+type PortalView = 'local' | 'dev' | 'pre' | 'intranet-dev' | 'digital-dev';
 
 interface PortalViewDef {
   key: PortalView;
   name: string;
   icon: string;
-  env: 'local-dev' | 'pre';
+  env: EnvironmentKey;
 }
 
 @Component({
   selector: 'app-users',
   standalone: true,
-  imports: [FormsModule, CommonModule],
+  imports: [FormsModule, CommonModule, PageHeaderComponent],
   templateUrl: './users.html',
   styleUrls: ['./users.scss'],
 })
@@ -44,6 +66,7 @@ export class UsersComponent implements OnInit {
   private router = inject(Router);
   private notify = inject(NotificationService);
   private confirm = inject(ConfirmService);
+  private crypto = inject(CryptoService);
   users: User[] = [];
   showAddForm = false;
   editingUser: User | null = null;
@@ -54,11 +77,13 @@ export class UsersComponent implements OnInit {
    */
   selectedView: PortalView = 'local';
 
-  /** Definición de las 3 vistas que se muestran como pestañas. */
+  /** Definición de las vistas que se muestran como pestañas. */
   views: PortalViewDef[] = [
-    { key: 'local', name: 'Local',         icon: '🏠', env: 'local-dev' },
-    { key: 'dev',   name: 'Desarrollo',    icon: '🔧', env: 'local-dev' },
-    { key: 'pre',   name: 'Preproducción', icon: '🧪', env: 'pre' },
+    { key: 'local',        name: 'Local',         icon: '🏠', env: 'local-dev' },
+    { key: 'dev',          name: 'Desarrollo',    icon: '🔧', env: 'local-dev' },
+    { key: 'pre',          name: 'Preproducción', icon: '🧪', env: 'pre' },
+    { key: 'intranet-dev', name: 'Intranet Dev',  icon: '🌐', env: 'intranet-dev' },
+    { key: 'digital-dev',  name: 'Digital Dev',   icon: '💻', env: 'digital-dev' },
   ];
 
   showPassword = false; // Para toggle de contraseña
@@ -96,6 +121,22 @@ export class UsersComponent implements OnInit {
         pre: 'https://scnp-fo-gateway-api.cashnexus.gcb.pre.corp/scnp-fo-gateway-api/login2f/login/s'
       },
       icon: '🧪'
+    },
+    {
+      key: 'intranet-dev',
+      name: 'Intranet Digital Dev',
+      urls: {
+        'intranet-dev': 'https://logcorp.sgtech.dev.corp/?environment=0&okURI=https%3A%2F%2Fapp.employee-santandercib.scib.dev.corp'
+      },
+      icon: '🌐'
+    },
+    {
+      key: 'digital-dev',
+      name: 'Digital Dev',
+      urls: {
+        'digital-dev': 'https://iciam.santandercib.com/ui/#/'
+      },
+      icon: '💻'
     }
   ];
   
@@ -106,8 +147,12 @@ export class UsersComponent implements OnInit {
     username: '',
     password: '',
     description: '',
+    notes: '',
     environment: 'local-dev'
   };
+
+  /** Mapa userId → (notas expandidas en la tabla). */
+  expandedNotes: Record<string, boolean> = {};
 
   constructor() {}
 
@@ -120,9 +165,42 @@ export class UsersComponent implements OnInit {
     return this.views.find(v => v.key === this.selectedView) ?? this.views[0];
   }
 
-  /** Entorno (modelo de datos) de la vista activa: 'local-dev' o 'pre'. */
-  getCurrentEnv(): 'local-dev' | 'pre' {
+  /** Entorno (modelo de datos) de la vista activa. */
+  getCurrentEnv(): EnvironmentKey {
     return this.getCurrentView().env;
+  }
+
+  /** ¿El entorno indicado necesita campo "Grupo Empresarial"? */
+  envRequiresCompanyID(env: EnvironmentKey): boolean {
+    return env === 'local-dev' || env === 'pre';
+  }
+
+  /** Etiqueta para el campo "usuario" según el entorno. */
+  getUsernameLabel(env: EnvironmentKey): string {
+    return env === 'digital-dev' ? 'Email' : 'Usuario';
+  }
+
+  /** Placeholder para el campo "usuario" según el entorno. */
+  getUsernamePlaceholder(env: EnvironmentKey): string {
+    switch (env) {
+      case 'digital-dev':  return 'Ej: nombre.apellido@santander.com';
+      case 'intranet-dev': return 'Ej: x123456';
+      default:             return 'Ej: Testraul';
+    }
+  }
+
+  /** ¿Tiene notas el usuario? */
+  hasNotes(user: User): boolean {
+    return !!(user.notes && user.notes.trim().length > 0);
+  }
+
+  /** Expande/contrae la fila de notas. */
+  toggleNotes(userId: string) {
+    this.expandedNotes[userId] = !this.expandedNotes[userId];
+  }
+
+  isNotesExpanded(userId: string): boolean {
+    return !!this.expandedNotes[userId];
   }
 
   /** Cambia la vista activa. */
@@ -157,12 +235,21 @@ export class UsersComponent implements OnInit {
     const env = this.environments.find(e => e.key === user.environment);
     if (!env) return '';
 
-    if (user.environment === 'local-dev') {
-      const urls = env.urls as { local: string; dev: string };
-      // Si la vista activa es 'dev', usamos URL dev; en cualquier otro caso (incluyendo 'pre'), local
-      return this.selectedView === 'dev' ? urls.dev : urls.local;
+    switch (user.environment) {
+      case 'local-dev': {
+        const urls = env.urls as { local: string; dev: string };
+        // Si la vista activa es 'dev', usamos URL dev; cualquier otro caso → local
+        return this.selectedView === 'dev' ? urls.dev : urls.local;
+      }
+      case 'pre':
+        return (env.urls as { pre: string }).pre;
+      case 'intranet-dev':
+        return (env.urls as { 'intranet-dev': string })['intranet-dev'];
+      case 'digital-dev':
+        return (env.urls as { 'digital-dev': string })['digital-dev'];
+      default:
+        return '';
     }
-    return (env.urls as { pre: string }).pre;
   }
 
   /** Usuarios visibles según la vista activa. */
@@ -221,7 +308,7 @@ export class UsersComponent implements OnInit {
     this.companyFilter = '';
   }
 
-  getUserCountByEnvironment(env: 'local-dev' | 'pre'): number {
+  getUserCountByEnvironment(env: EnvironmentKey): number {
     return this.users.filter(user => user.environment === env).length;
   }
 
@@ -262,16 +349,25 @@ export class UsersComponent implements OnInit {
     }, 0);
   }
 
-  private loadUsers() {
+  private async loadUsers() {
     const savedUsers = localStorage.getItem('portal-users');
     if (savedUsers) {
-      this.users = JSON.parse(savedUsers);
-      // Migrar usuarios existentes que no tengan environment
-      this.users = this.users.map(user => ({
+      const parsed: User[] = JSON.parse(savedUsers);
+
+      // Migración 1: garantizar que todos los usuarios tienen `environment`.
+      // Migración 2: descifrar contraseñas si estaban cifradas. Las que estén
+      // en claro (legado) se dejan tal cual y se re-cifrarán en el próximo
+      // `saveUsers()`.
+      const passwords = parsed.map(u => u.password ?? '');
+      const decrypted = await this.crypto.decryptMany(passwords);
+      this.users = parsed.map((user, i) => ({
         ...user,
-        environment: user.environment || 'local-dev'
+        environment: user.environment || 'local-dev',
+        password: decrypted[i] ?? user.password
       }));
-      this.saveUsers(); // Guardar la migración
+
+      // Persistimos siempre tras cargar para asegurar cifrado y migración.
+      this.saveUsers();
     } else {
       // Usuarios por defecto
       this.users = [
@@ -289,8 +385,28 @@ export class UsersComponent implements OnInit {
     }
   }
 
-  private saveUsers() {
-    localStorage.setItem('portal-users', JSON.stringify(this.users));
+  /**
+   * Guarda los usuarios en localStorage cifrando SIEMPRE la contraseña
+   * (si el entorno soporta `safeStorage`). La cadena cifrada lleva prefijo
+   * `enc:v1:` para poder detectarla al recargar.
+   *
+   * En memoria (`this.users`) las contraseñas se mantienen en claro para
+   * que el resto de la UI (mostrar/copiar/auto-login) siga funcionando
+   * sin conocer nada del cifrado.
+   */
+  private async saveUsers() {
+    try {
+      const passwords = this.users.map(u => u.password ?? '');
+      const encrypted = await this.crypto.encryptMany(passwords);
+      const toStore = this.users.map((u, i) => ({
+        ...u,
+        password: encrypted[i] ?? u.password
+      }));
+      localStorage.setItem('portal-users', JSON.stringify(toStore));
+    } catch (err) {
+      console.error('No se pudo cifrar/guardar usuarios, se guarda en claro como fallback', err);
+      localStorage.setItem('portal-users', JSON.stringify(this.users));
+    }
   }
 
   showAddUserForm() {
@@ -320,9 +436,16 @@ export class UsersComponent implements OnInit {
   }
 
   saveUser() {
-    if (!this.newUser.name || !this.newUser.companyID || !this.newUser.username || !this.newUser.password) {
-      this.notify.warning('Todos los campos son obligatorios.', { title: 'Faltan datos' });
+    const needsCompany = this.envRequiresCompanyID(this.newUser.environment);
+    const missingCompany = needsCompany && !this.newUser.companyID;
+    if (!this.newUser.name || missingCompany || !this.newUser.username || !this.newUser.password) {
+      this.notify.warning('Faltan campos obligatorios.', { title: 'Faltan datos' });
       return;
+    }
+
+    // Para entornos sin grupo empresarial, limpiamos el valor para no ensuciar el modelo.
+    if (!needsCompany) {
+      this.newUser.companyID = '';
     }
 
     const isEditing = !!this.editingUser;
@@ -460,6 +583,7 @@ export class UsersComponent implements OnInit {
       username: '',
       password: '',
       description: '',
+      notes: '',
       // El entorno por defecto al añadir desde la vista activa
       environment: this.getCurrentEnv()
     };
@@ -505,7 +629,7 @@ export class UsersComponent implements OnInit {
         incognito: this.incognitoMode,
         user: {
           name: user.name,
-          companyID: user.companyID,
+          companyID: user.companyID || '',
           username: user.username,
           password: user.password,
           environment: user.environment
@@ -546,5 +670,9 @@ export class UsersComponent implements OnInit {
 
   goToPorts() {
     this.router.navigate(['/ports']);
+  }
+
+  goToTodos() {
+    this.router.navigate(['/todos']);
   }
 }

@@ -1,10 +1,66 @@
-const { app, BrowserWindow, ipcMain, shell, dialog, clipboard, Menu, session } = require("electron");
+const { app, BrowserWindow, ipcMain, shell, dialog, clipboard, Menu, session, safeStorage } = require("electron");
 const { spawn, exec } = require("child_process");
 const stripAnsi = require("strip-ansi");
 const kill = require("tree-kill");
 const path = require("path");
 const fs = require("fs");
 const os = require("os");
+
+// ----------------------------------------------
+// CIFRADO LOCAL (safeStorage / DPAPI en Windows)
+// ----------------------------------------------
+// Prefijo con versión para poder migrar formatos en el futuro y para
+// distinguir claramente cadenas cifradas de las que están en texto plano
+// (necesario para migrar credenciales heredadas guardadas antes de esta
+// funcionalidad).
+const ENC_PREFIX = 'enc:v1:';
+
+function cryptoIsAvailable() {
+  try {
+    return safeStorage.isEncryptionAvailable();
+  } catch {
+    return false;
+  }
+}
+
+function encryptText(plain) {
+  if (plain == null) return plain;
+  const str = String(plain);
+  if (!str) return str;
+  if (str.startsWith(ENC_PREFIX)) return str; // ya cifrado
+  if (!cryptoIsAvailable()) return str;      // fallback: se guarda en claro
+  try {
+    const buf = safeStorage.encryptString(str);
+    return ENC_PREFIX + buf.toString('base64');
+  } catch (err) {
+    console.error('encryptText error:', err);
+    return str;
+  }
+}
+
+function decryptText(cipher) {
+  if (cipher == null) return cipher;
+  const str = String(cipher);
+  if (!str.startsWith(ENC_PREFIX)) return str; // ya está en claro (legado)
+  if (!cryptoIsAvailable()) return '';         // no podemos descifrar
+  try {
+    const b64 = str.slice(ENC_PREFIX.length);
+    return safeStorage.decryptString(Buffer.from(b64, 'base64'));
+  } catch (err) {
+    console.error('decryptText error:', err);
+    return '';
+  }
+}
+
+ipcMain.handle('crypto:is-available', () => cryptoIsAvailable());
+ipcMain.handle('crypto:encrypt', (_event, plain) => encryptText(plain));
+ipcMain.handle('crypto:decrypt', (_event, cipher) => decryptText(cipher));
+ipcMain.handle('crypto:encrypt-batch', (_event, list) =>
+  Array.isArray(list) ? list.map(encryptText) : []
+);
+ipcMain.handle('crypto:decrypt-batch', (_event, list) =>
+  Array.isArray(list) ? list.map(decryptText) : []
+);
 
 ipcMain.handle('show-open-dialog', async (event, options) => {
   try {
@@ -29,6 +85,51 @@ let angularStatus = {};
 let springStatus = {};
 const gitLocks = new Set();
 
+// ----------------------------------------------
+// UTILIDADES COMPARTIDAS
+// ----------------------------------------------
+
+// Dénde puede estar Chrome instalado en Windows.
+const CHROME_CANDIDATE_PATHS = [
+  'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+  'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+  process.env.LOCALAPPDATA && path.join(process.env.LOCALAPPDATA, 'Google\\Chrome\\Application\\chrome.exe'),
+  process.env.PROGRAMFILES && path.join(process.env.PROGRAMFILES, 'Google\\Chrome\\Application\\chrome.exe'),
+  process.env['PROGRAMFILES(X86)'] && path.join(process.env['PROGRAMFILES(X86)'], 'Google\\Chrome\\Application\\chrome.exe'),
+].filter(Boolean);
+
+function findChromePath() {
+  for (const candidate of CHROME_CANDIDATE_PATHS) {
+    if (candidate && fs.existsSync(candidate)) {
+      return candidate;
+    }
+  }
+  return null;
+}
+
+// Confirmación única de cierre cuando hay servicios corriendo.
+// Devuelve `true` si el usuario acepta forzar el cierre (o si no hay
+// nada corriendo). En ese caso el llamante debe permitir el cierre.
+function confirmCloseIfActive() {
+  if (!checkForActiveProcesses()) return true;
+
+  const response = dialog.showMessageBoxSync(mainWindow || undefined, {
+    type: 'warning',
+    buttons: ['Cancelar', 'Forzar cierre'],
+    defaultId: 0,
+    title: 'Microservicios activos',
+    message: '⚠️ Hay microservicios ejecutándose',
+    detail: 'Tienes microservicios Angular o Spring corriendo. Se recomienda pararlos antes de cerrar la aplicación.\n\n¿Qué deseas hacer?',
+    icon: path.join(__dirname, 'icon.ico')
+  });
+
+  if (response === 1) {
+    forceKillAllProcesses();
+    return true;
+  }
+  return false;
+}
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1200,
@@ -37,6 +138,10 @@ function createWindow() {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
+      // Sandbox: el preload solo usa 'electron' (ipcRenderer + contextBridge),
+      // por lo que es compatible con sandbox y mejora significativamente
+      // el aislamiento del renderer.
+      sandbox: true,
       preload: path.join(__dirname, "preload.js"),
     },
   });
@@ -57,78 +162,29 @@ function createWindow() {
 
   // Manejar intento de cierre de la ventana principal
   mainWindow.on("close", (event) => {
-    const hasActiveProcesses = checkForActiveProcesses();
-    
-    if (hasActiveProcesses) {
+    if (!confirmCloseIfActive()) {
       event.preventDefault();
-      
-      // Mostrar diálogo de confirmación
-      const response = dialog.showMessageBoxSync(mainWindow, {
-        type: "warning",
-        buttons: ["Cancelar", "Forzar cierre"],
-        defaultId: 0,
-        title: "Microservicios activos",
-        message: "⚠️ Hay microservicios ejecutándose",
-        detail: "Tienes microservicios Angular o Spring corriendo. Se recomienda pararlos antes de cerrar la aplicación.\n\n¿Qué deseas hacer?",
-        icon: path.join(__dirname, "icon.ico")
-      });
-      
-      if (response === 1) {
-        // Usuario eligió "Forzar cierre" - matar todos los procesos y cerrar
-        forceKillAllProcesses();
-        mainWindow.destroy();
-      }
-      // Si response === 0 (Cancelar), no hacemos nada y la ventana sigue abierta
+      return;
     }
+    // Si venimos aquí y el usuario aceptó, dejamos que el ciclo natural cierre.
   });
 }
 
 app.whenReady().then(() => {
   createWindow();
-  
+
   // Handler para abrir Chrome con URL específica
   ipcMain.handle('open-chrome-with-url', async (event, url) => {
     try {
-      // Detectar ruta de Chrome
-      const possiblePaths = [
-        'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-        'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
-        path.join(process.env.LOCALAPPDATA, 'Google\\Chrome\\Application\\chrome.exe'),
-        path.join(process.env.PROGRAMFILES, 'Google\\Chrome\\Application\\chrome.exe'),
-        path.join(process.env['PROGRAMFILES(X86)'] || '', 'Google\\Chrome\\Application\\chrome.exe')
-      ];
-      
-      let chromePath = null;
-      for (const p of possiblePaths) {
-        if (fs.existsSync(p)) {
-          chromePath = p;
-          break;
-        }
-      }
-      
+      const chromePath = findChromePath();
       if (!chromePath) {
-        return { 
-          success: false, 
-          error: 'No se encontró Chrome instalado' 
-        };
+        return { success: false, error: 'No se encontró Chrome instalado' };
       }
-      
-      // Abrir Chrome con la URL específica
-      spawn(chromePath, ['--new-window', url], { 
-        detached: true, 
-        stdio: 'ignore' 
-      }).unref();
-      
-      return { 
-        success: true, 
-        message: `Chrome abierto con URL: ${url}`
-      };
+      spawn(chromePath, ['--new-window', url], { detached: true, stdio: 'ignore' }).unref();
+      return { success: true, message: `Chrome abierto con URL: ${url}` };
     } catch (error) {
       console.error('Error abriendo Chrome con URL:', error);
-      return { 
-        success: false, 
-        error: error.message 
-      };
+      return { success: false, error: error.message };
     }
   });
 
@@ -139,28 +195,8 @@ app.whenReady().then(() => {
 
 // Manejar intento de cierre de la aplicación
 app.on("before-quit", (event) => {
-  const hasActiveProcesses = checkForActiveProcesses();
-  
-  if (hasActiveProcesses) {
+  if (!confirmCloseIfActive()) {
     event.preventDefault();
-    
-    // Mostrar diálogo de confirmación
-    const response = dialog.showMessageBoxSync(mainWindow, {
-      type: "warning",
-      buttons: ["Cancelar", "Forzar cierre"],
-      defaultId: 0,
-      title: "Microservicios activos",
-      message: "⚠️ Hay microservicios ejecutándose",
-      detail: "Tienes microservicios Angular o Spring corriendo. Se recomienda pararlos antes de cerrar la aplicación.\n\n¿Qué deseas hacer?",
-      icon: path.join(__dirname, "icon.ico")
-    });
-    
-    if (response === 1) {
-      // Usuario eligió "Forzar cierre" - matar todos los procesos y cerrar
-      forceKillAllProcesses();
-      app.quit();
-    }
-    // Si response === 0 (Cancelar), no hacemos nada y la app sigue abierta
   }
 });
 
@@ -550,11 +586,12 @@ const getGitStatus = async (cwd) => {
   const validation = await ensureGitRepo(cwd);
   if (!validation.success) return validation;
 
-  const [branch, localBranches, remoteBranches, changes] = await Promise.all([
+  const [branch, localBranches, remoteBranches, changes, upstream] = await Promise.all([
     runGitCommand("git rev-parse --abbrev-ref HEAD", cwd),
     runGitCommand('git branch --format="%(refname:short)"', cwd),
     runGitCommand('git branch -r --format="%(refname:short)"', cwd),
     runGitCommand("git status --porcelain", cwd),
+    runGitCommand("git rev-parse --abbrev-ref --symbolic-full-name @{u}", cwd),
   ]);
 
   if (!branch.success) return branch;
@@ -569,11 +606,33 @@ const getGitStatus = async (cwd) => {
   // Unir y eliminar duplicados, manteniendo el orden: primero locales, luego remotas
   const allBranches = [...new Set([...localBranchList, ...remoteBranchList])];
 
+  // Ahead/behind respecto al upstream (si existe)
+  let ahead = null;
+  let behind = null;
+  let upstreamName = null;
+  if (upstream.success && upstream.stdout.trim()) {
+    upstreamName = upstream.stdout.trim();
+    const counts = await runGitCommand(
+      "git rev-list --left-right --count HEAD...@{u}",
+      cwd
+    );
+    if (counts.success && counts.stdout) {
+      const m = counts.stdout.trim().match(/^(\d+)\s+(\d+)/);
+      if (m) {
+        ahead = parseInt(m[1], 10);
+        behind = parseInt(m[2], 10);
+      }
+    }
+  }
+
   return {
     success: true,
     branch: branch.stdout.trim(),
     branches: allBranches,
     hasChanges: !!changes.stdout?.trim(),
+    ahead,
+    behind,
+    upstream: upstreamName,
   };
 };
 
@@ -696,26 +755,7 @@ ipcMain.handle('save-users', (event, users) => {
 // AUTO-LOGIN CON SCRIPT EN CONSOLA
 // ========================================
 
-// Función para encontrar la ruta de Chrome instalado
-function findChromePath() {
-  const possiblePaths = [
-    'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-    'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
-    path.join(process.env.LOCALAPPDATA, 'Google\\Chrome\\Application\\chrome.exe'),
-    path.join(process.env.PROGRAMFILES, 'Google\\Chrome\\Application\\chrome.exe'),
-    path.join(process.env['PROGRAMFILES(X86)'] || '', 'Google\\Chrome\\Application\\chrome.exe'),
-  ];
-
-  for (const chromePath of possiblePaths) {
-    if (chromePath && fs.existsSync(chromePath)) {
-      console.log('✅ Chrome encontrado en:', chromePath);
-      return chromePath;
-    }
-  }
-
-  console.error('❌ No se encontró Chrome instalado');
-  return null;
-}
+// (findChromePath está definido arriba junto con CHROME_CANDIDATE_PATHS)
 
 // Handler para abrir portal con auto-login.
 // Estrategia: abrimos una BrowserWindow de Electron (Chromium embebido) en lugar de
@@ -753,9 +793,22 @@ ipcMain.handle('open-portal-auto-login', async (event, loginData) => {
     });
 
     // Construir el script de auto-login (sin IIFE: lo encapsulamos al inyectar)
-    const autoLoginScript = isLocal
-      ? buildLocalAutoLoginScript(credentials)
-      : buildNexusAutoLoginScript(credentials);
+    let autoLoginScript;
+    switch (environment) {
+      case 'intranet-dev':
+        autoLoginScript = buildIntranetDigitalDevAutoLoginScript(credentials);
+        break;
+      case 'digital-dev':
+        autoLoginScript = buildDigitalDevAutoLoginScript(credentials);
+        break;
+      case 'pre':
+      case 'local-dev':
+      default:
+        autoLoginScript = isLocal
+          ? buildLocalAutoLoginScript(credentials)
+          : buildNexusAutoLoginScript(credentials);
+        break;
+    }
 
     // ¿Modo incógnito? Usamos una sesión en memoria (partición sin "persist:")
     // que se destruye al cerrar la ventana. Sin cookies, sin caché, sin
@@ -1123,6 +1176,225 @@ function buildNexusAutoLoginScript(credentials) {
 `.trim();
 }
 
+// ============================================================
+// Intranet Digital DEV (logcorp.sgtech.dev.corp)
+// ============================================================
+// Formulario React. Inputs:
+//   #User      → name="User",     type="text",     pattern="[A-Za-z0-9]{5,}"
+//   #Password  → name="Password", type="password", pattern="\\S{5,}"
+//   button[type="submit"]  (texto "Login")
+//
+// Importante: React no reacciona a `input.value = …` directamente. Usamos
+// el setter nativo del prototipo HTMLInputElement para forzar la actualización
+// del state interno de React antes de despachar el evento 'input'.
+function buildIntranetDigitalDevAutoLoginScript(credentials) {
+  return `
+(function() {
+  const credentials = ${JSON.stringify(credentials)};
+  console.log('🔐 Auto-Login Intranet Digital DEV iniciado');
+
+  function realClick(el) {
+    if (!el) return false;
+    try {
+      ['mousedown','mouseup','click'].forEach(t =>
+        el.dispatchEvent(new MouseEvent(t, { bubbles: true, cancelable: true, view: window, button: 0 })));
+      return true;
+    } catch { try { el.click(); return true; } catch { return false; } }
+  }
+
+  // React-friendly value setter: usa el setter nativo del prototipo del input
+  // para que React detecte el cambio y actualice su estado interno.
+  function setReactInputValue(input, value) {
+    const proto = input instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+    const setter = Object.getOwnPropertyDescriptor(proto, 'value') && Object.getOwnPropertyDescriptor(proto, 'value').set;
+    if (setter) {
+      setter.call(input, value);
+    } else {
+      input.value = value;
+    }
+    input.dispatchEvent(new Event('input',  { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+
+  function fillFields() {
+    const userField = document.getElementById('User');
+    const passField = document.getElementById('Password');
+    if (!userField || !passField) return false;
+
+    userField.focus();
+    setReactInputValue(userField, credentials.username);
+
+    passField.focus();
+    setReactInputValue(passField, credentials.password);
+
+    userField.dispatchEvent(new Event('blur', { bubbles: true }));
+    passField.dispatchEvent(new Event('blur', { bubbles: true }));
+    console.log('✅ Campos User/Password rellenados');
+
+    // Submit: esperar a que el botón esté habilitado (React valida el form).
+    let clickAttempts = 0;
+    const clickItv = setInterval(() => {
+      clickAttempts++;
+      const form = userField.closest('form');
+      const submitBtn =
+        (form && form.querySelector('button[type="submit"], input[type="submit"]')) ||
+        document.querySelector('button[type="submit"], input[type="submit"]');
+
+      if (submitBtn && !submitBtn.disabled) {
+        clearInterval(clickItv);
+        setTimeout(() => {
+          realClick(submitBtn);
+          console.log('🚀 Botón Login pulsado automáticamente');
+        }, 80);
+      } else if (clickAttempts > 24) { // ~6s
+        clearInterval(clickItv);
+        if (form) {
+          try { form.requestSubmit ? form.requestSubmit() : form.submit(); }
+          catch { /* noop */ }
+          console.warn('⚠️ Botón seguía deshabilitado; submit del formulario como fallback');
+        } else {
+          console.error('❌ No se encontró botón Login ni formulario para hacer submit');
+        }
+      }
+    }, 250);
+
+    return true;
+  }
+
+  if (!fillFields()) {
+    let attempts = 0;
+    const itv = setInterval(() => {
+      attempts++;
+      if (fillFields() || attempts > 24) {
+        clearInterval(itv);
+        if (attempts > 24) console.error('❌ Timeout: no se encontraron #User / #Password');
+      }
+    }, 500);
+  }
+})();
+`.trim();
+}
+
+// ============================================================
+// Digital DEV (iciam.santandercib.com)
+// ============================================================
+// Vue 3 + Vuetify. Inputs:
+//   #email     → type="email",    class="v-field__input"  (label "Enter email")
+//   #password  → type="password", class="v-field__input"  (label "Password", maxlength 14)
+//   button.btn-login                (texto interior "Login" en <a class="btn-login-text">)
+//
+// Mientras el form sea inválido, el botón tiene la clase `v-btn--disabled` y el
+// atributo `disabled`. Esperamos a que se habilite tras rellenar los campos.
+//
+// Vue (v-model) escucha sobre el evento 'input'. Usamos el setter nativo del
+// prototipo para que Vue detecte el cambio y revalide el formulario.
+function buildDigitalDevAutoLoginScript(credentials) {
+  return `
+(function() {
+  const credentials = ${JSON.stringify(credentials)};
+  console.log('🔐 Auto-Login Digital DEV (iciam) iniciado');
+
+  function realClick(el) {
+    if (!el) return false;
+    try {
+      ['mousedown','mouseup','click'].forEach(t =>
+        el.dispatchEvent(new MouseEvent(t, { bubbles: true, cancelable: true, view: window, button: 0 })));
+      return true;
+    } catch { try { el.click(); return true; } catch { return false; } }
+  }
+
+  // Setter nativo de HTMLInputElement.value → Vue/React detectan el cambio.
+  function setFrameworkInputValue(input, value) {
+    const proto = HTMLInputElement.prototype;
+    const setter = Object.getOwnPropertyDescriptor(proto, 'value') && Object.getOwnPropertyDescriptor(proto, 'value').set;
+    if (setter) setter.call(input, value);
+    else input.value = value;
+    input.dispatchEvent(new Event('input',  { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+
+  function findSubmitButton() {
+    // Botón principal con clase específica
+    return document.querySelector('button.btn-login')
+        || document.querySelector('button.v-btn.btn-login')
+        // Fallback: cualquier botón cuyo texto sea "Login" dentro del form panel
+        || Array.from(document.querySelectorAll('button')).find(b =>
+             (b.textContent || '').trim().toLowerCase() === 'login');
+  }
+
+  function isSubmitEnabled(btn) {
+    if (!btn) return false;
+    if (btn.disabled) return false;
+    if (btn.classList && btn.classList.contains('v-btn--disabled')) return false;
+    if (btn.getAttribute('aria-disabled') === 'true') return false;
+    return true;
+  }
+
+  function fillFields() {
+    const emailField = document.getElementById('email');
+    const passField  = document.getElementById('password');
+    if (!emailField || !passField) return false;
+
+    // Email
+    emailField.focus();
+    setFrameworkInputValue(emailField, credentials.username);
+    emailField.dispatchEvent(new Event('blur', { bubbles: true }));
+
+    // Password (respeta max-length="14" si está presente)
+    passField.focus();
+    const maxAttr = passField.getAttribute('max-length') || passField.getAttribute('maxlength');
+    const maxLen  = maxAttr ? parseInt(maxAttr, 10) : 0;
+    const pwd     = (maxLen > 0 && credentials.password.length > maxLen)
+      ? credentials.password.slice(0, maxLen)
+      : credentials.password;
+    setFrameworkInputValue(passField, pwd);
+    passField.dispatchEvent(new Event('blur', { bubbles: true }));
+
+    console.log('✅ Campos email/password rellenados');
+
+    // Esperar a que Vuetify habilite el botón "Login"
+    let clickAttempts = 0;
+    const clickItv = setInterval(() => {
+      clickAttempts++;
+      const submitBtn = findSubmitButton();
+      if (submitBtn && isSubmitEnabled(submitBtn)) {
+        clearInterval(clickItv);
+        setTimeout(() => {
+          // Click sintético en el botón. Por si Vuetify tiene el handler en el
+          // <a> interno, lo intentamos también; los clicks son idempotentes.
+          realClick(submitBtn);
+          const innerLink = submitBtn.querySelector('a.btn-login-text, a.text-btn-login');
+          if (innerLink) realClick(innerLink);
+          console.log('🚀 Botón Login pulsado automáticamente');
+        }, 120);
+      } else if (clickAttempts > 28) { // ~7s
+        clearInterval(clickItv);
+        if (submitBtn) {
+          realClick(submitBtn);
+          console.warn('⚠️ Botón seguía deshabilitado; click forzado de todas formas');
+        } else {
+          console.error('❌ No se encontró el botón Login (button.btn-login)');
+        }
+      }
+    }, 250);
+
+    return true;
+  }
+
+  if (!fillFields()) {
+    let attempts = 0;
+    const itv = setInterval(() => {
+      attempts++;
+      if (fillFields() || attempts > 24) {
+        clearInterval(itv);
+        if (attempts > 24) console.error('❌ Timeout: no se encontraron #email / #password');
+      }
+    }, 500);
+  }
+})();
+`.trim();
+}
+
 /**
  * Construye el menú nativo de una ventana de portal Auto-Login con
  * controles de navegación, DevTools y utilidades. Los accelerators
@@ -1334,5 +1606,106 @@ ipcMain.handle('kill-process', async (event, pid) => {
   } catch (error) {
     console.error(`❌ Error terminando proceso ${pid}:`, error);
     return { success: false, error: error.message };
+  }
+});
+
+// ========================================
+// UTILIDADES DE FICHERO Y RED
+// ========================================
+
+// Comprueba si una ruta existe y qué tipo de nodo es.
+ipcMain.handle('check-path', async (event, targetPath) => {
+  try {
+    if (!targetPath || typeof targetPath !== 'string') {
+      return { exists: false, isDirectory: false, isFile: false };
+    }
+    const stat = fs.statSync(targetPath);
+    return {
+      exists: true,
+      isDirectory: stat.isDirectory(),
+      isFile: stat.isFile(),
+    };
+  } catch {
+    return { exists: false, isDirectory: false, isFile: false };
+  }
+});
+
+// Comprueba si un puerto TCP está en uso (LISTEN).
+ipcMain.handle('check-port', async (event, port) => {
+  return new Promise((resolve) => {
+    try {
+      const net = require('net');
+      const socket = new net.Socket();
+      let done = false;
+      const finish = (inUse) => {
+        if (done) return;
+        done = true;
+        try { socket.destroy(); } catch {}
+        resolve(!!inUse);
+      };
+      socket.setTimeout(400);
+      socket.once('connect', () => finish(true));
+      socket.once('timeout', () => finish(false));
+      socket.once('error', () => finish(false));
+      socket.connect(Number(port), '127.0.0.1');
+    } catch {
+      resolve(false);
+    }
+  });
+});
+
+// Probe HTTP simple (por ejemplo /actuator/health). Devuelve el status code
+// o null si no responde.
+ipcMain.handle('probe-http', async (event, url, timeoutMs = 1500) => {
+  return new Promise((resolve) => {
+    try {
+      const mod = url.startsWith('https') ? require('https') : require('http');
+      const req = mod.get(url, (res) => {
+        resolve({ ok: true, status: res.statusCode || 0 });
+        res.resume();
+      });
+      req.on('error', () => resolve({ ok: false, status: null }));
+      req.setTimeout(Number(timeoutMs) || 1500, () => {
+        req.destroy();
+        resolve({ ok: false, status: null });
+      });
+    } catch {
+      resolve({ ok: false, status: null });
+    }
+  });
+});
+
+// Diálogos y ficheros (para import/export de configuración y descarga de logs)
+ipcMain.handle('show-save-dialog', async (event, options) => {
+  const result = await dialog.showSaveDialog(mainWindow || undefined, options || {});
+  return {
+    canceled: result.canceled,
+    filePath: result.filePath || null,
+  };
+});
+
+ipcMain.handle('write-file', async (event, targetPath, contents) => {
+  try {
+    fs.writeFileSync(targetPath, contents, 'utf8');
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('read-file', async (event, targetPath) => {
+  try {
+    const contents = fs.readFileSync(targetPath, 'utf8');
+    return { success: true, contents };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('get-app-version', () => {
+  try {
+    return app.getVersion();
+  } catch {
+    return null;
   }
 });

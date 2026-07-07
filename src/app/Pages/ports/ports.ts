@@ -5,6 +5,7 @@ import { Router } from '@angular/router';
 import gsap from 'gsap';
 import { NotificationService } from '../../services/notification.service';
 import { ConfirmService } from '../../services/confirm.service';
+import { PageHeaderComponent } from '../../Components/page-header/page-header';
 
 interface PortProcess {
   protocol: string;
@@ -15,19 +16,13 @@ interface PortProcess {
   pid: string;
 }
 
-declare global {
-  interface Window {
-    electronAPI?: {
-      findProcessByPort: (port: string) => Promise<{ success: boolean; processes: PortProcess[]; error?: string }>;
-      killProcess: (pid: string) => Promise<{ success: boolean; error?: string }>;
-    };
-  }
-}
+// El tipado global de `window.electronAPI` vive en `src/typings.d.ts`.
+// No re-declaramos aquí para evitar TS2687/TS2717.
 
 @Component({
   selector: 'app-ports',
   standalone: true,
-  imports: [FormsModule, CommonModule],
+  imports: [FormsModule, CommonModule, PageHeaderComponent],
   templateUrl: './ports.html',
   styleUrls: ['./ports.scss'],
 })

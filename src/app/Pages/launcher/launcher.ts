@@ -5,6 +5,7 @@ import { SpinnerComponent } from '../../Components/spinner/spinner';
 import { Router } from '@angular/router';
 import gsap from 'gsap';
 import { NotificationService } from '../../services/notification.service';
+import { PageHeaderComponent } from '../../Components/page-header/page-header';
 
 // Interface para microservicios
 interface MicroService {
@@ -14,6 +15,10 @@ interface MicroService {
   status: 'stopped' | 'starting' | 'running' | 'stopping';
   useLegacyProvider?: boolean;
   isCustom?: boolean;
+  /** Timestamp (ms) del momento en que se detectó como "running". */
+  startedAt?: number;
+  /** Puerto asociado, cacheado desde la configuración. */
+  port?: number | null;
 }
 
 interface GitInfo {
@@ -22,6 +27,9 @@ interface GitInfo {
   hasChanges?: boolean;
   loading?: boolean;
   error?: string;
+  ahead?: number | null;
+  behind?: number | null;
+  upstream?: string | null;
 }
 
 interface GitDialog {
@@ -36,7 +44,7 @@ interface GitDialog {
 @Component({
   selector: 'app-launcher',
   standalone: true,
-  imports: [FormsModule, CommonModule, SpinnerComponent],
+  imports: [FormsModule, CommonModule, SpinnerComponent, PageHeaderComponent],
   templateUrl: './launcher.html',
   styleUrls: ['./launcher.scss'],
 })
@@ -47,14 +55,6 @@ export class Launcher implements OnInit, OnDestroy {
   selectedTab: 'angular' | 'spring' = 'angular';
   angularMicros: MicroService[] = [];
   springMicros: MicroService[] = [];
-
-  /**
-   * Modo de visualización de la lista de microservicios.
-   *  - 'cards': vista actual con tarjeta detallada (Git, legacy, etc.)
-   *  - 'list' : vista compacta tipo lista para seleccionar varios de un vistazo
-   */
-  viewMode: 'cards' | 'list' = 'cards';
-  private readonly VIEW_MODE_STORAGE_KEY = 'launcher-view-mode';
 
   /**
    * Feature flag: muestra/oculta el toggle "Compatibilidad Node" (legacy provider).
@@ -97,21 +97,29 @@ export class Launcher implements OnInit, OnDestroy {
   gitStatuses: Record<string, { tone: 'warning' | 'success' | 'loading'; message: string }> = {};
   gitDialog: GitDialog | null = null;
 
+  /** Popup con el panel Git detallado (rama, fetch/pull/checkout) para un micro concreto. */
+  gitPanelDialog: { open: boolean; type: 'angular' | 'spring'; micro: MicroService } | null = null;
+
   // Configuración para gestión de logs - hacemos públicas las constantes que necesita el template
   readonly MAX_LOGS = 500; // Máximo número de logs antes de limpiar
   private readonly AUTO_CLEAN_INTERVAL = 5 * 60 * 1000; // 5 minutos en milisegundos
   private readonly LOGS_TO_KEEP_AFTER_CLEAN = 100; // Logs a mantener después de limpiar
   private logCleanTimer: any = null;
+  private uptimeTicker: any = null;
+  private healthCheckTimer: any = null;
+  /** Cadena de "tick" que fuerza recomputo de uptimes (change detection). */
+  uptimeTick = 0;
 
   @ViewChild('logBox') logBox!: ElementRef;
   @ViewChild('logSearchInput') logSearchInput?: ElementRef<HTMLInputElement>;
 
   constructor(private ngZone: NgZone) {
-    this.loadViewModePreference();
     this.loadLogPreferences();
     this.loadConfiguration();
     this.setupElectronListeners();
     this.setupLogCleanup();
+    this.startUptimeTicker();
+    this.startHealthCheck();
   }
 
   ngOnInit() {
@@ -195,6 +203,8 @@ export class Launcher implements OnInit, OnDestroy {
           this.ngZone.run(() => {
             if (isOccupied) {
               micro.status = 'running';
+              micro.startedAt = micro.startedAt ?? Date.now();
+              micro.port = port;
               this.pushLog(`[${micro.key}] ✅ Verificado como arrancado (puerto ${port} ocupado)`, micro.key);
             }
             
@@ -283,6 +293,21 @@ export class Launcher implements OnInit, OnDestroy {
       delete this.gitActions[key];
       delete this.gitStatuses[key];
     }
+  }
+
+  /** Abre el popup con el panel Git detallado para un microservicio. */
+  openGitPanel(micro: MicroService, type: 'angular' | 'spring') {
+    this.gitPanelDialog = { open: true, type, micro };
+    // Si Git está habilitado pero no tenemos info cargada aún, refrescamos.
+    const key = this.repoKey(type, micro.key);
+    if (this.gitEnabled[key] && !this.gitState[key]) {
+      this.refreshGitInfo(micro, type);
+    }
+  }
+
+  /** Cierra el popup del panel Git. */
+  closeGitPanel() {
+    this.gitPanelDialog = null;
   }
 
   private getPathFor(type: 'angular' | 'spring', microKey: string) {
@@ -527,6 +552,9 @@ export class Launcher implements OnInit, OnDestroy {
                 branch: result.branch,
                 branches: result.branches,
                 hasChanges: result.hasChanges,
+                ahead: result.ahead ?? null,
+                behind: result.behind ?? null,
+                upstream: result.upstream ?? null,
                 loading: false,
               };
               this.gitSelections[key] = result.branch;
@@ -734,31 +762,8 @@ export class Launcher implements OnInit, OnDestroy {
   }
 
   // ============================================================
-  // Modo de visualización (cards / list) y selección masiva
+  // Selección masiva
   // ============================================================
-
-  /** Carga la preferencia de vista guardada en localStorage. */
-  loadViewModePreference() {
-    try {
-      const saved = localStorage.getItem(this.VIEW_MODE_STORAGE_KEY);
-      if (saved === 'cards' || saved === 'list') {
-        this.viewMode = saved;
-      }
-    } catch {
-      // Ignorar errores de localStorage
-    }
-  }
-
-  /** Cambia el modo de visualización y lo persiste. */
-  setViewMode(mode: 'cards' | 'list') {
-    if (this.viewMode === mode) return;
-    this.viewMode = mode;
-    try {
-      localStorage.setItem(this.VIEW_MODE_STORAGE_KEY, mode);
-    } catch {
-      // Ignorar errores de localStorage
-    }
-  }
 
   /** Número de microservicios seleccionados en la pestaña actual. */
   selectedCount(): number {
@@ -797,6 +802,14 @@ export class Launcher implements OnInit, OnDestroy {
       if (micro && msg.status) {
         micro.status = msg.status;
         this.animateMicroCard(micro.key, msg.status);
+
+        // Al arrancar guardamos startedAt para calcular uptime.
+        if (msg.status === 'running') {
+          micro.startedAt = micro.startedAt ?? Date.now();
+          if (!micro.port) micro.port = this.getMicroPort(micro.key);
+        } else if (msg.status === 'stopped') {
+          micro.startedAt = undefined;
+        }
 
         // Desactivar checkbox cuando el microservicio se arranca correctamente
         if (msg.status === 'running' && micro.selected) {
@@ -1216,6 +1229,43 @@ export class Launcher implements OnInit, OnDestroy {
     }
   }
 
+  /**
+   * Descarga los logs actualmente visibles (respeta pestaña, búsqueda y filtro por nivel)
+   * como un fichero de texto plano usando un blob URL en el navegador embebido.
+   */
+  downloadLogs() {
+    try {
+      const lines = this.getVisibleLogs();
+      if (!lines.length) {
+        this.notify.info('No hay logs para descargar en la pestaña actual.');
+        return;
+      }
+      const header = [
+        `# Launcher logs — ${new Date().toISOString()}`,
+        `# Pestaña: ${this.selectedLogTab}`,
+        `# Nivel: ${this.selectedLogLevel}`,
+        `# Búsqueda: ${this.logSearchTerm || '(ninguna)'}`,
+        `# Líneas: ${lines.length}`,
+        '',
+      ].join('\n');
+      const content = header + lines.join('\n') + '\n';
+      const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const safeTab = this.selectedLogTab.replace(/[^a-zA-Z0-9_-]/g, '_');
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `launcher-logs-${safeTab}-${stamp}.log`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 5_000);
+      this.notify.success(`Descargados ${lines.length} logs.`);
+    } catch (err: any) {
+      this.notify.error('Error descargando logs: ' + (err?.message || err));
+    }
+  }
+
   // Obtener los logs actualmente visibles
   // Obtener todas las pestañas de logs disponibles
   getLogTabs(): Array<{ key: string; label: string; count: number }> {
@@ -1496,5 +1546,80 @@ export class Launcher implements OnInit, OnDestroy {
       clearInterval(this.logCleanTimer);
       this.logCleanTimer = null;
     }
+    if (this.uptimeTicker) {
+      clearInterval(this.uptimeTicker);
+      this.uptimeTicker = null;
+    }
+    if (this.healthCheckTimer) {
+      clearInterval(this.healthCheckTimer);
+      this.healthCheckTimer = null;
+    }
+  }
+
+  // ============================================================
+  // Uptime + health-check por microservicio
+  // ============================================================
+
+  /** Formatea segundos como "1h 3m 42s" (omite unidades a 0 a la izquierda). */
+  formatUptime(fromMs?: number): string {
+    if (!fromMs) return '';
+    const totalSec = Math.max(0, Math.floor((Date.now() - fromMs) / 1000));
+    const h = Math.floor(totalSec / 3600);
+    const m = Math.floor((totalSec % 3600) / 60);
+    const s = totalSec % 60;
+    if (h > 0) return `${h}h ${m}m ${s}s`;
+    if (m > 0) return `${m}m ${s}s`;
+    return `${s}s`;
+  }
+
+  getMicroUptime(micro: MicroService): string {
+    // uptimeTick fuerza recomputo cada segundo (referenciado desde template)
+    void this.uptimeTick;
+    return this.formatUptime(micro.startedAt);
+  }
+
+  private startUptimeTicker() {
+    if (this.uptimeTicker) return;
+    // Fuera de Angular Zone para no disparar CD innecesario cuando no hay running
+    this.ngZone.runOutsideAngular(() => {
+      this.uptimeTicker = setInterval(() => {
+        const anyRunning =
+          this.angularMicros.some(m => m.status === 'running' && m.startedAt) ||
+          this.springMicros.some(m => m.status === 'running' && m.startedAt);
+        if (!anyRunning) return;
+        // Entrar a la zone solo para provocar la re-lectura de uptimes en template
+        this.ngZone.run(() => { this.uptimeTick++; });
+      }, 1000);
+    });
+  }
+
+  private startHealthCheck() {
+    if (this.healthCheckTimer) return;
+    const api = (window as any).electronAPI;
+    if (!api?.checkPort) return;
+    this.ngZone.runOutsideAngular(() => {
+      this.healthCheckTimer = setInterval(async () => {
+        const running: MicroService[] = [
+          ...this.angularMicros.filter(m => m.status === 'running'),
+          ...this.springMicros.filter(m => m.status === 'running'),
+        ];
+        for (const micro of running) {
+          const port = micro.port || this.getMicroPort(micro.key);
+          if (!port) continue;
+          try {
+            const isUp: boolean = await api.checkPort(port);
+            if (!isUp) {
+              this.ngZone.run(() => {
+                micro.status = 'stopped';
+                micro.startedAt = undefined;
+                this.pushLog(`[${micro.key}] ⛔ Health-check falló (puerto ${port} no responde)`, micro.key);
+              });
+            }
+          } catch {
+            // silencioso: un fallo puntual no debe apagar el micro
+          }
+        }
+      }, 10_000);
+    });
   }
 }

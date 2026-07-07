@@ -90,8 +90,20 @@ export interface SpaceDescriptor {
   height: number;
 }
 
+export interface BugHuntRankingEntry {
+  id: string;
+  playerId: string;
+  name: string;
+  avatarId: string;
+  avatarEmoji: string;
+  avatarTone: string;
+  timeMs: number;
+  date: string;
+  playedAt: string;
+}
+
 export type ServerEvent =
-  | { type: 'welcome'; id: string; players: PlayerPayload[]; generalMessages: GeneralMessagePayload[]; space: SpaceDescriptor }
+  | { type: 'welcome'; id: string; players: PlayerPayload[]; generalMessages: GeneralMessagePayload[]; space: SpaceDescriptor; bugHuntRanking?: BugHuntRankingEntry[] }
   | { type: 'player-joined'; player: PlayerPayload }
   | { type: 'player-updated'; player: PlayerPayload }
   | { type: 'player-left'; id: string }
@@ -104,6 +116,7 @@ export type ServerEvent =
   | { type: 'mini-game-ready'; payload: MiniGameReadyPayload }
   | { type: 'mini-game-cancel'; payload: MiniGameCancelPayload }
   | { type: 'mini-game-move'; payload: MiniGameMovePayload }
+  | { type: 'bug-hunt-ranking'; entries: BugHuntRankingEntry[] }
   | { type: 'error'; message: string }
   | { type: 'disconnected' };
 
@@ -229,6 +242,10 @@ export class VirtualOfficeService {
 
   sendMiniGameMove(challengeId: string, to: string, round: number, move: 'rock' | 'paper' | 'scissors'): void {
     this.send({ type: 'mini-game-move', challengeId, to, round, move });
+  }
+
+  sendBugHuntResult(timeMs: number): void {
+    this.send({ type: 'bug-hunt-result', timeMs });
   }
 
   disconnect(): void {

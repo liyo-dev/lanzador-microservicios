@@ -1,0 +1,33 @@
+<header class="page-header">
+  <div class="title-block">
+    <h1 class="page-title">
+      @if (titleIcon) {
+        <span class="emoji" aria-hidden="true">{{ titleIcon }}</span>
+      }
+      <span>{{ title }}</span>
+    </h1>
+
+    <!-- Slot para subtítulos dinámicos; si no se proyecta, se usa el input. -->
+    <ng-content select="[page-subtitle]"></ng-content>
+    @if (subtitle) {
+      <p class="page-subtitle default-subtitle">{{ subtitle }}</p>
+    }
+  </div>
+
+  <div class="header-actions">
+    @for (item of visibleItems(); track item.path) {
+      <button
+        type="button"
+        class="ghost-btn"
+        (click)="navigate(item.path)"
+        [title]="item.title"
+        [attr.aria-label]="item.ariaLabel"
+      >
+        <span class="emoji" aria-hidden="true">{{ item.icon }}</span>
+      </button>
+    }
+
+    <!-- Slot por defecto: acciones específicas de la página tras la navegación. -->
+    <ng-content></ng-content>
+  </div>
+</header>
