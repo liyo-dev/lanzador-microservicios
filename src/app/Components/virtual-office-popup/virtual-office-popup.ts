@@ -10,6 +10,7 @@ import {
   effect,
   inject,
   signal,
+  untracked,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -48,19 +49,8 @@ interface WindowState {
   height: number;
 }
 
-/** Ranking local (fallback si no hay conexión). */
-export interface BugHuntEntry {
-  name: string;
-  avatarId: string;
-  timeMs: number;
-  date: string;
-  playedAt: string;
-}
-
 const STORAGE_PROFILE = 'virtualOffice.popup.profile';
 const STORAGE_WINDOW = 'virtualOffice.popup.window';
-const STORAGE_RANKING = 'virtualOffice.bugHunt.rankings';
-const STORAGE_LAST_PLAYED = 'virtualOffice.bugHunt.lastPlayed';
 
 const DEFAULT_WIDTH = 780;
 const DEFAULT_HEIGHT = 560;
@@ -163,10 +153,34 @@ export class VirtualOfficePopupComponent implements OnInit, OnDestroy {
   readonly elapsedMs = signal(0);
   private bugTimer: any = null;
   private bugStartAt = 0;
-  /** Ranking (mezcla server + local). */
+  /** Ranking global (viene siempre del servidor). */
   readonly ranking = signal<RankingRow[]>([]);
+  /** True si el jugador ya tiene una entrada del día de hoy en el ranking del servidor. */
   readonly hasPlayedToday = signal(false);
-  readonly rankingSource = signal<'server' | 'local'>('local');
+
+  // -------- Pizarra colaborativa de píxeles --------
+  readonly pixelBoardWidth = signal(24);
+  readonly pixelBoardHeight = signal(12);
+  /** Estado del lienzo: `{ "x,y": "#rrggbb" }`. */
+  readonly pixelBoardPixels = signal<Record<string, string>>({});
+  readonly pixelPalette: readonly string[] = [
+    '#000000', '#ffffff', '#ef4444', '#f97316',
+    '#f59e0b', '#22c55e', '#06b6d4', '#3b82f6',
+    '#8b5cf6', '#ec4899', '#78350f', '#94a3b8',
+  ];
+  readonly pixelSelectedColor = signal<string>(this.pixelPalette[2]);
+  readonly pixelEraserMode = signal(false);
+  readonly pixelRows = computed(() => {
+    const w = this.pixelBoardWidth();
+    const h = this.pixelBoardHeight();
+    const rows: { y: number; cols: number[] }[] = [];
+    for (let y = 0; y < h; y++) {
+      const cols: number[] = [];
+      for (let x = 0; x < w; x++) cols.push(x);
+      rows.push({ y, cols });
+    }
+    return rows;
+  });
 
   @ViewChild('officeScene') officeScene?: ElementRef<HTMLDivElement>;
 
@@ -180,7 +194,13 @@ export class VirtualOfficePopupComponent implements OnInit, OnDestroy {
   private readonly openRequestEffect = effect(() => {
     const count = this.windowBus.openRequests();
     if (count > 0) {
-      this.openWindow();
+      // ⚠️ Muy importante: envolver en untracked() para que este effect
+      // sólo se suscriba a `openRequests`. Sin esto, `openWindow()` lee la
+      // señal `window` vía `persistWindow()`, el effect empieza a rastrearla
+      // y cualquier cambio posterior (cerrar / minimizar / mover) reejecuta
+      // el effect, que vuelve a llamar a `openWindow()` y "deshace" la
+      // acción del usuario (los botones parecen no funcionar).
+      untracked(() => this.openWindow());
     }
   });
 
@@ -205,8 +225,6 @@ export class VirtualOfficePopupComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.loadWindowState();
     this.loadProfile();
-    this.loadLocalRanking();
-    this.refreshTodayFlag();
     this.ensureInViewport();
 
     this.subscribeToOffice();
@@ -337,7 +355,6 @@ export class VirtualOfficePopupComponent implements OnInit, OnDestroy {
   }
 
   openRanking(): void {
-    this.refreshTodayFlag();
     this.view.set('ranking');
     this.userMenuOpen.set(false);
   }
@@ -452,6 +469,11 @@ export class VirtualOfficePopupComponent implements OnInit, OnDestroy {
           if (event.bugHuntRanking && event.bugHuntRanking.length) {
             this.applyServerRanking(event.bugHuntRanking);
           }
+          if (event.pixelBoard) {
+            this.pixelBoardWidth.set(event.pixelBoard.width);
+            this.pixelBoardHeight.set(event.pixelBoard.height);
+            this.pixelBoardPixels.set({ ...(event.pixelBoard.pixels || {}) });
+          }
           // Empuja mi hello con la posición inicial.
           this.sendHelloIfConnected();
           break;
@@ -470,6 +492,16 @@ export class VirtualOfficePopupComponent implements OnInit, OnDestroy {
         }
         case 'bug-hunt-ranking': {
           this.applyServerRanking(event.entries);
+          break;
+        }
+        case 'pixel-board-paint': {
+          const key = `${event.x},${event.y}`;
+          this.pixelBoardPixels.update(m => {
+            const next = { ...m };
+            if (event.color) next[key] = event.color;
+            else delete next[key];
+            return next;
+          });
           break;
         }
         case 'error': {
@@ -596,7 +628,14 @@ export class VirtualOfficePopupComponent implements OnInit, OnDestroy {
   // ============================================================
 
   startBugHunt(): void {
-    // Ya no hay límite "una vez por día": puedes intentar mejorar tu marca.
+    if (this.connectionState() !== 'connected') {
+      this.notify.warning('Necesitas estar conectado a la oficina para participar en el ranking.');
+      return;
+    }
+    if (this.hasPlayedToday()) {
+      this.notify.info('Ya has jugado hoy. Vuelve mañana para intentar batir tu marca.');
+      return;
+    }
     const rect = this.officeScene?.nativeElement.getBoundingClientRect();
     const w = rect?.width ?? 520;
     const h = rect?.height ?? 300;
@@ -636,31 +675,17 @@ export class VirtualOfficePopupComponent implements OnInit, OnDestroy {
   private registerBugRun(timeMs: number): void {
     const profile = this.profile();
     if (!profile) return;
-    const today = this.todayIso();
 
-    // Marca informativa "jugué hoy" (útil para UI pero ya no bloquea).
-    try {
-      localStorage.setItem(STORAGE_LAST_PLAYED, today);
-    } catch { /* ignore */ }
-    this.hasPlayedToday.set(true);
-
-    // Ranking local fallback — también dedupe por id + nos quedamos con el mejor.
-    const localEntry: BugHuntEntry = {
-      name: profile.name,
-      avatarId: profile.avatarId,
-      timeMs,
-      date: today,
-      playedAt: new Date().toISOString(),
-    };
-    this.appendLocalRanking(localEntry);
-
-    // Envía al servidor si conectado; si no, queda solo en local.
-    if (this.connectionState() === 'connected') {
-      this.office.sendBugHuntResult(timeMs);
-      this.notify.success(`¡Bug cazado en ${this.formatTime(timeMs)}! Enviado al ranking global.`);
-    } else {
-      this.notify.success(`¡Bug cazado en ${this.formatTime(timeMs)}! (Guardado local)`);
+    if (this.connectionState() !== 'connected') {
+      this.notify.warning('Sin conexión con la oficina: tu marca no se ha podido registrar.');
+      return;
     }
+
+    // El ranking es 100% global: enviamos al servidor. El servidor bloqueará
+    // el registro si ya jugaste hoy y difundirá el ranking actualizado a todos.
+    this.office.sendBugHuntResult(timeMs);
+    this.hasPlayedToday.set(true);
+    this.notify.success(`¡Bug cazado en ${this.formatTime(timeMs)}! Enviado al ranking global.`);
   }
 
   private stopBugTimer(): void {
@@ -682,59 +707,14 @@ export class VirtualOfficePopupComponent implements OnInit, OnDestroy {
       date: e.date,
     }));
     this.ranking.set(rows.sort((a, b) => a.timeMs - b.timeMs).slice(0, 50));
-    this.rankingSource.set('server');
-  }
 
-  private loadLocalRanking(): void {
-    try {
-      const raw = localStorage.getItem(STORAGE_RANKING);
-      if (!raw) return;
-      const parsed = JSON.parse(raw) as BugHuntEntry[];
-      if (!Array.isArray(parsed)) return;
-      const rows = this.mapLocalToRows(parsed);
-      // Sólo aplica si no hay ya un ranking del server.
-      if (this.rankingSource() === 'local') {
-        this.ranking.set(rows);
-      }
-    } catch { /* ignore */ }
-  }
-
-  private appendLocalRanking(entry: BugHuntEntry): void {
-    try {
-      const raw = localStorage.getItem(STORAGE_RANKING);
-      const list: BugHuntEntry[] = raw ? JSON.parse(raw) : [];
-      // Dedupe por (name+avatarId) quedándonos con el mejor tiempo.
-      const key = (e: BugHuntEntry) => `${(e.name || '').toLowerCase()}::${e.avatarId || ''}`;
-      const bestByKey = new Map<string, BugHuntEntry>();
-      for (const e of [...list, entry]) {
-        const k = key(e);
-        const prev = bestByKey.get(k);
-        if (!prev || e.timeMs < prev.timeMs) {
-          bestByKey.set(k, e);
-        }
-      }
-      const next = Array.from(bestByKey.values())
-        .sort((a, b) => a.timeMs - b.timeMs)
-        .slice(0, 50);
-      localStorage.setItem(STORAGE_RANKING, JSON.stringify(next));
-      // Si el ranking mostrado es local, refrescarlo.
-      if (this.rankingSource() === 'local') {
-        this.ranking.set(this.mapLocalToRows(next));
-      }
-    } catch { /* ignore */ }
-  }
-
-  private mapLocalToRows(list: BugHuntEntry[]): RankingRow[] {
-    return list
-      .sort((a, b) => a.timeMs - b.timeMs)
-      .map((e, i) => ({
-        key: `local-${i}-${e.playedAt}`,
-        name: e.name,
-        emoji: this.getAvatar(e.avatarId)?.emoji || '🙂',
-        tone: this.getAvatar(e.avatarId)?.tone || 'sky',
-        timeMs: e.timeMs,
-        date: e.date,
-      }));
+    // Actualiza el flag "ya jugué hoy" en función del ranking global del servidor.
+    const myStableId = this.profile()?.id;
+    const today = this.todayIso();
+    const mine = myStableId
+      ? entries.find(e => e.stableId === myStableId)
+      : undefined;
+    this.hasPlayedToday.set(!!(mine && mine.date === today));
   }
 
   private normalizeTone(tone: string | undefined): string {
@@ -742,14 +722,42 @@ export class VirtualOfficePopupComponent implements OnInit, OnDestroy {
     return tone && valid.has(tone) ? tone : 'sky';
   }
 
-  private refreshTodayFlag(): void {
-    try {
-      const last = localStorage.getItem(STORAGE_LAST_PLAYED);
-      this.hasPlayedToday.set(last === this.todayIso());
-    } catch {
-      this.hasPlayedToday.set(false);
-    }
+  // ============================================================
+  // Pizarra colaborativa de píxeles
+  // ============================================================
+
+  pixelColorAt(x: number, y: number): string | null {
+    return this.pixelBoardPixels()[`${x},${y}`] ?? null;
   }
+
+  pickPixelColor(color: string): void {
+    this.pixelSelectedColor.set(color);
+    this.pixelEraserMode.set(false);
+  }
+
+  toggleEraser(): void {
+    this.pixelEraserMode.update(v => !v);
+  }
+
+  paintPixel(x: number, y: number): void {
+    if (this.connectionState() !== 'connected') {
+      this.notify.warning('Necesitas conexión al servidor para pintar en la pizarra.');
+      return;
+    }
+    const color = this.pixelEraserMode() ? null : this.pixelSelectedColor();
+    const key = `${x},${y}`;
+    // Optimistic update local.
+    this.pixelBoardPixels.update(m => {
+      const next = { ...m };
+      if (color) next[key] = color;
+      else delete next[key];
+      return next;
+    });
+    this.office.sendPixelPaint(x, y, color);
+  }
+
+  trackPixelRow = (_: number, item: { y: number }) => item.y;
+  trackPixelCol = (_: number, item: number) => item;
 
   // ============================================================
   // Helpers

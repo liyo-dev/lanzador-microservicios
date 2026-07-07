@@ -376,6 +376,72 @@ $pot-color-dark: #9a3412;
       box-shadow: 0 6px 14px rgba(15, 23, 42, 0.18);
     }
 
+    // Pizarra colaborativa de píxeles (junto a la ventana)
+    .pixel-board {
+      position: absolute; left: 36%; top: 8%;
+      --pb-cols: 24;
+      --pb-rows: 12;
+      --pb-cell: 11px;
+      padding: 6px;
+      background: linear-gradient(180deg, #0f172a, #1e293b);
+      border: 3px solid #78350f;
+      border-radius: 6px;
+      box-shadow: 0 8px 16px rgba(15, 23, 42, 0.25);
+      display: flex; flex-direction: column; gap: 4px;
+      z-index: 2;
+
+      .pb-grid {
+        display: grid;
+        grid-template-columns: repeat(var(--pb-cols), var(--pb-cell));
+        grid-template-rows: repeat(var(--pb-rows), var(--pb-cell));
+        gap: 1px;
+        padding: 1px;
+        background: rgba(255, 255, 255, 0.08);
+        border-radius: 2px;
+      }
+
+      .pb-cell {
+        all: unset;
+        display: block;
+        width: var(--pb-cell);
+        height: var(--pb-cell);
+        cursor: crosshair;
+        background: transparent;
+        box-sizing: border-box;
+        &:hover { box-shadow: inset 0 0 0 1px #fbbf24; }
+        &:focus-visible { box-shadow: inset 0 0 0 2px #fbbf24; }
+      }
+
+      .pb-palette {
+        display: flex;
+        gap: 3px;
+        justify-content: center;
+        align-items: center;
+        flex-wrap: wrap;
+        padding-top: 2px;
+        border-top: 1px solid rgba(255, 255, 255, 0.15);
+      }
+
+      .pb-swatch {
+        all: unset;
+        width: 14px; height: 14px;
+        border-radius: 3px;
+        cursor: pointer;
+        box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.4);
+        transition: transform 0.1s ease;
+        &:hover { transform: scale(1.15); }
+        &.selected {
+          box-shadow: 0 0 0 2px #fbbf24, inset 0 0 0 1px rgba(0, 0, 0, 0.4);
+          transform: scale(1.15);
+        }
+        &.pb-eraser {
+          background: #fff;
+          display: grid; place-items: center;
+          font-size: 0.75rem;
+        }
+      }
+    }
+
     // Pizarra
     .wall-board {
       position: absolute; right: 20%; top: 18%; width: 20%; min-width: 90px; height: 44%;
@@ -492,14 +558,16 @@ $pot-color-dark: #9a3412;
       border-radius: 50%; filter: blur(3px);
     }
 
-    // Fila pegada a la pared (top ~50%)
-    &.desk-a { left: 4%;   top: 50%; }
-    &.desk-b { left: 26%;  top: 50%; }
-    &.desk-c { left: 54%;  top: 50%; }
-    &.desk-d { left: 76%;  top: 50%; }
-    // Escritorios laterales
-    &.desk-e { left: 4%;   top: 68%; transform: rotate(-6deg); }
-    &.desk-f { left: 82%;  top: 68%; transform: rotate(6deg); }
+    // Fila superior (pegada a la pared, top ~50%)
+    &.desk-a { left: 5%;   top: 50%; }
+    &.desk-b { left: 28%;  top: 50%; }
+    &.desk-c { left: 51%;  top: 50%; }
+    &.desk-d { left: 74%;  top: 50%; }
+    // Fila inferior (separada, sin rotación)
+    &.desk-e { left: 5%;   top: 74%; }
+    &.desk-f { left: 28%;  top: 74%; }
+    &.desk-g { left: 51%;  top: 74%; }
+    &.desk-h { left: 74%;  top: 74%; }
   }
 
   // Mesa de reuniones (ovalada, más grande)
@@ -603,9 +671,8 @@ $pot-color-dark: #9a3412;
       background: rgba(15, 23, 42, 0.22); border-radius: 50%; filter: blur(3px);
     }
 
-    &.p1 { left: 3%;   top: 55%; }
-    &.p2 { left: 93%;  top: 54%; }
-    &.p3 { left: 47%;  top: 60%; z-index: 0; opacity: 0.9; }
+    &.p1 { left: 2%;   top: 86%; }
+    &.p2 { left: 94%;  top: 86%; }
   }
 
   // ------- Cafetera -------

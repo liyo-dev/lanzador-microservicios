@@ -300,9 +300,6 @@
                   </small>
                 </div>
                 <div class="ot-actions">
-                  <button type="button" class="btn-ghost small" (click)="openProfileEditor()">
-                    👤 Perfil
-                  </button>
                   <button type="button" class="btn-ghost small" (click)="openRanking()">
                     🏆 Ranking
                   </button>
@@ -311,9 +308,12 @@
                       type="button"
                       class="btn-primary small"
                       (click)="startBugHunt()"
-                      [title]="hasPlayedToday() ? 'Vuelve a intentarlo para mejorar tu marca' : 'Buscar el bug oculto'"
+                      [disabled]="hasPlayedToday() || connectionState() !== 'connected'"
+                      [title]="connectionState() !== 'connected'
+                        ? 'Necesitas conexión para participar'
+                        : (hasPlayedToday() ? 'Sólo un intento por día' : 'Buscar el bug oculto')"
                     >
-                      🐞 {{ hasPlayedToday() ? 'Mejora tu marca' : 'Cazar el bug' }}
+                      🐞 {{ hasPlayedToday() ? 'Ya jugaste hoy' : 'Cazar el bug' }}
                     </button>
                   } @else if (bugHuntStatus() === 'running') {
                     <span class="bug-timer" aria-live="polite">
@@ -342,7 +342,7 @@
                 <div class="scene-floor" aria-hidden="true"></div>
 
                 <!-- Pared trasera -->
-                <div class="scene-wall" aria-hidden="true">
+                <div class="scene-wall">
                   <div class="wall-window">
                     <div class="ww-sky"></div>
                     <div class="ww-sun"></div>
@@ -351,66 +351,100 @@
                     <div class="ww-frame"></div>
                   </div>
                   <div class="wall-clock">🕒</div>
-                  <div class="wall-board">
-                    <span class="wb-line l1"></span>
-                    <span class="wb-line l2"></span>
-                    <span class="wb-line l3"></span>
-                    <span class="wb-emoji">📊</span>
-                  </div>
-                  <div class="wall-poster p-a">
-                    <span class="wp-line"></span>
-                    <span class="wp-emoji">🚀</span>
-                  </div>
-                  <div class="wall-poster p-b">
-                    <span class="wp-emoji">🎯</span>
+
+                  <!-- Pizarra colaborativa de píxeles -->
+                  <div
+                    class="pixel-board"
+                    role="group"
+                    aria-label="Pizarra colaborativa de píxeles"
+                    [style.--pb-cols]="pixelBoardWidth()"
+                    [style.--pb-rows]="pixelBoardHeight()"
+                  >
+                    <div class="pb-grid">
+                      @for (row of pixelRows(); track trackPixelRow($index, row)) {
+                        @for (x of row.cols; track trackPixelCol($index, x)) {
+                          <button
+                            type="button"
+                            class="pb-cell"
+                            [style.background]="pixelColorAt(x, row.y) || 'transparent'"
+                            (click)="paintPixel(x, row.y)"
+                            [attr.aria-label]="'Píxel ' + x + ',' + row.y"
+                          ></button>
+                        }
+                      }
+                    </div>
+                    <div class="pb-palette">
+                      @for (c of pixelPalette; track c) {
+                        <button
+                          type="button"
+                          class="pb-swatch"
+                          [class.selected]="!pixelEraserMode() && pixelSelectedColor() === c"
+                          [style.background]="c"
+                          (click)="pickPixelColor(c)"
+                          [attr.aria-label]="'Color ' + c"
+                        ></button>
+                      }
+                      <button
+                        type="button"
+                        class="pb-swatch pb-eraser"
+                        [class.selected]="pixelEraserMode()"
+                        (click)="toggleEraser()"
+                        aria-label="Goma de borrar"
+                        title="Goma de borrar"
+                      >🧽</button>
+                    </div>
                   </div>
                 </div>
 
                 <!-- Alfombra central -->
                 <div class="furniture rug" aria-hidden="true"></div>
 
-                <!-- Fila de escritorios pegados a la pared -->
+                <!-- Fila superior de escritorios (pegada a la pared) -->
                 <div class="furniture desk desk-a" aria-hidden="true">
                   <div class="d-shadow"></div>
                   <div class="d-top"></div>
-                  <div class="d-monitor">💻</div>
+                  <div class="d-monitor"></div>
                 </div>
                 <div class="furniture desk desk-b" aria-hidden="true">
                   <div class="d-shadow"></div>
                   <div class="d-top"></div>
-                  <div class="d-monitor">🖥️</div>
+                  <div class="d-monitor"></div>
                   <div class="d-mug">☕</div>
                 </div>
                 <div class="furniture desk desk-c" aria-hidden="true">
                   <div class="d-shadow"></div>
                   <div class="d-top"></div>
-                  <div class="d-monitor">⌨️</div>
+                  <div class="d-monitor"></div>
                 </div>
                 <div class="furniture desk desk-d" aria-hidden="true">
                   <div class="d-shadow"></div>
                   <div class="d-top"></div>
-                  <div class="d-monitor">🖥️</div>
+                  <div class="d-monitor"></div>
                   <div class="d-mug">🥤</div>
                 </div>
 
-                <!-- Escritorios laterales -->
+                <!-- Fila inferior de escritorios -->
                 <div class="furniture desk desk-e" aria-hidden="true">
                   <div class="d-shadow"></div>
                   <div class="d-top"></div>
-                  <div class="d-monitor">💻</div>
+                  <div class="d-monitor"></div>
                   <div class="d-mug">📱</div>
                 </div>
                 <div class="furniture desk desk-f" aria-hidden="true">
                   <div class="d-shadow"></div>
                   <div class="d-top"></div>
-                  <div class="d-monitor">🖥️</div>
+                  <div class="d-monitor"></div>
                 </div>
-
-                <!-- Mesa de reuniones -->
-                <div class="furniture meeting" aria-hidden="true">
-                  <div class="m-shadow"></div>
-                  <div class="m-top"></div>
-                  <div class="m-items"><span>📓</span><span>✏️</span><span>💡</span><span>📎</span></div>
+                <div class="furniture desk desk-g" aria-hidden="true">
+                  <div class="d-shadow"></div>
+                  <div class="d-top"></div>
+                  <div class="d-monitor"></div>
+                  <div class="d-mug">☕</div>
+                </div>
+                <div class="furniture desk desk-h" aria-hidden="true">
+                  <div class="d-shadow"></div>
+                  <div class="d-top"></div>
+                  <div class="d-monitor"></div>
                 </div>
 
                 <!-- Plantas en maceta (CSS puro) -->
@@ -439,51 +473,6 @@
                     <div class="p-pot-rim"></div>
                     <div class="p-pot-body"></div>
                   </div>
-                  <div class="p-shadow"></div>
-                </div>
-
-                <div class="furniture plant p3" aria-hidden="true">
-                  <div class="p-leaves leaves-cactus">
-                    <span class="leaf cx1"></span>
-                    <span class="leaf cx2"></span>
-                    <span class="leaf cx3"></span>
-                  </div>
-                  <div class="p-pot small">
-                    <div class="p-pot-rim"></div>
-                    <div class="p-pot-body"></div>
-                  </div>
-                  <div class="p-shadow"></div>
-                </div>
-
-                <!-- Cafetera -->
-                <div class="furniture coffee-machine" aria-hidden="true">
-                  <div class="cm-body">
-                    <span class="cm-btn"></span>
-                    <span class="cm-cup"></span>
-                  </div>
-                  <div class="cm-shadow"></div>
-                </div>
-
-                <!-- Estantería con libros -->
-                <div class="furniture bookshelf" aria-hidden="true">
-                  <div class="bs-shelf">
-                    <span class="bs-book b1"></span>
-                    <span class="bs-book b2"></span>
-                    <span class="bs-book b3"></span>
-                    <span class="bs-book b4"></span>
-                  </div>
-                  <div class="bs-shelf">
-                    <span class="bs-book b5"></span>
-                    <span class="bs-book b6"></span>
-                    <span class="bs-book b7"></span>
-                  </div>
-                  <div class="p-shadow"></div>
-                </div>
-
-                <!-- Impresora -->
-                <div class="furniture printer" aria-hidden="true">
-                  <div class="pr-body"></div>
-                  <div class="pr-paper"></div>
                   <div class="p-shadow"></div>
                 </div>
 
@@ -574,15 +563,8 @@
           @case ('ranking') {
             <section class="ranking-view">
               <div class="rv-header">
-                <h3>🏆 Ranking · Caza el bug</h3>
+                <h3>🏆 Ranking global · Caza el bug</h3>
                 <div class="rv-actions">
-                  <span class="rv-source" [class.remote]="rankingSource() === 'server'">
-                    @if (rankingSource() === 'server') {
-                      🌐 Global
-                    } @else {
-                      💾 Local
-                    }
-                  </span>
                   <button type="button" class="btn-ghost small" (click)="openOffice()">
                     ← Volver a la oficina
                   </button>

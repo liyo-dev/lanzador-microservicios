@@ -14,10 +14,18 @@ const BUG_HUNT_RANKING_LIMIT = Number(process.env.VIRTUAL_OFFICE_BUG_RANKING || 
 const BUG_HUNT_STORE = process.env.VIRTUAL_OFFICE_BUG_STORE ||
   path.join(__dirname, '.bug-hunt-ranking.json');
 
+// Pizarra colaborativa de píxeles.
+const PIXEL_BOARD_WIDTH = Number(process.env.VIRTUAL_OFFICE_PIXEL_W || 24);
+const PIXEL_BOARD_HEIGHT = Number(process.env.VIRTUAL_OFFICE_PIXEL_H || 12);
+const PIXEL_BOARD_STORE = process.env.VIRTUAL_OFFICE_PIXEL_STORE ||
+  path.join(__dirname, '.pixel-board.json');
+
 const clients = new Map(); // id -> Client
 const players = new Map(); // id -> Player state
 const generalMessages = [];
 let bugHuntRanking = normalizeRanking(loadBugHuntRanking());
+let pixelBoardPixels = loadPixelBoard(); // { "x,y": "#rrggbb" }
+let pixelSaveTimer = null;
 
 const server = http.createServer((req, res) => {
   res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
@@ -60,6 +68,11 @@ server.on('upgrade', (req, socket, head) => {
     generalMessages,
     space: { width: OFFICE_WIDTH, height: OFFICE_HEIGHT },
     bugHuntRanking,
+    pixelBoard: {
+      width: PIXEL_BOARD_WIDTH,
+      height: PIXEL_BOARD_HEIGHT,
+      pixels: pixelBoardPixels,
+    },
   });
 
   if (head && head.length) {
@@ -157,6 +170,9 @@ function handleClientMessage(client, raw) {
       break;
     case 'bug-hunt-result':
       handleBugHuntResult(client, data);
+      break;
+    case 'pixel-paint':
+      handlePixelPaint(client, data);
       break;
     default:
       send(client, { type: 'error', message: 'Acción no soportada.' });
@@ -396,31 +412,35 @@ function handleBugHuntResult(client, data) {
 
   const stableId = client.stableId || client.id;
   const legacyKey = bugHuntKey({ name: client.player.name, avatarId: client.player.avatar?.id });
+  const today = todayIsoDate();
   const roundedTime = Math.round(timeMs);
 
-  // Busca una entrada existente para este jugador: primero por stableId,
-  // y como fallback por la combinación nombre+avatar (entradas antiguas).
+  // Busca la entrada de este jugador (por identidad estable, o por nombre+avatar
+  // como fallback para entradas antiguas).
   const existing = bugHuntRanking.find(e => entryStableId(e) === stableId)
     || bugHuntRanking.find(e => entryStableId(e) === legacyKey);
 
-  if (existing) {
-    if (roundedTime >= existing.timeMs) {
-      send(client, {
-        type: 'error',
-        message: `No has mejorado tu marca (mejor: ${(existing.timeMs / 1000).toFixed(2)} s).`,
-      });
-      return;
-    }
+  // Bloqueo: sólo un intento por día por jugador.
+  if (existing && existing.date === today) {
+    send(client, { type: 'error', message: 'Ya has registrado tu marca de hoy.' });
+    return;
+  }
 
+  if (existing) {
+    // Otro día: marcamos participación de hoy y sólo actualizamos el tiempo
+    // si mejora la mejor marca histórica del jugador.
+    const improved = roundedTime < existing.timeMs;
     existing.stableId = stableId;
     existing.playerId = client.id;
     existing.name = client.player.name;
     existing.avatarId = client.player.avatar?.id || 'pilot';
     existing.avatarEmoji = client.player.avatar?.emoji || '🐞';
     existing.avatarTone = client.player.avatar?.tone || 'sky';
-    existing.timeMs = roundedTime;
-    existing.date = todayIsoDate();
+    existing.date = today;
     existing.playedAt = new Date().toISOString();
+    if (improved) {
+      existing.timeMs = roundedTime;
+    }
 
     bugHuntRanking = [...bugHuntRanking]
       .sort((a, b) => a.timeMs - b.timeMs)
@@ -428,7 +448,10 @@ function handleBugHuntResult(client, data) {
     saveBugHuntRanking();
 
     broadcast({ type: 'bug-hunt-ranking', entries: bugHuntRanking });
-    pushSystemMessage(`🐞 ${client.player.name} ha mejorado su marca a ${(roundedTime / 1000).toFixed(2)} s.`);
+    const msg = improved
+      ? `🐞 ${client.player.name} ha mejorado su marca a ${(roundedTime / 1000).toFixed(2)} s.`
+      : `🐞 ${client.player.name} ha cazado el bug en ${(roundedTime / 1000).toFixed(2)} s (mejor: ${(existing.timeMs / 1000).toFixed(2)} s).`;
+    pushSystemMessage(msg);
     return;
   }
 
@@ -441,7 +464,7 @@ function handleBugHuntResult(client, data) {
     avatarEmoji: client.player.avatar?.emoji || '🐞',
     avatarTone: client.player.avatar?.tone || 'sky',
     timeMs: roundedTime,
-    date: todayIsoDate(),
+    date: today,
     playedAt: new Date().toISOString(),
   };
 
@@ -452,6 +475,79 @@ function handleBugHuntResult(client, data) {
 
   broadcast({ type: 'bug-hunt-ranking', entries: bugHuntRanking });
   pushSystemMessage(`🐞 ${client.player.name} ha cazado el bug en ${(entry.timeMs / 1000).toFixed(2)} s.`);
+}
+
+// ============================================================
+// Pizarra colaborativa de píxeles
+// ============================================================
+
+function handlePixelPaint(client, data) {
+  if (!client.player) return;
+
+  const x = Number(data?.x);
+  const y = Number(data?.y);
+  if (!Number.isInteger(x) || x < 0 || x >= PIXEL_BOARD_WIDTH) return;
+  if (!Number.isInteger(y) || y < 0 || y >= PIXEL_BOARD_HEIGHT) return;
+
+  const color = sanitizeHexColor(data?.color);
+  const key = `${x},${y}`;
+
+  if (color) {
+    pixelBoardPixels[key] = color;
+  } else {
+    // color null/inválido -> goma de borrar.
+    delete pixelBoardPixels[key];
+  }
+
+  schedulePixelSave();
+
+  broadcast({
+    type: 'pixel-board-paint',
+    x,
+    y,
+    color: color || null,
+    by: client.player.name,
+  });
+}
+
+function sanitizeHexColor(value) {
+  if (typeof value !== 'string') return null;
+  const v = value.trim().toLowerCase();
+  return /^#[0-9a-f]{6}$/.test(v) ? v : null;
+}
+
+function loadPixelBoard() {
+  try {
+    if (!fs.existsSync(PIXEL_BOARD_STORE)) return {};
+    const raw = fs.readFileSync(PIXEL_BOARD_STORE, 'utf8');
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return {};
+    const out = {};
+    for (const [key, val] of Object.entries(parsed)) {
+      if (!/^\d+,\d+$/.test(key)) continue;
+      const [x, y] = key.split(',').map(Number);
+      if (x < 0 || x >= PIXEL_BOARD_WIDTH) continue;
+      if (y < 0 || y >= PIXEL_BOARD_HEIGHT) continue;
+      const color = sanitizeHexColor(val);
+      if (color) out[key] = color;
+    }
+    return out;
+  } catch (err) {
+    console.warn('No se pudo cargar la pizarra de píxeles:', err?.message || err);
+    return {};
+  }
+}
+
+function schedulePixelSave() {
+  if (pixelSaveTimer) return;
+  pixelSaveTimer = setTimeout(() => {
+    pixelSaveTimer = null;
+    try {
+      fs.writeFileSync(PIXEL_BOARD_STORE, JSON.stringify(pixelBoardPixels), 'utf8');
+    } catch (err) {
+      console.warn('No se pudo guardar la pizarra de píxeles:', err?.message || err);
+    }
+  }, 500);
 }
 
 /** Identidad estable de una entrada del ranking (con fallback para entradas antiguas). */

@@ -104,8 +104,22 @@ export interface BugHuntRankingEntry {
   playedAt: string;
 }
 
+export interface PixelBoardState {
+  width: number;
+  height: number;
+  pixels: Record<string, string>;
+}
+
+export interface PixelBoardPaintEvent {
+  x: number;
+  y: number;
+  /** null = goma de borrar. */
+  color: string | null;
+  by?: string;
+}
+
 export type ServerEvent =
-  | { type: 'welcome'; id: string; players: PlayerPayload[]; generalMessages: GeneralMessagePayload[]; space: SpaceDescriptor; bugHuntRanking?: BugHuntRankingEntry[] }
+  | { type: 'welcome'; id: string; players: PlayerPayload[]; generalMessages: GeneralMessagePayload[]; space: SpaceDescriptor; bugHuntRanking?: BugHuntRankingEntry[]; pixelBoard?: PixelBoardState }
   | { type: 'player-joined'; player: PlayerPayload }
   | { type: 'player-updated'; player: PlayerPayload }
   | { type: 'player-left'; id: string }
@@ -119,6 +133,7 @@ export type ServerEvent =
   | { type: 'mini-game-cancel'; payload: MiniGameCancelPayload }
   | { type: 'mini-game-move'; payload: MiniGameMovePayload }
   | { type: 'bug-hunt-ranking'; entries: BugHuntRankingEntry[] }
+  | { type: 'pixel-board-paint'; x: number; y: number; color: string | null; by?: string }
   | { type: 'error'; message: string }
   | { type: 'disconnected' };
 
@@ -250,6 +265,10 @@ export class VirtualOfficeService {
 
   sendBugHuntResult(timeMs: number): void {
     this.send({ type: 'bug-hunt-result', timeMs });
+  }
+
+  sendPixelPaint(x: number, y: number, color: string | null): void {
+    this.send({ type: 'pixel-paint', x, y, color });
   }
 
   disconnect(): void {
