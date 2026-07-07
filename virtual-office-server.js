@@ -30,14 +30,30 @@ let pixelSaveTimer = null;
 // ============================================================
 // Estado del mini-juego multijugador "Caza al Dinosaurio"
 // ============================================================
-// Sólo hay una partida activa a la vez (lobby o ronda en curso).
-// Estructura: { id, phase: 'lobby'|'round'|'done', creatorId, creatorStableId,
-//   creatorName, creatorAvatar, participantIds: Set<clientId>,
-//   endsAt: number (ms epoch, sólo en fase lobby),
-//   lobbyTimer, x, y, startedAt, winnerId, winnerName, timeMs, endTimer }
+// Sólo hay una partida activa a la vez. Es una serie best-of-N rondas:
+//   phase: 'lobby'        → esperando jugadores (temporizador o "Comenzar ya")
+//   phase: 'round'        → dinosaurio visible, participantes compiten
+//   phase: 'inter-round'  → pausa breve tras una ronda; luego arranca la siguiente
+//   phase: 'done'         → serie finalizada, se muestra ganador global
+//
+// Estructura del objeto dinoGame:
+//   { id, phase, creatorId, creatorStableId, creatorName, creatorAvatar,
+//     participantIds: Set<clientId>,
+//     endsAt: number,              // fase lobby: ms epoch fin cuenta atrás
+//     totalRounds: number,
+//     currentRound: number,        // 1-based
+//     x, y, startedAt,             // fase round
+//     lastRoundWinnerId, lastRoundWinnerName, lastRoundTimeMs,
+//     nextRoundStartsAt,           // fase inter-round: ms epoch
+//     scoreboard: Map<clientId, { name, avatar, wins }>,
+//     roundHistory: Array<{ round, winnerId, winnerName, timeMs }>,
+//     overallWinnerId, overallWinnerName,   // fase done
+//     lobbyTimer, roundTimer, endTimer }
 let dinoGame = null;
 const DINO_LOBBY_MS = 30_000;
-const DINO_RESULT_LINGER_MS = 6_000;
+const DINO_INTER_ROUND_MS = 3_500;
+const DINO_TOTAL_ROUNDS = Number(process.env.VIRTUAL_OFFICE_DINO_ROUNDS || 3);
+const DINO_RESULT_LINGER_MS = 8_000;
 const DINO_PADDING = 80;
 
 const server = http.createServer((req, res) => {
@@ -677,6 +693,10 @@ function serializeDinoGame() {
     creatorName: dinoGame.creatorName,
     creatorAvatar: dinoGame.creatorAvatar,
     participantIds: Array.from(dinoGame.participantIds),
+    totalRounds: dinoGame.totalRounds,
+    currentRound: dinoGame.currentRound,
+    scoreboard: serializeScoreboard(dinoGame.scoreboard),
+    roundHistory: dinoGame.roundHistory.slice(),
   };
   if (dinoGame.phase === 'lobby') {
     base.endsAt = dinoGame.endsAt;
@@ -686,14 +706,50 @@ function serializeDinoGame() {
     base.y = dinoGame.y;
     base.startedAt = dinoGame.startedAt;
   }
-  if (dinoGame.phase === 'done') {
-    base.winnerId = dinoGame.winnerId;
-    base.winnerName = dinoGame.winnerName;
-    base.timeMs = dinoGame.timeMs;
+  if (dinoGame.phase === 'inter-round') {
     base.x = dinoGame.x;
     base.y = dinoGame.y;
+    base.lastRoundWinnerId = dinoGame.lastRoundWinnerId;
+    base.lastRoundWinnerName = dinoGame.lastRoundWinnerName;
+    base.lastRoundTimeMs = dinoGame.lastRoundTimeMs;
+    base.nextRoundStartsAt = dinoGame.nextRoundStartsAt;
+  }
+  if (dinoGame.phase === 'done') {
+    base.x = dinoGame.x;
+    base.y = dinoGame.y;
+    base.overallWinnerId = dinoGame.overallWinnerId;
+    base.overallWinnerName = dinoGame.overallWinnerName;
+    base.lastRoundWinnerId = dinoGame.lastRoundWinnerId;
+    base.lastRoundWinnerName = dinoGame.lastRoundWinnerName;
+    base.lastRoundTimeMs = dinoGame.lastRoundTimeMs;
   }
   return base;
+}
+
+function serializeScoreboard(scoreboardMap) {
+  if (!scoreboardMap) return [];
+  return Array.from(scoreboardMap.entries())
+    .map(([id, info]) => ({
+      id,
+      name: info.name,
+      avatar: info.avatar,
+      wins: info.wins,
+    }))
+    .sort((a, b) => b.wins - a.wins || a.name.localeCompare(b.name));
+}
+
+function ensureScoreboardEntry(clientId) {
+  if (!dinoGame) return null;
+  const existing = dinoGame.scoreboard.get(clientId);
+  if (existing) return existing;
+  const player = players.get(clientId) || (clients.get(clientId) || {}).player;
+  const entry = {
+    name: player?.name || 'Jugador',
+    avatar: player?.avatar || sanitizeAvatar(null),
+    wins: 0,
+  };
+  dinoGame.scoreboard.set(clientId, entry);
+  return entry;
 }
 
 function clearDinoTimers() {
@@ -701,6 +757,10 @@ function clearDinoTimers() {
   if (dinoGame.lobbyTimer) {
     clearTimeout(dinoGame.lobbyTimer);
     dinoGame.lobbyTimer = null;
+  }
+  if (dinoGame.roundTimer) {
+    clearTimeout(dinoGame.roundTimer);
+    dinoGame.roundTimer = null;
   }
   if (dinoGame.endTimer) {
     clearTimeout(dinoGame.endTimer);
@@ -713,7 +773,7 @@ function resetDinoGame() {
   dinoGame = null;
 }
 
-function handleDinoCreate(client) {
+function handleDinoCreate(client, data) {
   if (!client.player) {
     send(client, { type: 'error', message: 'Necesitas un perfil para crear la partida.' });
     return;
@@ -722,6 +782,13 @@ function handleDinoCreate(client) {
     send(client, { type: 'error', message: 'Ya hay una partida activa. Únete o espera al resultado.' });
     return;
   }
+
+  // Permite al creador elegir número de rondas (impar entre 1 y 9). Si no
+  // se envía, usamos el valor por defecto de configuración.
+  const requested = Number(data?.rounds);
+  const totalRounds = Number.isInteger(requested) && requested >= 1 && requested <= 9
+    ? requested
+    : DINO_TOTAL_ROUNDS;
 
   const id = crypto.randomUUID();
   const participantIds = new Set([client.id]);
@@ -736,21 +803,33 @@ function handleDinoCreate(client) {
     creatorAvatar: client.player.avatar,
     participantIds,
     endsAt,
-    lobbyTimer: setTimeout(() => startDinoRound(id), DINO_LOBBY_MS),
+    totalRounds,
+    currentRound: 0,
     x: 0,
     y: 0,
     startedAt: 0,
-    winnerId: null,
-    winnerName: null,
-    timeMs: 0,
+    lastRoundWinnerId: null,
+    lastRoundWinnerName: null,
+    lastRoundTimeMs: 0,
+    nextRoundStartsAt: 0,
+    scoreboard: new Map(),
+    roundHistory: [],
+    overallWinnerId: null,
+    overallWinnerName: null,
+    lobbyTimer: setTimeout(() => startDinoRound(id), DINO_LOBBY_MS),
+    roundTimer: null,
     endTimer: null,
   };
+
+  ensureScoreboardEntry(client.id);
 
   broadcast({
     type: 'dino-lobby-open',
     game: serializeDinoGame(),
   });
-  pushSystemMessage(`🦕 ${client.player.name} ha creado una partida de Caza al Dinosaurio.`);
+  pushSystemMessage(
+    `🦕 ${client.player.name} ha creado una partida a ${totalRounds} rondas de Caza al Dinosaurio.`,
+  );
 }
 
 function handleDinoJoin(client) {
@@ -762,6 +841,7 @@ function handleDinoJoin(client) {
   if (dinoGame.participantIds.has(client.id)) return;
 
   dinoGame.participantIds.add(client.id);
+  ensureScoreboardEntry(client.id);
   broadcast({
     type: 'dino-lobby-update',
     game: serializeDinoGame(),
@@ -789,48 +869,72 @@ function handleDinoCatch(client, data) {
     send(client, { type: 'error', message: 'Eres espectador en esta partida.' });
     return;
   }
-  if (dinoGame.winnerId) return; // ya capturado
+  if (dinoGame.lastRoundWinnerId && dinoGame.phase !== 'round') return;
 
-  // Validación mínima: si el cliente envía coordenadas, comprobar que están
-  // razonablemente cerca de las del servidor (evitar clicks automáticos triviales).
   const rawId = typeof data?.gameId === 'string' ? data.gameId : null;
   if (rawId && rawId !== dinoGame.id) return;
 
   const now = Date.now();
-  dinoGame.phase = 'done';
-  dinoGame.winnerId = client.id;
-  dinoGame.winnerName = client.player?.name || 'Jugador';
-  dinoGame.timeMs = Math.max(0, now - dinoGame.startedAt);
+  const timeMs = Math.max(0, now - dinoGame.startedAt);
+  const winnerName = client.player?.name || 'Jugador';
+
+  // Guarda el ganador de esta ronda y actualiza el marcador.
+  dinoGame.lastRoundWinnerId = client.id;
+  dinoGame.lastRoundWinnerName = winnerName;
+  dinoGame.lastRoundTimeMs = timeMs;
+  dinoGame.roundHistory.push({
+    round: dinoGame.currentRound,
+    winnerId: client.id,
+    winnerName,
+    timeMs,
+  });
+  const scoreEntry = ensureScoreboardEntry(client.id);
+  if (scoreEntry) scoreEntry.wins += 1;
+
   clearDinoTimers();
 
-  broadcast({
-    type: 'dino-round-end',
-    game: serializeDinoGame(),
-  });
-  pushSystemMessage(
-    `🏆 ${dinoGame.winnerName} atrapó al dinosaurio en ${(dinoGame.timeMs / 1000).toFixed(2)} s.`,
-  );
+  const isLastRound = dinoGame.currentRound >= dinoGame.totalRounds;
+  if (isLastRound) {
+    finishDinoGame();
+  } else {
+    // Fase intermedia: se muestra el ganador de la ronda y arranca la siguiente.
+    dinoGame.phase = 'inter-round';
+    dinoGame.nextRoundStartsAt = now + DINO_INTER_ROUND_MS;
 
-  const finishedGameId = dinoGame.id;
-  dinoGame.endTimer = setTimeout(() => {
-    // Sólo limpiar si sigue siendo la misma partida.
-    if (dinoGame && dinoGame.id === finishedGameId) {
-      resetDinoGame();
-      broadcast({ type: 'dino-cleared' });
-    }
-  }, DINO_RESULT_LINGER_MS);
+    broadcast({
+      type: 'dino-round-end',
+      game: serializeDinoGame(),
+    });
+    pushSystemMessage(
+      `🎯 Ronda ${dinoGame.currentRound}/${dinoGame.totalRounds}: ` +
+      `${winnerName} atrapó al dinosaurio en ${(timeMs / 1000).toFixed(2)} s.`,
+    );
+
+    const gameId = dinoGame.id;
+    dinoGame.roundTimer = setTimeout(() => startDinoRound(gameId), DINO_INTER_ROUND_MS);
+  }
 }
 
 function startDinoRound(gameId) {
-  if (!dinoGame || dinoGame.id !== gameId || dinoGame.phase !== 'lobby') return;
+  if (!dinoGame || dinoGame.id !== gameId) return;
+  if (dinoGame.phase !== 'lobby' && dinoGame.phase !== 'inter-round') return;
 
-  // Si el creador se quedó solo, cancelamos.
-  if (dinoGame.participantIds.size === 0) {
+  // Si el creador se quedó solo antes de empezar, cancelamos.
+  if (dinoGame.phase === 'lobby' && dinoGame.participantIds.size === 0) {
     cancelDinoGame('Nadie se unió a la partida.');
+    return;
+  }
+  if (dinoGame.participantIds.size === 0) {
+    cancelDinoGame('Todos los participantes se han desconectado.');
     return;
   }
 
   clearDinoTimers();
+
+  // Asegura que el marcador tiene entrada para cada participante actual
+  // (por si alguno se unió tras el lobby-open).
+  for (const pid of dinoGame.participantIds) ensureScoreboardEntry(pid);
+
   const minX = DINO_PADDING;
   const maxX = OFFICE_WIDTH - DINO_PADDING;
   const minY = DINO_PADDING;
@@ -839,11 +943,48 @@ function startDinoRound(gameId) {
   dinoGame.y = Math.round(minY + Math.random() * (maxY - minY));
   dinoGame.startedAt = Date.now();
   dinoGame.phase = 'round';
+  dinoGame.currentRound += 1;
+  dinoGame.lastRoundWinnerId = null;
+  dinoGame.lastRoundWinnerName = null;
+  dinoGame.lastRoundTimeMs = 0;
+  dinoGame.nextRoundStartsAt = 0;
 
   broadcast({
     type: 'dino-round-start',
     game: serializeDinoGame(),
   });
+}
+
+function finishDinoGame() {
+  if (!dinoGame) return;
+  clearDinoTimers();
+  dinoGame.phase = 'done';
+
+  // Ganador global: mayor número de victorias. Empate → primer alfabético.
+  const board = serializeScoreboard(dinoGame.scoreboard);
+  const overall = board[0];
+  dinoGame.overallWinnerId = overall?.id || null;
+  dinoGame.overallWinnerName = overall?.name || null;
+
+  broadcast({
+    type: 'dino-round-end',
+    game: serializeDinoGame(),
+  });
+
+  const summary = board.length
+    ? board.slice(0, 3).map(e => `${e.name} (${e.wins})`).join(', ')
+    : 'sin ganadores';
+  pushSystemMessage(
+    `🏆 Fin de la partida. Ganador: ${dinoGame.overallWinnerName || '—'}. Marcador: ${summary}.`,
+  );
+
+  const finishedGameId = dinoGame.id;
+  dinoGame.endTimer = setTimeout(() => {
+    if (dinoGame && dinoGame.id === finishedGameId) {
+      resetDinoGame();
+      broadcast({ type: 'dino-cleared' });
+    }
+  }, DINO_RESULT_LINGER_MS);
 }
 
 function cancelDinoGame(reason) {
@@ -865,7 +1006,7 @@ function handleDinoClientGone(clientId) {
   if (wasParticipant && dinoGame.phase === 'lobby') {
     broadcast({ type: 'dino-lobby-update', game: serializeDinoGame() });
   }
-  if (wasParticipant && dinoGame.phase === 'round' && dinoGame.participantIds.size === 0) {
+  if (wasParticipant && dinoGame.phase !== 'lobby' && dinoGame.participantIds.size === 0) {
     cancelDinoGame('Todos los participantes se han desconectado.');
   }
 }

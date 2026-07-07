@@ -121,7 +121,23 @@ export interface PixelBoardPaintEvent {
 // ============================================================
 // Mini-juego multijugador "Caza al Dinosaurio"
 // ============================================================
-export type DinoGamePhase = 'lobby' | 'round' | 'done';
+export type DinoGamePhase = 'lobby' | 'round' | 'inter-round' | 'done';
+
+export interface DinoScoreboardEntry {
+  /** Id de conexión del jugador. */
+  id: string;
+  name: string;
+  avatar: AvatarDescriptor;
+  /** Número de rondas ganadas hasta el momento. */
+  wins: number;
+}
+
+export interface DinoRoundHistoryEntry {
+  round: number;
+  winnerId: string;
+  winnerName: string;
+  timeMs: number;
+}
 
 export interface DinoGameState {
   id: string;
@@ -131,15 +147,29 @@ export interface DinoGameState {
   creatorAvatar: AvatarDescriptor;
   /** IDs de conexión de los jugadores que participan. */
   participantIds: string[];
+  /** Total de rondas de la serie (best-of). */
+  totalRounds: number;
+  /** Ronda en curso (1-based). Es 0 en la fase `lobby`. */
+  currentRound: number;
+  /** Marcador acumulado ordenado por victorias descendentes. */
+  scoreboard: DinoScoreboardEntry[];
+  /** Historial de ganadores de cada ronda cerrada. */
+  roundHistory: DinoRoundHistoryEntry[];
   /** Fin del lobby en ms epoch (fase `lobby`). */
   endsAt?: number;
-  /** Coordenadas del dinosaurio en el mundo (fases `round` y `done`). */
+  /** Coordenadas del dinosaurio en el mundo (fases `round`, `inter-round`, `done`). */
   x?: number;
   y?: number;
   startedAt?: number;
-  winnerId?: string;
-  winnerName?: string;
-  timeMs?: number;
+  /** Datos de la ronda recién cerrada (fases `inter-round` y `done`). */
+  lastRoundWinnerId?: string;
+  lastRoundWinnerName?: string;
+  lastRoundTimeMs?: number;
+  /** ms epoch de arranque de la siguiente ronda (fase `inter-round`). */
+  nextRoundStartsAt?: number;
+  /** Ganador global de la serie (fase `done`). */
+  overallWinnerId?: string;
+  overallWinnerName?: string;
 }
 
 export type ServerEvent =
@@ -303,8 +333,8 @@ export class VirtualOfficeService {
 
   // ---------------- Mini-juego "Caza al Dinosaurio" ----------------
 
-  sendDinoCreate(): void {
-    this.send({ type: 'dino-create' });
+  sendDinoCreate(rounds?: number): void {
+    this.send({ type: 'dino-create', rounds });
   }
 
   sendDinoJoin(gameId: string): void {

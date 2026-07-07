@@ -188,13 +188,19 @@ export class VirtualOfficePopupComponent implements OnInit, OnDestroy {
   readonly dinoGame = signal<DinoGameState | null>(null);
   /** Segundos restantes en el lobby (calculados localmente a partir de `endsAt`). */
   readonly dinoLobbySeconds = signal(0);
+  /** Segundos restantes para la siguiente ronda (fase `inter-round`). */
+  readonly dinoInterRoundSeconds = signal(0);
+  /** Nº de rondas seleccionado al crear la partida (impar entre 1 y 9). */
+  readonly dinoRoundsChoice = signal(3);
   private dinoTickTimer: any = null;
 
   /** True si el juego está en fase lobby. */
   readonly dinoLobbyActive = computed(() => this.dinoGame()?.phase === 'lobby');
   /** True si estamos en la fase de captura con dino visible. */
   readonly dinoRoundActive = computed(() => this.dinoGame()?.phase === 'round');
-  /** True si el juego terminó y aún se muestra el resultado. */
+  /** True si hay pausa entre rondas (mostrando resultado de la anterior). */
+  readonly dinoInterRoundActive = computed(() => this.dinoGame()?.phase === 'inter-round');
+  /** True si la serie terminó y aún se muestra el resultado global. */
   readonly dinoRoundDone = computed(() => this.dinoGame()?.phase === 'done');
   /** True si el usuario local se unió a la partida (participante). */
   readonly dinoIsParticipant = computed(() => {
@@ -208,8 +214,7 @@ export class VirtualOfficePopupComponent implements OnInit, OnDestroy {
     const me = this.myId();
     return !!(g && me && g.creatorId === me);
   });
-  /** True si la ventana emergente actual pertenece al usuario que la miró
-   *  como espectador — es decir, hay dino visible pero no soy participante. */
+  /** True si hay una ronda activa pero no soy participante (modo espectador). */
   readonly dinoIsSpectator = computed(
     () => this.dinoRoundActive() && !this.dinoIsParticipant(),
   );
@@ -563,22 +568,41 @@ export class VirtualOfficePopupComponent implements OnInit, OnDestroy {
           break;
         }
         case 'dino-round-start': {
+          const prevRound = this.dinoGame()?.currentRound ?? 0;
           this.applyDinoGame(event.game);
+          const g = event.game;
+          const isNewRound = g.currentRound > prevRound;
+          const label = `Ronda ${g.currentRound}/${g.totalRounds}`;
           if (this.dinoIsParticipant()) {
-            this.notify.info('🦕 ¡La partida ha comenzado! Atrapa al dinosaurio.');
+            this.notify.info(
+              isNewRound && g.currentRound === 1
+                ? `🦕 ¡Empieza la partida! ${label}. Atrapa al dinosaurio.`
+                : `🎯 ${label}. ¡Atrápalo!`,
+            );
           } else {
-            this.notify.info('🦕 Partida en curso (modo espectador).');
+            this.notify.info(`👀 ${label} (modo espectador).`);
           }
           break;
         }
         case 'dino-round-end': {
           this.applyDinoGame(event.game);
           const g = event.game;
-          const time = g.timeMs ? `${((g.timeMs || 0) / 1000).toFixed(2)}s` : '';
-          if (g.winnerId === this.myId()) {
-            this.notify.success(`🏆 ¡Has atrapado al dinosaurio en ${time}!`);
-          } else if (g.winnerName) {
-            this.notify.info(`🦕 ${g.winnerName} atrapó al dinosaurio (${time}).`);
+          const time = g.lastRoundTimeMs ? `${((g.lastRoundTimeMs || 0) / 1000).toFixed(2)}s` : '';
+          if (g.phase === 'done') {
+            const overall = g.overallWinnerName || '—';
+            if (g.overallWinnerId === this.myId()) {
+              this.notify.success(`🏆 ¡Has ganado la partida! (${overall})`);
+            } else {
+              this.notify.info(`🏆 Fin de la partida. Ganador global: ${overall}.`);
+            }
+          } else {
+            // inter-round: se muestra ganador de la ronda actual
+            const label = `Ronda ${g.currentRound}/${g.totalRounds}`;
+            if (g.lastRoundWinnerId === this.myId()) {
+              this.notify.success(`✅ Ganaste la ${label} en ${time}.`);
+            } else if (g.lastRoundWinnerName) {
+              this.notify.info(`🎯 ${label}: ${g.lastRoundWinnerName} atrapó al dino (${time}).`);
+            }
           }
           break;
         }
@@ -718,7 +742,7 @@ export class VirtualOfficePopupComponent implements OnInit, OnDestroy {
   private applyDinoGame(game: DinoGameState | null): void {
     this.dinoGame.set(game);
     this.refreshDinoCountdown();
-    if (game && game.phase === 'lobby') {
+    if (game && (game.phase === 'lobby' || game.phase === 'inter-round')) {
       this.startDinoTick();
     } else {
       this.stopDinoTick();
@@ -727,12 +751,23 @@ export class VirtualOfficePopupComponent implements OnInit, OnDestroy {
 
   private refreshDinoCountdown(): void {
     const g = this.dinoGame();
-    if (!g || g.phase !== 'lobby' || !g.endsAt) {
+    if (!g) {
       this.dinoLobbySeconds.set(0);
+      this.dinoInterRoundSeconds.set(0);
       return;
     }
-    const remainingMs = Math.max(0, g.endsAt - Date.now());
-    this.dinoLobbySeconds.set(Math.ceil(remainingMs / 1000));
+    if (g.phase === 'lobby' && g.endsAt) {
+      const remainingMs = Math.max(0, g.endsAt - Date.now());
+      this.dinoLobbySeconds.set(Math.ceil(remainingMs / 1000));
+      this.dinoInterRoundSeconds.set(0);
+    } else if (g.phase === 'inter-round' && g.nextRoundStartsAt) {
+      const remainingMs = Math.max(0, g.nextRoundStartsAt - Date.now());
+      this.dinoInterRoundSeconds.set(Math.ceil(remainingMs / 1000));
+      this.dinoLobbySeconds.set(0);
+    } else {
+      this.dinoLobbySeconds.set(0);
+      this.dinoInterRoundSeconds.set(0);
+    }
   }
 
   private startDinoTick(): void {
@@ -747,6 +782,13 @@ export class VirtualOfficePopupComponent implements OnInit, OnDestroy {
     }
   }
 
+  /** Establece el número de rondas para la próxima partida a crear. */
+  setDinoRoundsChoice(value: number): void {
+    const n = Math.max(1, Math.min(9, Math.round(value)));
+    // Preferimos rondas impares para evitar empates en best-of.
+    this.dinoRoundsChoice.set(n % 2 === 0 ? Math.min(9, n + 1) : n);
+  }
+
   createDinoGame(): void {
     if (this.connectionState() !== 'connected') {
       this.notify.warning('Necesitas estar conectado para crear una partida.');
@@ -756,7 +798,7 @@ export class VirtualOfficePopupComponent implements OnInit, OnDestroy {
       this.notify.info('Ya hay una partida activa.');
       return;
     }
-    this.office.sendDinoCreate();
+    this.office.sendDinoCreate(this.dinoRoundsChoice());
   }
 
   joinDinoGame(): void {
@@ -794,6 +836,14 @@ export class VirtualOfficePopupComponent implements OnInit, OnDestroy {
     const s = this.dinoLobbySeconds();
     return s > 0 ? `${s}s` : '¡ya!';
   }
+
+  formatDinoInterRoundLabel(): string {
+    const s = this.dinoInterRoundSeconds();
+    return s > 0 ? `${s}s` : '¡ya!';
+  }
+
+  /** Track function para el marcador. */
+  trackDinoScore = (_: number, item: { id: string }) => item.id;
 
   // ============================================================
   // Bug Hunt

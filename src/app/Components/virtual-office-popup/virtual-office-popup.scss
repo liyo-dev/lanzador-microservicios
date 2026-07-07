@@ -769,6 +769,10 @@ $pot-color-dark: #9a3412;
     display: flex; flex-direction: column; align-items: center; gap: 0.15rem;
     pointer-events: none;
     transition: left 0.18s ease, top 0.18s ease;
+    // Los avatares deben pintarse por encima del mobiliario de pared
+    // (ventana, reloj, pizarra colaborativa con z-index: 2), pero por
+    // debajo del sprite del dino (z-index: 6) y del bug (z-index: 5).
+    z-index: 4;
 
     .sa-shadow {
       position: absolute; bottom: 4px; left: 50%;
@@ -1180,6 +1184,29 @@ $pot-color-dark: #9a3412;
 // Mini-juego "Caza al Dinosaurio"
 // ============================================================
 
+// Grupo "crear partida" (selector de rondas + botón crear)
+.dino-create-group {
+  display: inline-flex; align-items: center; gap: 0.35rem;
+}
+
+.dino-rounds-picker {
+  display: inline-flex; align-items: center; gap: 0.3rem;
+  padding: 0.15rem 0.45rem;
+  background: rgba(148, 163, 184, 0.14);
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-size: 0.78rem; color: var(--color-muted); font-weight: 600;
+
+  select {
+    all: unset;
+    cursor: pointer;
+    padding: 0.15rem 0.3rem;
+    color: var(--color-text);
+    font: inherit;
+  }
+  &:hover { background: rgba(99, 102, 241, 0.12); border-color: rgba(99, 102, 241, 0.3); }
+}
+
 // Badges informativos en la toolbar
 .dino-badge {
   display: inline-flex; align-items: center; gap: 0.35rem;
@@ -1194,6 +1221,7 @@ $pot-color-dark: #9a3412;
   &.round     { background: rgba(239, 68, 68, 0.16);  color: #b91c1c;
                 animation: dino-round-pulse 1s ease-in-out infinite; }
   &.spectator { background: rgba(100, 116, 139, 0.16); color: #475569; }
+  &.inter     { background: rgba(168, 85, 247, 0.16); color: #6b21a8; }
   &.done      { background: rgba(250, 204, 21, 0.22); color: #92400e; }
 }
 
@@ -1322,6 +1350,98 @@ $pot-color-dark: #9a3412;
 @keyframes dino-bob {
   0%, 100% { transform: translate(-50%, -50%) translateY(0)    rotate(-2deg); }
   50%      { transform: translate(-50%, -50%) translateY(-4px) rotate(2deg);  }
+}
+
+// ============================================================
+// Marcador de la partida (esquina inferior-derecha de la escena).
+// Visible desde que arranca la primera ronda hasta que termina la serie.
+// ============================================================
+.dino-scoreboard {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  z-index: 7;
+  min-width: 180px;
+  max-width: 240px;
+  padding: 8px 10px 6px;
+  background: rgba(15, 23, 42, 0.85);
+  color: #f8fafc;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 10px;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.35);
+  backdrop-filter: blur(4px);
+  font-size: 0.78rem;
+  animation: dino-tooltip-in 0.25s ease-out;
+  pointer-events: none; // sólo informativo
+
+  .ds-header {
+    display: flex; align-items: center; gap: 0.4rem;
+    padding-bottom: 4px;
+    margin-bottom: 4px;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.25);
+    font-weight: 700;
+    .ds-icon  { font-size: 0.95rem; }
+    .ds-title { font-size: 0.8rem; letter-spacing: 0.02em; }
+  }
+
+  .ds-list {
+    list-style: none; margin: 0; padding: 0;
+    display: flex; flex-direction: column; gap: 2px;
+    max-height: 140px; overflow: auto;
+  }
+
+  .ds-row {
+    display: grid;
+    grid-template-columns: 18px 22px 1fr auto;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 3px 4px;
+    border-radius: 6px;
+    transition: background 0.15s ease;
+
+    .ds-pos {
+      text-align: center;
+      font-weight: 700;
+      color: rgba(226, 232, 240, 0.7);
+      font-size: 0.72rem;
+    }
+    .ds-avatar {
+      width: 20px; height: 20px; border-radius: 50%;
+      display: inline-grid; place-items: center;
+      color: #fff; font-size: 0.85rem;
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.15);
+      @each $name, $pair in $tones {
+        &[data-tone='#{$name}'] { @include tone($name); }
+      }
+    }
+    .ds-name {
+      font-weight: 600; color: #e2e8f0;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      em { font-style: normal; color: #a5b4fc; font-weight: 500; }
+    }
+    .ds-wins {
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      color: #fde68a;
+      min-width: 18px; text-align: right;
+    }
+
+    &.leader {
+      background: linear-gradient(135deg, rgba(250, 204, 21, 0.22), rgba(250, 204, 21, 0.05));
+      .ds-pos::before { content: '🥇 '; }
+      .ds-pos { color: #fde68a; }
+    }
+    &.self:not(.leader) { background: rgba(99, 102, 241, 0.15); }
+  }
+
+  .ds-footer {
+    margin-top: 5px; padding-top: 4px;
+    border-top: 1px solid rgba(148, 163, 184, 0.25);
+    font-size: 0.72rem; color: rgba(226, 232, 240, 0.8);
+    text-align: center;
+    strong { color: #a5b4fc; }
+    &.winner { color: #fde68a; strong { color: #fef08a; } }
+  }
 }
 
 // ============================================================
