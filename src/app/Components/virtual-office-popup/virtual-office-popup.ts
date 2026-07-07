@@ -520,12 +520,12 @@ export class VirtualOfficePopupComponent implements OnInit, OnDestroy {
     const url = getVirtualOfficeUrl();
     this.office
       .connect(url)
-      .then(() => {
-        this.sendHelloIfConnected();
-      })
       .catch(() => {
         this.notify.warning('No se pudo conectar con la oficina virtual. Modo local activo.');
       });
+    // El hello se envía al recibir el evento `welcome` del servidor.
+    // Si lo enviamos también aquí generamos un doble join que dispara la
+    // notificación "X se ha unido a la oficina" dos veces en el resto de clientes.
   }
 
   private sendHelloIfConnected(): void {
