@@ -93,6 +93,8 @@ export interface SpaceDescriptor {
 export interface BugHuntRankingEntry {
   id: string;
   playerId: string;
+  /** Identificador estable del jugador (persistido en el cliente). */
+  stableId?: string;
   name: string;
   avatarId: string;
   avatarEmoji: string;
@@ -121,6 +123,8 @@ export type ServerEvent =
   | { type: 'disconnected' };
 
 export interface HelloPayload {
+  /** Id estable del jugador (persistido en el cliente). Sirve para deduplicar el ranking. */
+  playerId?: string;
   name: string;
   avatar: AvatarDescriptor;
   position: { x: number; y: number; direction: PlayerDirection };

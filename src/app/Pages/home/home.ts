@@ -2,6 +2,7 @@ import { Component, AfterViewInit, OnDestroy, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { gsap } from 'gsap';
 import packageJson from '../../../../package.json';
+import { OfficeWindowService } from '../../services/office-window.service';
 
 @Component({
   selector: 'app-home',
@@ -11,6 +12,7 @@ import packageJson from '../../../../package.json';
 })
 export class Home implements AfterViewInit, OnDestroy {
   private router = inject(Router);
+  private officeWindow = inject(OfficeWindowService);
   version = packageJson.version;
 
   // Estadísticas en vivo
@@ -122,5 +124,10 @@ export class Home implements AfterViewInit, OnDestroy {
 
   goToTodos() {
     this.router.navigate(['/todos']);
+  }
+
+  /** Abre (o restaura) la ventana flotante de la oficina virtual. */
+  openVirtualOffice() {
+    this.officeWindow.requestOpen();
   }
 }

@@ -85,6 +85,7 @@
             <button
               type="button"
               class="ow-btn"
+              (pointerdown)="$event.stopPropagation()"
               (click)="toggleMinimize()"
               title="Minimizar"
               aria-label="Minimizar"
@@ -96,6 +97,7 @@
             <button
               type="button"
               class="ow-btn"
+              (pointerdown)="$event.stopPropagation()"
               (click)="toggleMaximize()"
               [title]="window().maximized ? 'Restaurar' : 'Maximizar'"
               [attr.aria-label]="window().maximized ? 'Restaurar' : 'Maximizar'"
@@ -114,6 +116,7 @@
             <button
               type="button"
               class="ow-btn ow-btn-close"
+              (pointerdown)="$event.stopPropagation()"
               (click)="closeWindow()"
               title="Cerrar"
               aria-label="Cerrar"
@@ -154,23 +157,50 @@
                     @for (a of avatars; track trackAvatar($index, a)) {
                       <button
                         type="button"
-                        class="avatar-option"
-                        [class.selected]="formAvatarId === a.id"
+                        class="avatar-option npc-host"
+                        [class.selected]="formAvatarId() === a.id"
                         [attr.data-tone]="a.tone"
+                        [attr.data-avatar]="a.id"
                         (click)="selectFormAvatar(a.id)"
                         [title]="a.label"
                         [attr.aria-label]="a.label"
-                        [attr.aria-pressed]="formAvatarId === a.id"
+                        [attr.aria-pressed]="formAvatarId() === a.id"
                       >
-                        <span class="avatar-emoji">{{ a.emoji }}</span>
+                        <div class="npc">
+                          <div class="npc-hair"></div>
+                          <div class="npc-head">
+                            <span class="npc-eye left"></span>
+                            <span class="npc-eye right"></span>
+                            <span class="npc-mouth"></span>
+                          </div>
+                          <div class="npc-body">
+                            <span class="npc-arm left"></span>
+                            <span class="npc-arm right"></span>
+                          </div>
+                        </div>
                       </button>
                     }
                   </div>
                 </div>
 
                 <div class="ob-preview">
-                  <span class="ob-preview-avatar" [attr.data-tone]="previewAvatar().tone">
-                    {{ previewAvatar().emoji }}
+                  <span
+                    class="ob-preview-avatar npc-host"
+                    [attr.data-tone]="previewAvatar().tone"
+                    [attr.data-avatar]="previewAvatar().id"
+                  >
+                    <span class="npc">
+                      <span class="npc-hair"></span>
+                      <span class="npc-head">
+                        <span class="npc-eye left"></span>
+                        <span class="npc-eye right"></span>
+                        <span class="npc-mouth"></span>
+                      </span>
+                      <span class="npc-body">
+                        <span class="npc-arm left"></span>
+                        <span class="npc-arm right"></span>
+                      </span>
+                    </span>
                   </span>
                   <div class="ob-preview-text">
                     <strong>{{ formName || 'Tu nombre' }}</strong>
@@ -211,15 +241,27 @@
                     @for (a of avatars; track trackAvatar($index, a)) {
                       <button
                         type="button"
-                        class="avatar-option"
-                        [class.selected]="formAvatarId === a.id"
+                        class="avatar-option npc-host"
+                        [class.selected]="formAvatarId() === a.id"
                         [attr.data-tone]="a.tone"
+                        [attr.data-avatar]="a.id"
                         (click)="selectFormAvatar(a.id)"
                         [title]="a.label"
                         [attr.aria-label]="a.label"
-                        [attr.aria-pressed]="formAvatarId === a.id"
+                        [attr.aria-pressed]="formAvatarId() === a.id"
                       >
-                        <span class="avatar-emoji">{{ a.emoji }}</span>
+                        <div class="npc">
+                          <div class="npc-hair"></div>
+                          <div class="npc-head">
+                            <span class="npc-eye left"></span>
+                            <span class="npc-eye right"></span>
+                            <span class="npc-mouth"></span>
+                          </div>
+                          <div class="npc-body">
+                            <span class="npc-arm left"></span>
+                            <span class="npc-arm right"></span>
+                          </div>
+                        </div>
                       </button>
                     }
                   </div>
@@ -258,6 +300,9 @@
                   </small>
                 </div>
                 <div class="ot-actions">
+                  <button type="button" class="btn-ghost small" (click)="openProfileEditor()">
+                    👤 Perfil
+                  </button>
                   <button type="button" class="btn-ghost small" (click)="openRanking()">
                     🏆 Ranking
                   </button>
@@ -266,10 +311,9 @@
                       type="button"
                       class="btn-primary small"
                       (click)="startBugHunt()"
-                      [disabled]="hasPlayedToday()"
-                      [title]="hasPlayedToday() ? 'Sólo un intento por día' : 'Buscar el bug oculto'"
+                      [title]="hasPlayedToday() ? 'Vuelve a intentarlo para mejorar tu marca' : 'Buscar el bug oculto'"
                     >
-                      🐞 {{ hasPlayedToday() ? 'Ya jugaste hoy' : 'Cazar el bug' }}
+                      🐞 {{ hasPlayedToday() ? 'Mejora tu marca' : 'Cazar el bug' }}
                     </button>
                   } @else if (bugHuntStatus() === 'running') {
                     <span class="bug-timer" aria-live="polite">
@@ -313,12 +357,19 @@
                     <span class="wb-line l3"></span>
                     <span class="wb-emoji">📊</span>
                   </div>
+                  <div class="wall-poster p-a">
+                    <span class="wp-line"></span>
+                    <span class="wp-emoji">🚀</span>
+                  </div>
+                  <div class="wall-poster p-b">
+                    <span class="wp-emoji">🎯</span>
+                  </div>
                 </div>
 
                 <!-- Alfombra central -->
                 <div class="furniture rug" aria-hidden="true"></div>
 
-                <!-- Escritorios -->
+                <!-- Fila de escritorios pegados a la pared -->
                 <div class="furniture desk desk-a" aria-hidden="true">
                   <div class="d-shadow"></div>
                   <div class="d-top"></div>
@@ -330,63 +381,163 @@
                   <div class="d-monitor">🖥️</div>
                   <div class="d-mug">☕</div>
                 </div>
+                <div class="furniture desk desk-c" aria-hidden="true">
+                  <div class="d-shadow"></div>
+                  <div class="d-top"></div>
+                  <div class="d-monitor">⌨️</div>
+                </div>
+                <div class="furniture desk desk-d" aria-hidden="true">
+                  <div class="d-shadow"></div>
+                  <div class="d-top"></div>
+                  <div class="d-monitor">🖥️</div>
+                  <div class="d-mug">🥤</div>
+                </div>
+
+                <!-- Escritorios laterales -->
+                <div class="furniture desk desk-e" aria-hidden="true">
+                  <div class="d-shadow"></div>
+                  <div class="d-top"></div>
+                  <div class="d-monitor">💻</div>
+                  <div class="d-mug">📱</div>
+                </div>
+                <div class="furniture desk desk-f" aria-hidden="true">
+                  <div class="d-shadow"></div>
+                  <div class="d-top"></div>
+                  <div class="d-monitor">🖥️</div>
+                </div>
 
                 <!-- Mesa de reuniones -->
                 <div class="furniture meeting" aria-hidden="true">
                   <div class="m-shadow"></div>
                   <div class="m-top"></div>
-                  <div class="m-items"><span>📓</span><span>✏️</span><span>💡</span></div>
+                  <div class="m-items"><span>📓</span><span>✏️</span><span>💡</span><span>📎</span></div>
                 </div>
 
-                <!-- Plantas -->
+                <!-- Plantas en maceta (CSS puro) -->
                 <div class="furniture plant p1" aria-hidden="true">
-                  <span class="p-emoji">🪴</span>
+                  <div class="p-leaves leaves-bush">
+                    <span class="leaf lf1"></span>
+                    <span class="leaf lf2"></span>
+                    <span class="leaf lf3"></span>
+                    <span class="leaf lf4"></span>
+                    <span class="leaf lf5"></span>
+                  </div>
+                  <div class="p-pot">
+                    <div class="p-pot-rim"></div>
+                    <div class="p-pot-body"></div>
+                  </div>
                   <div class="p-shadow"></div>
                 </div>
+
                 <div class="furniture plant p2" aria-hidden="true">
-                  <span class="p-emoji">🌿</span>
+                  <div class="p-leaves leaves-tall">
+                    <span class="leaf tl1"></span>
+                    <span class="leaf tl2"></span>
+                    <span class="leaf tl3"></span>
+                  </div>
+                  <div class="p-pot">
+                    <div class="p-pot-rim"></div>
+                    <div class="p-pot-body"></div>
+                  </div>
+                  <div class="p-shadow"></div>
+                </div>
+
+                <div class="furniture plant p3" aria-hidden="true">
+                  <div class="p-leaves leaves-cactus">
+                    <span class="leaf cx1"></span>
+                    <span class="leaf cx2"></span>
+                    <span class="leaf cx3"></span>
+                  </div>
+                  <div class="p-pot small">
+                    <div class="p-pot-rim"></div>
+                    <div class="p-pot-body"></div>
+                  </div>
                   <div class="p-shadow"></div>
                 </div>
 
                 <!-- Cafetera -->
                 <div class="furniture coffee-machine" aria-hidden="true">
-                  <span class="cm-icon">☕</span>
+                  <div class="cm-body">
+                    <span class="cm-btn"></span>
+                    <span class="cm-cup"></span>
+                  </div>
                   <div class="cm-shadow"></div>
                 </div>
 
-                <!-- Libros -->
-                <div class="furniture books" aria-hidden="true">
-                  <span class="b-emoji">📚</span>
+                <!-- Estantería con libros -->
+                <div class="furniture bookshelf" aria-hidden="true">
+                  <div class="bs-shelf">
+                    <span class="bs-book b1"></span>
+                    <span class="bs-book b2"></span>
+                    <span class="bs-book b3"></span>
+                    <span class="bs-book b4"></span>
+                  </div>
+                  <div class="bs-shelf">
+                    <span class="bs-book b5"></span>
+                    <span class="bs-book b6"></span>
+                    <span class="bs-book b7"></span>
+                  </div>
                   <div class="p-shadow"></div>
                 </div>
 
-                <!-- Otros jugadores -->
+                <!-- Impresora -->
+                <div class="furniture printer" aria-hidden="true">
+                  <div class="pr-body"></div>
+                  <div class="pr-paper"></div>
+                  <div class="p-shadow"></div>
+                </div>
+
+                <!-- Otros jugadores (NPCs CSS) -->
                 @for (p of otherPlayers(); track trackPlayer($index, p)) {
                   <div
-                    class="scene-avatar remote"
+                    class="scene-avatar remote npc-host"
                     [attr.data-tone]="p.avatar.tone || 'sky'"
+                    [attr.data-avatar]="p.avatar.id || 'pilot'"
                     [style.left.%]="worldToPctX(p.x)"
                     [style.top.%]="worldToPctY(p.y)"
                     [title]="p.name"
                   >
                     <span class="sa-shadow"></span>
-                    <span class="sa-emoji">{{ p.avatar.emoji || '🙂' }}</span>
+                    <div class="npc">
+                      <div class="npc-hair"></div>
+                      <div class="npc-head">
+                        <span class="npc-eye left"></span>
+                        <span class="npc-eye right"></span>
+                        <span class="npc-mouth"></span>
+                      </div>
+                      <div class="npc-body">
+                        <span class="npc-arm left"></span>
+                        <span class="npc-arm right"></span>
+                      </div>
+                    </div>
                     <span class="sa-name">{{ p.name }}</span>
                   </div>
                 }
 
-                <!-- Mi avatar -->
+                <!-- Mi avatar (NPC CSS) -->
                 @if (profile()) {
                   <div
-                    class="scene-avatar self"
+                    class="scene-avatar self npc-host"
                     [attr.data-tone]="currentAvatar().tone"
+                    [attr.data-avatar]="currentAvatar().id"
                     [style.left.%]="worldToPctX(myPosition().x)"
                     [style.top.%]="worldToPctY(myPosition().y)"
                     [title]="profile()!.name + ' (tú)'"
                   >
                     <span class="sa-shadow"></span>
                     <span class="sa-ring"></span>
-                    <span class="sa-emoji">{{ currentAvatar().emoji }}</span>
+                    <div class="npc">
+                      <div class="npc-hair"></div>
+                      <div class="npc-head">
+                        <span class="npc-eye left"></span>
+                        <span class="npc-eye right"></span>
+                        <span class="npc-mouth"></span>
+                      </div>
+                      <div class="npc-body">
+                        <span class="npc-arm left"></span>
+                        <span class="npc-arm right"></span>
+                      </div>
+                    </div>
                     <span class="sa-name">{{ profile()!.name }} · tú</span>
                   </div>
                 }

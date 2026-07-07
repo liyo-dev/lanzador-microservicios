@@ -17,9 +17,7 @@ const BUG_HUNT_STORE = process.env.VIRTUAL_OFFICE_BUG_STORE ||
 const clients = new Map(); // id -> Client
 const players = new Map(); // id -> Player state
 const generalMessages = [];
-let bugHuntRanking = loadBugHuntRanking();
-// Set de "authorKey|date" para bloquear más de un intento por día por usuario.
-const dailyPlays = new Set(bugHuntRanking.map(e => `${bugHuntKey(e)}|${e.date}`));
+let bugHuntRanking = normalizeRanking(loadBugHuntRanking());
 
 const server = http.createServer((req, res) => {
   res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
@@ -169,9 +167,13 @@ function handleHello(client, data) {
   const name = sanitizeName(data.name);
   const avatar = sanitizeAvatar(data.avatar);
   const position = sanitizePosition(data.position);
+  const stableId = sanitizeStableId(data.playerId) || client.stableId || client.id;
+
+  client.stableId = stableId;
 
   const player = {
     id: client.id,
+    stableId,
     name,
     avatar,
     x: position.x,
@@ -392,33 +394,97 @@ function handleBugHuntResult(client, data) {
     return;
   }
 
-  const date = todayIsoDate();
-  const key = `${bugHuntKey({ name: client.player.name, avatarId: client.player.avatar?.id })}|${date}`;
-  if (dailyPlays.has(key)) {
-    send(client, { type: 'error', message: 'Ya has registrado tu marca de hoy.' });
+  const stableId = client.stableId || client.id;
+  const legacyKey = bugHuntKey({ name: client.player.name, avatarId: client.player.avatar?.id });
+  const roundedTime = Math.round(timeMs);
+
+  // Busca una entrada existente para este jugador: primero por stableId,
+  // y como fallback por la combinación nombre+avatar (entradas antiguas).
+  const existing = bugHuntRanking.find(e => entryStableId(e) === stableId)
+    || bugHuntRanking.find(e => entryStableId(e) === legacyKey);
+
+  if (existing) {
+    if (roundedTime >= existing.timeMs) {
+      send(client, {
+        type: 'error',
+        message: `No has mejorado tu marca (mejor: ${(existing.timeMs / 1000).toFixed(2)} s).`,
+      });
+      return;
+    }
+
+    existing.stableId = stableId;
+    existing.playerId = client.id;
+    existing.name = client.player.name;
+    existing.avatarId = client.player.avatar?.id || 'pilot';
+    existing.avatarEmoji = client.player.avatar?.emoji || '🐞';
+    existing.avatarTone = client.player.avatar?.tone || 'sky';
+    existing.timeMs = roundedTime;
+    existing.date = todayIsoDate();
+    existing.playedAt = new Date().toISOString();
+
+    bugHuntRanking = [...bugHuntRanking]
+      .sort((a, b) => a.timeMs - b.timeMs)
+      .slice(0, BUG_HUNT_RANKING_LIMIT);
+    saveBugHuntRanking();
+
+    broadcast({ type: 'bug-hunt-ranking', entries: bugHuntRanking });
+    pushSystemMessage(`🐞 ${client.player.name} ha mejorado su marca a ${(roundedTime / 1000).toFixed(2)} s.`);
     return;
   }
 
   const entry = {
     id: crypto.randomUUID(),
+    stableId,
     playerId: client.id,
     name: client.player.name,
     avatarId: client.player.avatar?.id || 'pilot',
     avatarEmoji: client.player.avatar?.emoji || '🐞',
     avatarTone: client.player.avatar?.tone || 'sky',
-    timeMs: Math.round(timeMs),
-    date,
+    timeMs: roundedTime,
+    date: todayIsoDate(),
     playedAt: new Date().toISOString(),
   };
 
   bugHuntRanking = [...bugHuntRanking, entry]
     .sort((a, b) => a.timeMs - b.timeMs)
     .slice(0, BUG_HUNT_RANKING_LIMIT);
-  dailyPlays.add(key);
   saveBugHuntRanking();
 
   broadcast({ type: 'bug-hunt-ranking', entries: bugHuntRanking });
   pushSystemMessage(`🐞 ${client.player.name} ha cazado el bug en ${(entry.timeMs / 1000).toFixed(2)} s.`);
+}
+
+/** Identidad estable de una entrada del ranking (con fallback para entradas antiguas). */
+function entryStableId(entry) {
+  if (entry?.stableId) return entry.stableId;
+  return bugHuntKey({ name: entry?.name, avatarId: entry?.avatarId });
+}
+
+/** Normaliza el ranking al cargar: dedupe por identidad estable dejando el mejor tiempo. */
+function normalizeRanking(list) {
+  if (!Array.isArray(list)) return [];
+  const bestByKey = new Map();
+  for (const entry of list) {
+    if (!entry || !Number.isFinite(entry.timeMs)) continue;
+    const key = entryStableId(entry);
+    const prev = bestByKey.get(key);
+    if (!prev || entry.timeMs < prev.timeMs) {
+      bestByKey.set(key, { ...entry, stableId: key });
+    }
+  }
+  return Array.from(bestByKey.values())
+    .sort((a, b) => a.timeMs - b.timeMs)
+    .slice(0, BUG_HUNT_RANKING_LIMIT);
+}
+
+/** Sanea un id estable (uuid, hex, alfanumérico razonable) enviado por el cliente. */
+function sanitizeStableId(value) {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  // Acepta uuid, hex o alfanumérico + guiones, máx 64 chars.
+  if (!/^[A-Za-z0-9_\-:.]{1,64}$/.test(trimmed)) return null;
+  return trimmed;
 }
 
 function bugHuntKey(entry) {

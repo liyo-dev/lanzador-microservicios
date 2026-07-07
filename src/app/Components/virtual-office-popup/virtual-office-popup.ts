@@ -7,6 +7,7 @@ import {
   OnInit,
   ViewChild,
   computed,
+  effect,
   inject,
   signal,
 } from '@angular/core';
@@ -14,6 +15,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
 import { NotificationService } from '../../services/notification.service';
+import { OfficeWindowService } from '../../services/office-window.service';
 import {
   BugHuntRankingEntry,
   ConnectionState,
@@ -30,6 +32,8 @@ export interface OfficeAvatar {
 }
 
 export interface OfficeProfile {
+  /** Identificador estable del jugador (uuid persistido en localStorage). */
+  id: string;
   name: string;
   avatarId: string;
 }
@@ -110,6 +114,7 @@ interface RankingRow {
 export class VirtualOfficePopupComponent implements OnInit, OnDestroy {
   private readonly notify = inject(NotificationService);
   private readonly office = inject(VirtualOfficeService);
+  private readonly windowBus = inject(OfficeWindowService);
 
   readonly avatars = AVATARS;
 
@@ -130,7 +135,7 @@ export class VirtualOfficePopupComponent implements OnInit, OnDestroy {
 
   // -------- Onboarding / edición de perfil --------
   formName = '';
-  formAvatarId = AVATARS[0].id;
+  readonly formAvatarId = signal(AVATARS[0].id);
 
   // -------- Multijugador --------
   readonly connectionState = signal<ConnectionState>('disconnected');
@@ -171,6 +176,14 @@ export class VirtualOfficePopupComponent implements OnInit, OnDestroy {
   private lastSentX = -1;
   private lastSentY = -1;
 
+  /** Escucha peticiones externas para reabrir la oficina (p. ej. desde la Home). */
+  private readonly openRequestEffect = effect(() => {
+    const count = this.windowBus.openRequests();
+    if (count > 0) {
+      this.openWindow();
+    }
+  });
+
   // -------- Drag --------
   private dragState: {
     active: boolean;
@@ -186,7 +199,7 @@ export class VirtualOfficePopupComponent implements OnInit, OnDestroy {
   });
 
   readonly previewAvatar = computed<OfficeAvatar>(
-    () => this.getAvatar(this.formAvatarId) ?? AVATARS[0],
+    () => this.getAvatar(this.formAvatarId()) ?? AVATARS[0],
   );
 
   ngOnInit(): void {
@@ -313,7 +326,7 @@ export class VirtualOfficePopupComponent implements OnInit, OnDestroy {
   openProfileEditor(): void {
     const p = this.profile();
     this.formName = p?.name ?? '';
-    this.formAvatarId = p?.avatarId ?? AVATARS[0].id;
+    this.formAvatarId.set(p?.avatarId ?? AVATARS[0].id);
     this.view.set('profile');
     this.userMenuOpen.set(false);
   }
@@ -334,11 +347,11 @@ export class VirtualOfficePopupComponent implements OnInit, OnDestroy {
   // ============================================================
 
   selectFormAvatar(id: string): void {
-    this.formAvatarId = id;
+    this.formAvatarId.set(id);
   }
 
   canSaveProfile(): boolean {
-    return this.formName.trim().length >= 2 && !!this.getAvatar(this.formAvatarId);
+    return this.formName.trim().length >= 2 && !!this.getAvatar(this.formAvatarId());
   }
 
   saveProfile(): void {
@@ -348,7 +361,12 @@ export class VirtualOfficePopupComponent implements OnInit, OnDestroy {
       return;
     }
     const wasFirstTime = !this.profile();
-    const profile: OfficeProfile = { name, avatarId: this.formAvatarId };
+    const previousId = this.profile()?.id;
+    const profile: OfficeProfile = {
+      id: previousId || this.generateStableId(),
+      name,
+      avatarId: this.formAvatarId(),
+    };
     this.profile.set(profile);
     this.persistProfile();
     this.view.set('office');
@@ -375,18 +393,37 @@ export class VirtualOfficePopupComponent implements OnInit, OnDestroy {
         this.view.set('onboarding');
         return;
       }
-      const parsed = JSON.parse(raw) as OfficeProfile;
-      if (!parsed?.name || !this.getAvatar(parsed.avatarId)) {
+      const parsed = JSON.parse(raw) as Partial<OfficeProfile>;
+      if (!parsed?.name || !parsed.avatarId || !this.getAvatar(parsed.avatarId)) {
         this.view.set('onboarding');
         return;
       }
-      this.profile.set(parsed);
-      this.formName = parsed.name;
-      this.formAvatarId = parsed.avatarId;
+      // Migración: si el perfil guardado no tiene id, generáselo y persiste.
+      const profile: OfficeProfile = {
+        id: parsed.id || this.generateStableId(),
+        name: parsed.name,
+        avatarId: parsed.avatarId,
+      };
+      this.profile.set(profile);
+      if (!parsed.id) {
+        this.persistProfile();
+      }
+      this.formName = profile.name;
+      this.formAvatarId.set(profile.avatarId);
       this.view.set('office');
     } catch {
       this.view.set('onboarding');
     }
+  }
+
+  private generateStableId(): string {
+    try {
+      if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+        return crypto.randomUUID();
+      }
+    } catch { /* ignore */ }
+    // Fallback: timestamp + random hex.
+    return `pid-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
   }
 
   private persistProfile(): void {
@@ -466,6 +503,7 @@ export class VirtualOfficePopupComponent implements OnInit, OnDestroy {
     const avatar = this.currentAvatar();
     const pos = this.myPosition();
     this.office.sendHello({
+      playerId: profile.id,
       name: profile.name,
       avatar: {
         id: avatar.id,
@@ -558,10 +596,7 @@ export class VirtualOfficePopupComponent implements OnInit, OnDestroy {
   // ============================================================
 
   startBugHunt(): void {
-    if (this.hasPlayedToday()) {
-      this.notify.info('Ya has jugado hoy. Vuelve mañana para intentar batir tu marca.');
-      return;
-    }
+    // Ya no hay límite "una vez por día": puedes intentar mejorar tu marca.
     const rect = this.officeScene?.nativeElement.getBoundingClientRect();
     const w = rect?.width ?? 520;
     const h = rect?.height ?? 300;
@@ -603,13 +638,13 @@ export class VirtualOfficePopupComponent implements OnInit, OnDestroy {
     if (!profile) return;
     const today = this.todayIso();
 
-    // 1) Marca "jugué hoy" localmente para bloquear reintentos.
+    // Marca informativa "jugué hoy" (útil para UI pero ya no bloquea).
     try {
       localStorage.setItem(STORAGE_LAST_PLAYED, today);
     } catch { /* ignore */ }
     this.hasPlayedToday.set(true);
 
-    // 2) Ranking local fallback.
+    // Ranking local fallback — también dedupe por id + nos quedamos con el mejor.
     const localEntry: BugHuntEntry = {
       name: profile.name,
       avatarId: profile.avatarId,
@@ -619,7 +654,7 @@ export class VirtualOfficePopupComponent implements OnInit, OnDestroy {
     };
     this.appendLocalRanking(localEntry);
 
-    // 3) Envía al servidor si conectado; si no, queda solo en local.
+    // Envía al servidor si conectado; si no, queda solo en local.
     if (this.connectionState() === 'connected') {
       this.office.sendBugHuntResult(timeMs);
       this.notify.success(`¡Bug cazado en ${this.formatTime(timeMs)}! Enviado al ranking global.`);
@@ -668,7 +703,19 @@ export class VirtualOfficePopupComponent implements OnInit, OnDestroy {
     try {
       const raw = localStorage.getItem(STORAGE_RANKING);
       const list: BugHuntEntry[] = raw ? JSON.parse(raw) : [];
-      const next = [...list, entry].sort((a, b) => a.timeMs - b.timeMs).slice(0, 50);
+      // Dedupe por (name+avatarId) quedándonos con el mejor tiempo.
+      const key = (e: BugHuntEntry) => `${(e.name || '').toLowerCase()}::${e.avatarId || ''}`;
+      const bestByKey = new Map<string, BugHuntEntry>();
+      for (const e of [...list, entry]) {
+        const k = key(e);
+        const prev = bestByKey.get(k);
+        if (!prev || e.timeMs < prev.timeMs) {
+          bestByKey.set(k, e);
+        }
+      }
+      const next = Array.from(bestByKey.values())
+        .sort((a, b) => a.timeMs - b.timeMs)
+        .slice(0, 50);
       localStorage.setItem(STORAGE_RANKING, JSON.stringify(next));
       // Si el ranking mostrado es local, refrescarlo.
       if (this.rankingSource() === 'local') {
