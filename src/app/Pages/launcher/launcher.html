@@ -302,7 +302,7 @@
   </section>
 
   @if (gitDialog?.open) {
-    <div class="git-dialog-backdrop">
+    <div class="git-dialog-backdrop git-dialog-over">
       <div class="git-dialog" 
            [class.danger]="gitDialog?.tone === 'danger'" 
            [class.success]="gitDialog?.tone === 'success'"

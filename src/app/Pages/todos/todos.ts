@@ -540,7 +540,9 @@ export class TodosComponent implements OnInit, OnDestroy {
           if (!ck) return false; // sin completedAt no la situamos en ayer
           return ck === yKey;
         }
-        // En curso: solo se arrastran a "Ayer" si ya existían antes del día seleccionado
+        // Solo tareas en curso (in-progress): se arrastran a "Ayer" si ya existían antes del día seleccionado
+        // Las tareas abiertas (pending) no deben aparecer en la columna de ayer
+        if (t.status !== 'in-progress') return false;
         const created = this.creationKey(t);
         return created < selected;
       });

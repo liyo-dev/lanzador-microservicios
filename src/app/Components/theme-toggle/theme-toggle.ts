@@ -62,12 +62,27 @@ interface ThemeOption {
     .theme-toggle-wrapper {
       position: fixed;
       bottom: 1.25rem;
-      right: 1.25rem;
-      z-index: 9999;
+      left: 1.25rem;
+      z-index: 9500;
       display: flex;
       flex-direction: column;
-      align-items: flex-end;
+      align-items: flex-start;
       gap: 0.5rem;
+    }
+
+    @media (max-width: 768px) {
+      .theme-toggle-wrapper {
+        left: 0.85rem;
+        bottom: 0.85rem;
+      }
+      .theme-toggle {
+        width: 44px;
+        height: 44px;
+        font-size: 1.2rem;
+      }
+      .theme-popover {
+        min-width: 200px;
+      }
     }
 
     .theme-toggle {

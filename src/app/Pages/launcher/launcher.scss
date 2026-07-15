@@ -1091,6 +1091,10 @@
   backdrop-filter: blur(2px);
 }
 
+.git-dialog-backdrop.git-dialog-over {
+  z-index: 20;
+}
+
 .git-dialog {
   background: var(--color-surface);
   border-radius: var(--radius-md);

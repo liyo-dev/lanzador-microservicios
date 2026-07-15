@@ -612,8 +612,21 @@ const getGitStatus = async (cwd) => {
   let upstreamName = null;
   if (upstream.success && upstream.stdout.trim()) {
     upstreamName = upstream.stdout.trim();
+  } else {
+    // Fallback: si no hay tracking configurado, intentar con origin/<rama-actual>
+    const currentBranch = branch.stdout.trim();
+    if (currentBranch) {
+      const fallbackRef = `origin/${currentBranch}`;
+      const checkFallback = await runGitCommand(`git rev-parse --verify ${fallbackRef}`, cwd);
+      if (checkFallback.success) {
+        upstreamName = fallbackRef;
+      }
+    }
+  }
+
+  if (upstreamName) {
     const counts = await runGitCommand(
-      "git rev-list --left-right --count HEAD...@{u}",
+      `git rev-list --left-right --count HEAD...${upstreamName}`,
       cwd
     );
     if (counts.success && counts.stdout) {

@@ -300,6 +300,17 @@
                   </small>
                 </div>
                 <div class="ot-actions">
+                  @if (connectionState() !== 'connected') {
+                    <button
+                      type="button"
+                      class="btn-primary small"
+                      (click)="retryConnection()"
+                      [disabled]="connectionState() === 'connecting'"
+                      [title]="connectionState() === 'connecting' ? 'Conectando con la oficina virtual' : 'Intentar conectar con el servidor'"
+                    >
+                      {{ connectionState() === 'connecting' ? 'Conectando…' : 'Conectar' }}
+                    </button>
+                  }
                   <button type="button" class="btn-ghost small" (click)="openRanking()">
                     🏆 Ranking
                   </button>

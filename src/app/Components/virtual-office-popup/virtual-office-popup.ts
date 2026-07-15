@@ -405,6 +405,20 @@ export class VirtualOfficePopupComponent implements OnInit, OnDestroy {
     this.userMenuOpen.set(false);
   }
 
+  retryConnection(): void {
+    if (this.connectionState() === 'connecting' || this.connectionState() === 'connected') {
+      return;
+    }
+
+    if (!this.profile()) {
+      this.view.set('onboarding');
+      this.notify.warning('Configura tu perfil antes de conectarte a la oficina virtual.');
+      return;
+    }
+
+    this.connectToServer();
+  }
+
   // ============================================================
   // Perfil
   // ============================================================
